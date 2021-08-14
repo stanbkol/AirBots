@@ -78,19 +78,21 @@ def createMeasurementsTable(conn):
 
 
 def insertMeasure(measure, conn):
+    # insert_sql = '''INSERT INTO dbo.Measurements (dateKey,
+    #                                                     sensorID,
+    #                                                     timestamp,
+    #                                                     pm1,
+    #                                                     pm25,
+    #                                                     pm10,
+    #                                                     temperature)
+    #                                                     VALUES(?,?,?,?,?,?,?)'''
+    # cursor.execute(insert_sql, dk, measure.SID, measure.date, measure.pm1, measure.pm25, measure.pm10, measure.temp)
     rawDate = datetime.strptime(measure.date, '%m/%d/%Y %H:%M')
     dk = int(rawDate.strftime('%Y%m%d%H'))
     with conn.cursor() as cursor:
-        insert_sql = '''INSERT INTO Measurements (dateKey, 
-                                                    sensorID, 
-                                                    timestamp, 
-                                                    pm1, 
-                                                    pm25, 
-                                                    pm10, 
-                                                    temperature) 
-                                                    VALUES(?,?,?,?,?,?,?)'''
-        cursor.execute(insert_sql, dk, measure.SID, measure.date, measure.pm1, measure.pm25, measure.pm10, measure.temp)
-        cursor.commit()
+        cursor.execute("INSERT INTO dbo.Measurements (dateKey, sensorID, date, pm1, pm25, pm10, temperature) "
+            "VALUES(%s, %s, %s, %s, %s, %s, %s)", (dk, measure.SID, measure.date, measure.pm1, measure.pm25, measure.pm10, measure.temp))
+        conn.commit()
 
 
 def insertSensor(conn, sensor):

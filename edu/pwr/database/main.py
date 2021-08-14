@@ -1,3 +1,4 @@
+import unicodedata
 from datetime import time
 
 import numpy as np
@@ -73,6 +74,9 @@ final_list = []
 #                 e_list.append(e)
 #         dict_list[s.SID] = e_list
 
+def strip_accents(text):
+    return ''.join(c for c in unicodedata.normalize('NFKD', text) if unicodedata.category(c) != 'Mn')
+
 
 def readSensors(filename, conn):
     print("here and now")
@@ -87,7 +91,7 @@ def readSensors(filename, conn):
             elev = temp[6].strip()
             if not elev.isdigit():
                 elev = -1
-            new_sensor = Sensor(temp[0], -1, temp[1], temp[2], temp[3], lat, long, elev)
+            new_sensor = Sensor(temp[0], -1, strip_accents(temp[1]), strip_accents(temp[2]), temp[3], lat, long, elev)
             sensor_list.append(new_sensor)
             # print(new_sensor.toString())
             insertSensor(conn, new_sensor)
@@ -143,13 +147,13 @@ def main():
     #createSchema("dbo", conn)
     print("sql statements")
     dropTables(conn)
-    print("tables dropped")
+    #print("tables dropped")
     createSensorsTable(conn)
     createMeasurementsTable(conn)
     #print("done")
 
     readSensors("C:\\Users\\User\\Desktop\\Multi-Agent\\Sensor_Updates.csv", conn)
-    #readData("C:\\Users\\User\\Desktop\\Multi-Agent\\Opole_Historical.csv", conn)
+    readData("C:\\Users\\User\\Desktop\\Multi-Agent\\Opole_Historical.csv", conn)
     conn.close()
 
     # popDictionary()
