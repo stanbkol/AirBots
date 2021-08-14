@@ -4,6 +4,7 @@ import numpy as np
 import csv
 import sqlite3
 
+import psycopg2
 import pyodbc
 from DataLoader import *
 
@@ -131,20 +132,35 @@ def main():
     global invalid_count
     print("connecting to server")
 
-    driver = 'SQL Server'
-    server = 'LAPTOP-ULK6PTSU\STANSQLSERVER'
-    db = 'AirBot'
-    conn = pyodbc.connect('driver={%s};server=%s;database=%s;Trusted_Connection=yes;' % (driver, server, db))
+    driver = 'Devart ODBC Driver for PostgreSQL'
+    server = 'pgsql13.asds.nazwa.pl'
+    db = 'asds_PWR'
+    conn_str = (
+        "DRIVER={ODBC Driver for PostgreSQL};"
+        "DATABASE=asds_PWR;"
+        "SERVER=pgsql13.asds.nazwa.pl;"
+        "PORT=5432;"
+    )
 
+    conn = psycopg2.connect(
+        host="pgsql13.asds.nazwa.pl",
+        database="asds_PWR",
+        user="asds_PWR",
+        password="W#4bvgBxDi$v6zB")
+
+    # conn = pyodbc.connect(conn_str)
+    # conn = pyodbc.connect('driver={%s};server=%s;database=%s;Trusted_Connection=yes;' % (driver, server, db))
+
+    #createSchema("dbo", conn)
     print("sql statements")
     dropTables(conn)
     print("tables dropped")
     createSensorsTable(conn)
     createMeasurementsTable(conn)
-    print("done")
+    #print("done")
 
-    readSensors("C:\\Users\\stanb\\Downloads\\Sensor_Updates.csv", conn)
-    readData("C:\\Users\\stanb\\Downloads\\Opole_Historical.csv", conn)
+    readSensors("C:\\Users\\User\\Desktop\\Multi-Agent\\Sensor_Updates.csv", conn)
+    #readData("C:\\Users\\User\\Desktop\\Multi-Agent\\Opole_Historical.csv", conn)
     conn.close()
 
     # popDictionary()
