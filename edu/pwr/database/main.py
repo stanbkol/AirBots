@@ -131,17 +131,6 @@ def readData(filename, conn):
 def main():
     global invalid_count
     print("connecting to server")
-
-    driver = 'Devart ODBC Driver for PostgreSQL'
-    server = 'pgsql13.asds.nazwa.pl'
-    db = 'asds_PWR'
-    conn_str = (
-        "DRIVER={ODBC Driver for PostgreSQL};"
-        "DATABASE=asds_PWR;"
-        "SERVER=pgsql13.asds.nazwa.pl;"
-        "PORT=5432;"
-    )
-
     conn = psycopg2.connect(
         host="pgsql13.asds.nazwa.pl",
         database="asds_PWR",
