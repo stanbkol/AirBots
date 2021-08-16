@@ -6,7 +6,6 @@ import csv
 import sqlite3
 
 import psycopg2
-import pyodbc
 from DataLoader import *
 
 from utils import *
@@ -164,9 +163,17 @@ def sensorSummary(sensor_id, conn):
         conn.commit()
 
 
+def getSensors(conn):
+    with conn.cursor() as cursor:
+        query1 = 'SELECT sensorID FROM dbo.Sensors;'
+        cursor.execute(query1)
+        return cursor.fetchall()
+
+
 def dataSummary(conn):
-    for sensor in sensor_list:
-        sensorSummary(sensor.SID, conn)
+    sList = getSensors(conn)
+    for sensor in sList:
+        sensorSummary(sensor[0], conn)
 
 
 def main():
@@ -189,10 +196,11 @@ def main():
     #createMeasurementsTable(conn)
     #print("done")
 
-    readSensors("C:\\Users\\User\\Desktop\\Multi-Agent\\Sensor_Updates.csv", conn)
+    # readSensors("C:\\Users\\User\\Desktop\\Multi-Agent\\Sensor_Updates.csv", conn)
+    # readData("C:\\Users\\User\\Desktop\\Multi-Agent\\Opole_Historical.csv", conn)
     dataSummary(conn)
 
-    #readData("C:\\Users\\User\\Desktop\\Multi-Agent\\Opole_Historical.csv", conn)
+
     conn.close()
 
     # popDictionary()
