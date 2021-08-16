@@ -94,7 +94,7 @@ def readSensors(filename, conn):
             new_sensor = Sensor(temp[0], -1, strip_accents(temp[1]), strip_accents(temp[2]), temp[3], lat, long, elev)
             sensor_list.append(new_sensor)
             # print(new_sensor.toString())
-            insertSensor(conn, new_sensor)
+            #insertSensor(conn, new_sensor)
         if not line:
             break
     file.close()
@@ -132,6 +132,43 @@ def readData(filename, conn):
     file.close()
 
 
+def sensorSummary(sensor_id, conn):
+    with conn.cursor() as cursor:
+        query1 = 'SELECT pm1 FROM dbo.Measurements WHERE sensorID = %s;'
+        query2 = 'SELECT pm10 FROM dbo.Measurements WHERE sensorID = %s;'
+        query3 = 'SELECT pm25 FROM dbo.Measurements WHERE sensorID = %s;'
+        query4 = 'SELECT temperature FROM dbo.Measurements WHERE sensorID = %s;'
+        data = [sensor_id]
+
+        cursor.execute(query1, data)
+        pm1_results = cursor.fetchall()
+
+        cursor.execute(query2, data)
+        pm10_results = cursor.fetchall()
+
+        cursor.execute(query3, data)
+        pm25_results = cursor.fetchall()
+
+        cursor.execute(query4, data)
+        temp_results = cursor.fetchall()
+
+        print("Data for Sensor:", sensor_id)
+        print("Total Entries=", len(pm1_results))
+        p = (len(pm1_results)/30343)*100
+        print(f'Percentage of Valid Entries={p}%')
+        print(f'Pm1 Max= {max(pm1_results)} Pm1 Min={min(pm1_results)}')
+        print(f'Pm10 Max= {max(pm10_results)} Pm10 Min={min(pm10_results)}')
+        print(f'Pm25 Max= {max(pm25_results)} Pm25 Min={min(pm25_results)}')
+        print(f'Temp Max= {max(temp_results)} Temp Min={min(temp_results)}')
+        print("")
+        conn.commit()
+
+
+def dataSummary(conn):
+    for sensor in sensor_list:
+        sensorSummary(sensor.SID, conn)
+
+
 def main():
     global invalid_count
     print("connecting to server")
@@ -145,15 +182,17 @@ def main():
     # conn = pyodbc.connect('driver={%s};server=%s;database=%s;Trusted_Connection=yes;' % (driver, server, db))
 
     #createSchema("dbo", conn)
-    print("sql statements")
-    dropTables(conn)
+    #print("sql statements")
+    #dropTables(conn)
     #print("tables dropped")
-    createSensorsTable(conn)
-    createMeasurementsTable(conn)
+    #createSensorsTable(conn)
+    #createMeasurementsTable(conn)
     #print("done")
 
     readSensors("C:\\Users\\User\\Desktop\\Multi-Agent\\Sensor_Updates.csv", conn)
-    readData("C:\\Users\\User\\Desktop\\Multi-Agent\\Opole_Historical.csv", conn)
+    dataSummary(conn)
+
+    #readData("C:\\Users\\User\\Desktop\\Multi-Agent\\Opole_Historical.csv", conn)
     conn.close()
 
     # popDictionary()
