@@ -16,8 +16,8 @@ def dropTables(conn):
     with conn.cursor() as cursor:
         cursor.execute('''DROP TABLE dbo.Sensors;''')
         cursor.execute('''DROP TABLE dbo.Measurements ;''')
-        cursor.execute('''DROP TABLE dbo.Tiles ;''')
-        cursor.commit()
+        #cursor.execute('''DROP TABLE dbo.Tiles ;''')
+        conn.commit()
 
 
 def createTilesTable(conn):
@@ -58,15 +58,15 @@ def createSensorsTable(conn):
                                                 elevation int
                                                 );
                             ''')
-        cursor.commit()
+        conn.commit()
 
 
 def createMeasurementsTable(conn):
     with conn.cursor() as cursor:
         print("\tmeasurements")
-        cursor.execute('''CREATE TABLE Measurements (dateKey int,
+        cursor.execute('''CREATE TABLE dbo.Measurements (dateKey int,
                                                      sensorID int,
-                                                     timestamp datetime,
+                                                     date timestamp,
                                                      pm1 float,
                                                      pm25 float,
                                                      pm10 float,
@@ -74,35 +74,38 @@ def createMeasurementsTable(conn):
                                                      CONSTRAINT pk_measures PRIMARY KEY (dateKey, sensorID)
                                                      );
                         ''')
-        cursor.commit()
+        conn.commit()
 
 
 def insertMeasure(measure, conn):
+    # insert_sql = '''INSERT INTO dbo.Measurements (dateKey,
+    #                                                     sensorID,
+    #                                                     timestamp,
+    #                                                     pm1,
+    #                                                     pm25,
+    #                                                     pm10,
+    #                                                     temperature)
+    #                                                     VALUES(?,?,?,?,?,?,?)'''
+    # cursor.execute(insert_sql, dk, measure.SID, measure.date, measure.pm1, measure.pm25, measure.pm10, measure.temp)
     rawDate = datetime.strptime(measure.date, '%m/%d/%Y %H:%M')
     dk = int(rawDate.strftime('%Y%m%d%H'))
     with conn.cursor() as cursor:
-        insert_sql = '''INSERT INTO Measurements (dateKey, 
-                                                    sensorID, 
-                                                    timestamp, 
-                                                    pm1, 
-                                                    pm25, 
-                                                    pm10, 
-                                                    temperature) 
-                                                    VALUES(?,?,?,?,?,?,?)'''
-        cursor.execute(insert_sql, dk, measure.SID, measure.date, measure.pm1, measure.pm25, measure.pm10, measure.temp)
-        cursor.commit()
+        cursor.execute("INSERT INTO dbo.Measurements (dateKey, sensorID, date, pm1, pm25, pm10, temperature) "
+            "VALUES(%s, %s, %s, %s, %s, %s, %s)", (dk, measure.SID, measure.date, measure.pm1, measure.pm25, measure.pm10, measure.temp))
+        conn.commit()
 
 
 def insertSensor(conn, sensor):
-
+    # insert_sql = '''INSERT INTO dbo.Sensors (sensorID, tileId, address1, address2, addressNumber, latitude, longitude, elevation)
+    #                     VALUES (?,?,?,?,?,?,?,?)'''
+    # cursor.execute(insert_sql, int(sensor.SID),
+    #                             int(sensor.tile),
+    #                             sensor.address_1,
+    #                sensor.address_2, sensor.address_num, sensor.latitude, sensor.longitude, int(sensor.elevation))
     with conn.cursor() as cursor:
-        insert_sql = '''INSERT INTO dbo.Sensors (sensorID, tileId, address1, address2, addressNumber, latitude, longitude, elevation)
-                            VALUES (?,?,?,?,?,?,?,?)'''
-        cursor.execute(insert_sql, int(sensor.SID),
-                                    int(sensor.tile),
-                                    sensor.address_1,
-                       sensor.address_2, sensor.address_num, sensor.latitude, sensor.longitude, int(sensor.elevation))
-        cursor.commit()
+        cursor.execute("INSERT INTO dbo.Sensors (sensorID, tileId, address1, address2, addressNumber, latitude, longitude, elevation) "
+                       "VALUES(%s, %s, %s, %s, %s, %s, %s, %s)", (int(sensor.SID), sensor.tile, sensor.address_1, sensor.address_2, sensor.address_num,sensor.latitude, sensor.longitude, int(sensor.elevation)))
+        conn.commit()
 
 
 def insertTile(conn, tile):

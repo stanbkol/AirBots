@@ -1,9 +1,11 @@
+import unicodedata
 from datetime import time
 
 import numpy as np
 import csv
 import sqlite3
 
+import psycopg2
 import pyodbc
 from DataLoader import *
 
@@ -72,6 +74,9 @@ final_list = []
 #                 e_list.append(e)
 #         dict_list[s.SID] = e_list
 
+def strip_accents(text):
+    return ''.join(c for c in unicodedata.normalize('NFKD', text) if unicodedata.category(c) != 'Mn')
+
 
 def readSensors(filename, conn):
     print("here and now")
@@ -86,7 +91,7 @@ def readSensors(filename, conn):
             elev = temp[6].strip()
             if not elev.isdigit():
                 elev = -1
-            new_sensor = Sensor(temp[0], -1, temp[1], temp[2], temp[3], lat, long, elev)
+            new_sensor = Sensor(temp[0], -1, strip_accents(temp[1]), strip_accents(temp[2]), temp[3], lat, long, elev)
             sensor_list.append(new_sensor)
             # print(new_sensor.toString())
             insertSensor(conn, new_sensor)
@@ -130,21 +135,25 @@ def readData(filename, conn):
 def main():
     global invalid_count
     print("connecting to server")
+    conn = psycopg2.connect(
+        host="pgsql13.asds.nazwa.pl",
+        database="asds_PWR",
+        user="asds_PWR",
+        password="W#4bvgBxDi$v6zB")
 
-    driver = 'SQL Server'
-    server = 'LAPTOP-ULK6PTSU\STANSQLSERVER'
-    db = 'AirBot'
-    conn = pyodbc.connect('driver={%s};server=%s;database=%s;Trusted_Connection=yes;' % (driver, server, db))
+    # conn = pyodbc.connect(conn_str)
+    # conn = pyodbc.connect('driver={%s};server=%s;database=%s;Trusted_Connection=yes;' % (driver, server, db))
 
+    #createSchema("dbo", conn)
     print("sql statements")
     dropTables(conn)
-    print("tables dropped")
+    #print("tables dropped")
     createSensorsTable(conn)
     createMeasurementsTable(conn)
-    print("done")
+    #print("done")
 
-    readSensors("C:\\Users\\stanb\\Downloads\\Sensor_Updates.csv", conn)
-    readData("C:\\Users\\stanb\\Downloads\\Opole_Historical.csv", conn)
+    readSensors("C:\\Users\\User\\Desktop\\Multi-Agent\\Sensor_Updates.csv", conn)
+    readData("C:\\Users\\User\\Desktop\\Multi-Agent\\Opole_Historical.csv", conn)
     conn.close()
 
     # popDictionary()
