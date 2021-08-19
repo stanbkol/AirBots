@@ -6,6 +6,7 @@ import csv
 import sqlite3
 
 import psycopg2
+import matplotlib.pyplot as plt
 from DataLoader import *
 
 from utils import *
@@ -133,6 +134,7 @@ def readData(filename, conn):
 
 def sensorSummary(sensor_id, conn):
     with conn.cursor() as cursor:
+        query = 'SELECT date FROM dbo.Measurements WHERE sensorID = %s;'
         query1 = 'SELECT pm1 FROM dbo.Measurements WHERE sensorID = %s;'
         query2 = 'SELECT pm10 FROM dbo.Measurements WHERE sensorID = %s;'
         query3 = 'SELECT pm25 FROM dbo.Measurements WHERE sensorID = %s;'
@@ -150,6 +152,22 @@ def sensorSummary(sensor_id, conn):
 
         cursor.execute(query4, data)
         temp_results = cursor.fetchall()
+
+        cursor.execute(query, data)
+        date_results = cursor.fetchall()
+
+        f = plt.figure()
+        f.set_figwidth(10)
+        f.set_figheight(2)
+
+        plt.plot(date_results, pm1_results, label="PM1 Values")
+        plt.plot(date_results, pm10_results, label="PM10 Values")
+        plt.plot(date_results, pm25_results, label="PM25 Values")
+        plt.plot(date_results, temp_results, label="Temperature Values")
+        plt.xlabel('Dates')
+        plt.ylabel('Values')
+        plt.legend()
+        plt.show()
 
         print("Data for Sensor:", sensor_id)
         print("Total Entries=", len(pm1_results))
@@ -172,8 +190,10 @@ def getSensors(conn):
 
 def dataSummary(conn):
     sList = getSensors(conn)
-    for sensor in sList:
-        sensorSummary(sensor[0], conn)
+
+    sensorSummary(sList[0], conn)
+    #for sensor in sList:
+    #   sensorSummary(sensor[0], conn)
 
 
 def main():
