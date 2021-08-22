@@ -5,13 +5,7 @@ from edu.pwr.database.DataLoader import *
 from edu.pwr.database.utils import *
 from edu.pwr.database.Entry import *
 from edu.pwr.database.Sensor import *
-import matplotlib.pyplot as plt
-from DataLoader import *
 
-from utils import *
-
-from Entry import *
-from Sensor import *
 
 invalid_count = 0
 sensor_list = []
@@ -132,39 +126,6 @@ def readData(filename, conn):
     file.close()
 
 
-def sensorSummary(sensor_id, conn):
-    with conn.cursor() as cursor:
-        query = 'SELECT * FROM dbo.Measurements WHERE sensorID = %s;'
-        data = [sensor_id]
-        cursor.execute(query, data)
-        data_list = cursor.fetchall()
-        # sample code on how to unpack/package the row information from query
-        # data_dict = {}
-        # for row in data_list:
-        #     dk, sid, dt, pm1, pm25, pm10, temp = row
-        #     data_dict[dk] = (sid, dt, pm1, pm25, pm10, temp)
-
-        # sample code for basic numpy scatterplots
-        # f = plt.figure()
-        # f.set_figwidth(10)
-        # f.set_figheight(2)
-        # plt.plot(date_results, pm1_results, label="PM1 Values")
-        # plt.plot(date_results, pm10_results, label="PM10 Values")
-        # plt.plot(date_results, pm25_results, label="PM25 Values")
-        # plt.plot(date_results, temp_results, label="Temperature Values")
-        # plt.xlabel('Dates')
-        # plt.ylabel('Values')
-        # plt.legend()
-        # plt.show()
-
-        print("Data for Sensor:", sensor_id)
-        print("Total Entries=", len(data_list))
-        p = round((len(data_list) / 30343) * 100, 2)
-        print(f'Percentage of Valid Entries={p}%')
-        print("")
-        conn.commit()
-
-
 def populateDatabase(conn):
     # createSchema("dbo", conn)
     dropTables(conn)
@@ -181,12 +142,17 @@ def populateDatabase(conn):
 
 def getSensors(conn):
     with conn.cursor() as cursor:
-        query1 = 'SELECT sensorID FROM dbo.Sensors;'
+        sList = []
+        query1 = 'SELECT * FROM dbo.Sensors;'
         cursor.execute(query1)
-        return cursor.fetchall()
+        data = cursor.fetchall()
+        for s in data:
+            sid, tid, ad1, ad2, adn, lat, long, elev = s
+            sList.append(Sensor(sid, tid, ad1, ad2, adn, lat, long, elev))
+        return sList
 
 
 def dataSummary(conn):
-    sList = getSensors(conn)
-    for sensor in sList:
-        sensorSummary(sensor[0], conn)
+    sensors = getSensors(conn)
+    for sensor in sensors:
+        sensor.getData(conn)
