@@ -16,6 +16,9 @@ def weightedmovingaverage(Data, period):
     return weighted
 
 
+def arima_model(p,d,w):
+    pass
+
 def run():
     pass
 
