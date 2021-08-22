@@ -1,12 +1,11 @@
 import unicodedata
 from datetime import time
-
-import numpy as np
-import csv
-import sqlite3
-
 import psycopg2
-import pyodbc
+from edu.pwr.database.DataLoader import *
+from edu.pwr.database.utils import *
+from edu.pwr.database.Entry import *
+from edu.pwr.database.Sensor import *
+import matplotlib.pyplot as plt
 from DataLoader import *
 
 from utils import *
@@ -94,7 +93,7 @@ def readSensors(filename, conn):
             new_sensor = Sensor(temp[0], -1, strip_accents(temp[1]), strip_accents(temp[2]), temp[3], lat, long, elev)
             sensor_list.append(new_sensor)
             # print(new_sensor.toString())
-            insertSensor(conn, new_sensor)
+            # insertSensor(conn, new_sensor)
         if not line:
             break
     file.close()
@@ -119,7 +118,8 @@ def readData(filename, conn):
         pm10_index = 3
         temp_index = 4
         for s in sensor_list:
-            if checkValue(temp[pm1_index]) and checkValue(temp[pm10_index]) and checkValue(temp[pm25_index]) and checkValue(temp[temp_index]):
+            if checkValue(temp[pm1_index]) and checkValue(temp[pm10_index]) and checkValue(
+                    temp[pm25_index]) and checkValue(temp[temp_index]):
                 new_entry = Entry(entry_date, int(s.SID), float(temp[pm1_index]), float(temp[pm25_index]),
                                   float(temp[pm10_index]), float(temp[temp_index]))
                 insertMeasure(new_entry, conn)
@@ -132,32 +132,61 @@ def readData(filename, conn):
     file.close()
 
 
-def main():
-    global invalid_count
-    print("connecting to server")
-    conn = psycopg2.connect(
-        host="pgsql13.asds.nazwa.pl",
-        database="asds_PWR",
-        user="asds_PWR",
-        password="W#4bvgBxDi$v6zB")
+def sensorSummary(sensor_id, conn):
+    with conn.cursor() as cursor:
+        query = 'SELECT * FROM dbo.Measurements WHERE sensorID = %s;'
+        data = [sensor_id]
+        cursor.execute(query, data)
+        data_list = cursor.fetchall()
+        # sample code on how to unpack/package the row information from query
+        # data_dict = {}
+        # for row in data_list:
+        #     dk, sid, dt, pm1, pm25, pm10, temp = row
+        #     data_dict[dk] = (sid, dt, pm1, pm25, pm10, temp)
 
-    # conn = pyodbc.connect(conn_str)
-    # conn = pyodbc.connect('driver={%s};server=%s;database=%s;Trusted_Connection=yes;' % (driver, server, db))
+        # sample code for basic numpy scatterplots
+        # f = plt.figure()
+        # f.set_figwidth(10)
+        # f.set_figheight(2)
+        # plt.plot(date_results, pm1_results, label="PM1 Values")
+        # plt.plot(date_results, pm10_results, label="PM10 Values")
+        # plt.plot(date_results, pm25_results, label="PM25 Values")
+        # plt.plot(date_results, temp_results, label="Temperature Values")
+        # plt.xlabel('Dates')
+        # plt.ylabel('Values')
+        # plt.legend()
+        # plt.show()
 
-    #createSchema("dbo", conn)
-    print("sql statements")
+        print("Data for Sensor:", sensor_id)
+        print("Total Entries=", len(data_list))
+        p = round((len(data_list) / 30343) * 100, 2)
+        print(f'Percentage of Valid Entries={p}%')
+        print("")
+        conn.commit()
+
+
+def populateDatabase(conn):
+    # createSchema("dbo", conn)
     dropTables(conn)
-    #print("tables dropped")
+    print("tables dropped")
     createSensorsTable(conn)
     createMeasurementsTable(conn)
-    #print("done")
-
+    createTilesTable(conn)
+    print("tables created")
     readSensors("C:\\Users\\User\\Desktop\\Multi-Agent\\Sensor_Updates.csv", conn)
+    print("sensor table written")
     readData("C:\\Users\\User\\Desktop\\Multi-Agent\\Opole_Historical.csv", conn)
-    conn.close()
-
-    # popDictionary()
+    print("data table written")
 
 
-if __name__ == '__main__':
-    main()
+def getSensors(conn):
+    with conn.cursor() as cursor:
+        query1 = 'SELECT sensorID FROM dbo.Sensors;'
+        cursor.execute(query1)
+        return cursor.fetchall()
+
+
+def dataSummary(conn):
+    sList = getSensors(conn)
+    for sensor in sList:
+        sensorSummary(sensor[0], conn)

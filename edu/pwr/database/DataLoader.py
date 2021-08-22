@@ -1,4 +1,6 @@
 from datetime import datetime
+
+import psycopg2
 import pyodbc
 
 
@@ -42,7 +44,7 @@ def createTilesTable(conn):
                                                 pm25_avg float,
                                                 );
                             ''')
-        cursor.commit()
+        conn.commit()
 
 
 def createSensorsTable(conn):
@@ -78,15 +80,6 @@ def createMeasurementsTable(conn):
 
 
 def insertMeasure(measure, conn):
-    # insert_sql = '''INSERT INTO dbo.Measurements (dateKey,
-    #                                                     sensorID,
-    #                                                     timestamp,
-    #                                                     pm1,
-    #                                                     pm25,
-    #                                                     pm10,
-    #                                                     temperature)
-    #                                                     VALUES(?,?,?,?,?,?,?)'''
-    # cursor.execute(insert_sql, dk, measure.SID, measure.date, measure.pm1, measure.pm25, measure.pm10, measure.temp)
     rawDate = datetime.strptime(measure.date, '%m/%d/%Y %H:%M')
     dk = int(rawDate.strftime('%Y%m%d%H'))
     with conn.cursor() as cursor:
@@ -96,12 +89,6 @@ def insertMeasure(measure, conn):
 
 
 def insertSensor(conn, sensor):
-    # insert_sql = '''INSERT INTO dbo.Sensors (sensorID, tileId, address1, address2, addressNumber, latitude, longitude, elevation)
-    #                     VALUES (?,?,?,?,?,?,?,?)'''
-    # cursor.execute(insert_sql, int(sensor.SID),
-    #                             int(sensor.tile),
-    #                             sensor.address_1,
-    #                sensor.address_2, sensor.address_num, sensor.latitude, sensor.longitude, int(sensor.elevation))
     with conn.cursor() as cursor:
         cursor.execute("INSERT INTO dbo.Sensors (sensorID, tileId, address1, address2, addressNumber, latitude, longitude, elevation) "
                        "VALUES(%s, %s, %s, %s, %s, %s, %s, %s)", (int(sensor.SID), sensor.tile, sensor.address_1, sensor.address_2, sensor.address_num,sensor.latitude, sensor.longitude, int(sensor.elevation)))
@@ -145,10 +132,9 @@ def fetchValidSensors(conn):
 
 
 def createConnection(user=None, pwrd=None, server=None):
-    driver = 'SQL Server'
-    db = 'AirBot'
-    if user and pwrd:
-        return pyodbc.connect('driver={%s};server=%s;database=%s;UID=%s;PWD=%s;Trusted_Connection=no;' % (driver, server, db, user, pwrd))
-    else:
-        server = 'LAPTOP-ULK6PTSU\STANSQLSERVER'
-        return pyodbc.connect('driver={%s};server=%s;database=%s;Trusted_Connection=yes;' % (driver, server, db))
+    conn = psycopg2.connect(
+        host="pgsql13.asds.nazwa.pl",
+        database="asds_PWR",
+        user="asds_PWR",
+        password="W#4bvgBxDi$v6zB")
+    return conn
