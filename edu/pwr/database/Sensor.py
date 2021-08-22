@@ -15,12 +15,20 @@ class Sensor:
     def toString(self):
         print("SID=" + self.SID + " Address Line 1:" + self.address_1 + " Address Line 2:" + self.address_2 + " Address Number:" + self.address_num)
 
-    def getData(self, conn, start=None, end=None):
+    def convertInterval(self, start_interval, end_interval):
+        return ((end_interval-start_interval).days + 1) * 24
+
+    def getData(self, conn, start_interval=None, end_interval=None):
         with conn.cursor() as cursor:
-            query = 'SELECT * FROM dbo.Measurements WHERE sensorID = %s;'
-            data = [self.SID]
+            if not start_interval and not end_interval:
+                query = 'SELECT * FROM dbo.Measurements WHERE sensorID = %s;'
+                data = [self.SID]
+            else:
+                query = 'SELECT * FROM dbo.Measurements WHERE sensorID = %s AND date BETWEEN %s AND %s;'
+                data = [self.SID, start_interval, end_interval]
             cursor.execute(query, data)
             data_list = cursor.fetchall()
+
             # sample code on how to unpack/package the row information from query
             # data_dict = {}
             # for row in data_list:
@@ -41,8 +49,9 @@ class Sensor:
             # plt.show()
 
             print("Data for Sensor:", self.SID)
-            print("Total Entries=", len(data_list))
-            p = round((len(data_list) / 30343) * 100, 2)
+            print("Valid Entries=", len(data_list))
+            print("Total Entries=", self.convertInterval(start_interval, end_interval))
+            p = round((len(data_list) / self.convertInterval(start_interval, end_interval)) * 100, 2)
             print(f'Percentage of Valid Entries={p}%')
             print("")
             conn.commit()

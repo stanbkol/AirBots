@@ -9,7 +9,10 @@ def main():
         database="asds_PWR",
         user="asds_PWR",
         password="W#4bvgBxDi$v6zB")
-    dataSummary(conn)
+
+    start = datetime(2019, 12, 1, 0)
+    end = datetime(2019, 12, 31, 23)
+    dataSummary(conn, start, end)
     conn.close()
 
 
