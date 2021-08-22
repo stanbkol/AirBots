@@ -1,17 +1,10 @@
 import unicodedata
 from datetime import time
-
-import numpy as np
-import csv
-import sqlite3
-
 import psycopg2
-from DataLoader import *
-
-from utils import *
-
-from Entry import *
-from Sensor import *
+from edu.pwr.database.DataLoader import *
+from edu.pwr.database.utils import *
+from edu.pwr.database.Entry import *
+from edu.pwr.database.Sensor import *
 
 invalid_count = 0
 sensor_list = []
@@ -133,34 +126,35 @@ def readData(filename, conn):
 
 def sensorSummary(sensor_id, conn):
     with conn.cursor() as cursor:
-        query1 = 'SELECT pm1 FROM dbo.Measurements WHERE sensorID = %s;'
-        query2 = 'SELECT pm10 FROM dbo.Measurements WHERE sensorID = %s;'
-        query3 = 'SELECT pm25 FROM dbo.Measurements WHERE sensorID = %s;'
-        query4 = 'SELECT temperature FROM dbo.Measurements WHERE sensorID = %s;'
+        query = 'SELECT * FROM dbo.Measurements WHERE sensorID = %s;'
         data = [sensor_id]
-
-        cursor.execute(query1, data)
-        pm1_results = cursor.fetchall()
-
-        cursor.execute(query2, data)
-        pm10_results = cursor.fetchall()
-
-        cursor.execute(query3, data)
-        pm25_results = cursor.fetchall()
-
-        cursor.execute(query4, data)
-        temp_results = cursor.fetchall()
-
+        cursor.execute(query, data)
+        data_list = cursor.fetchall()
+        # sample code on how to unpack/package the row information from query
+        # data_dict = {}
+        # for row in data_list:
+        #     dk, sid, dt, pm1, pm25, pm10, temp = row
+        #     data_dict[dk] = (sid, dt, pm1, pm25, pm10, temp)
         print("Data for Sensor:", sensor_id)
-        print("Total Entries=", len(pm1_results))
-        p = (len(pm1_results)/30343)*100
+        print("Total Entries=", len(data_list))
+        p = round((len(data_list)/30343)*100, 2)
         print(f'Percentage of Valid Entries={p}%')
-        print(f'Pm1 Max= {max(pm1_results)} Pm1 Min={min(pm1_results)}')
-        print(f'Pm10 Max= {max(pm10_results)} Pm10 Min={min(pm10_results)}')
-        print(f'Pm25 Max= {max(pm25_results)} Pm25 Min={min(pm25_results)}')
-        print(f'Temp Max= {max(temp_results)} Temp Min={min(temp_results)}')
         print("")
         conn.commit()
+
+
+def populateDatabase(conn):
+    # createSchema("dbo", conn)
+    dropTables(conn)
+    print("tables dropped")
+    createSensorsTable(conn)
+    createMeasurementsTable(conn)
+    createTilesTable(conn)
+    print("tables created")
+    readSensors("C:\\Users\\User\\Desktop\\Multi-Agent\\Sensor_Updates.csv", conn)
+    print("sensor table written")
+    readData("C:\\Users\\User\\Desktop\\Multi-Agent\\Opole_Historical.csv", conn)
+    print("data table written")
 
 
 def getSensors(conn):
@@ -176,35 +170,4 @@ def dataSummary(conn):
         sensorSummary(sensor[0], conn)
 
 
-def main():
-    global invalid_count
-    print("connecting to server")
-    conn = psycopg2.connect(
-        host="pgsql13.asds.nazwa.pl",
-        database="asds_PWR",
-        user="asds_PWR",
-        password="W#4bvgBxDi$v6zB")
 
-    # conn = pyodbc.connect(conn_str)
-    # conn = pyodbc.connect('driver={%s};server=%s;database=%s;Trusted_Connection=yes;' % (driver, server, db))
-
-    #createSchema("dbo", conn)
-    #print("sql statements")
-    #dropTables(conn)
-    #print("tables dropped")
-    #createSensorsTable(conn)
-    #createMeasurementsTable(conn)
-    #print("done")
-
-    # readSensors("C:\\Users\\User\\Desktop\\Multi-Agent\\Sensor_Updates.csv", conn)
-    # readData("C:\\Users\\User\\Desktop\\Multi-Agent\\Opole_Historical.csv", conn)
-    dataSummary(conn)
-
-
-    conn.close()
-
-    # popDictionary()
-
-
-if __name__ == '__main__':
-    main()
