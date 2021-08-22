@@ -17,6 +17,13 @@
             </Attribute>
           </value>
         </entry>
+        <entry key="\edu\pwr\airbots\wma.py">
+          <value>
+            <Attribute>
+              <option name="separator" value=":" />
+            </Attribute>
+          </value>
+        </entry>
         <entry key="\edu\pwr\database\DataLoader.py">
           <value>
             <Attribute>
