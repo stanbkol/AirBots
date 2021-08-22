@@ -1,5 +1,5 @@
 import unicodedata
-from datetime import time
+from datetime import datetime
 import psycopg2
 from edu.pwr.database.DataLoader import *
 from edu.pwr.database.utils import *
@@ -152,7 +152,7 @@ def getSensors(conn):
         return sList
 
 
-def dataSummary(conn):
+def dataSummary(conn, start, end):
     sensors = getSensors(conn)
     for sensor in sensors:
-        sensor.getData(conn)
+        sensor.getData(conn, start, end)
