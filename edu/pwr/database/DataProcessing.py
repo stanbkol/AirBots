@@ -1,10 +1,20 @@
 import unicodedata
 from datetime import time
 import psycopg2
+<<<<<<< HEAD:edu/pwr/database/DataProcessing.py
 from edu.pwr.database.DataLoader import *
 from edu.pwr.database.utils import *
 from edu.pwr.database.Entry import *
 from edu.pwr.database.Sensor import *
+=======
+import matplotlib.pyplot as plt
+from DataLoader import *
+
+from utils import *
+
+from Entry import *
+from Sensor import *
+>>>>>>> 9ef7d316fdb62ea8147855a9cc36409f4adc2274:edu/pwr/database/main.py
 
 invalid_count = 0
 sensor_list = []
@@ -126,6 +136,7 @@ def readData(filename, conn):
 
 def sensorSummary(sensor_id, conn):
     with conn.cursor() as cursor:
+<<<<<<< HEAD:edu/pwr/database/DataProcessing.py
         query = 'SELECT * FROM dbo.Measurements WHERE sensorID = %s;'
         data = [sensor_id]
         cursor.execute(query, data)
@@ -135,6 +146,43 @@ def sensorSummary(sensor_id, conn):
         # for row in data_list:
         #     dk, sid, dt, pm1, pm25, pm10, temp = row
         #     data_dict[dk] = (sid, dt, pm1, pm25, pm10, temp)
+=======
+        query = 'SELECT date FROM dbo.Measurements WHERE sensorID = %s;'
+        query1 = 'SELECT pm1 FROM dbo.Measurements WHERE sensorID = %s;'
+        query2 = 'SELECT pm10 FROM dbo.Measurements WHERE sensorID = %s;'
+        query3 = 'SELECT pm25 FROM dbo.Measurements WHERE sensorID = %s;'
+        query4 = 'SELECT temperature FROM dbo.Measurements WHERE sensorID = %s;'
+        data = [sensor_id]
+
+        cursor.execute(query1, data)
+        pm1_results = cursor.fetchall()
+
+        cursor.execute(query2, data)
+        pm10_results = cursor.fetchall()
+
+        cursor.execute(query3, data)
+        pm25_results = cursor.fetchall()
+
+        cursor.execute(query4, data)
+        temp_results = cursor.fetchall()
+
+        cursor.execute(query, data)
+        date_results = cursor.fetchall()
+
+        f = plt.figure()
+        f.set_figwidth(10)
+        f.set_figheight(2)
+
+        plt.plot(date_results, pm1_results, label="PM1 Values")
+        plt.plot(date_results, pm10_results, label="PM10 Values")
+        plt.plot(date_results, pm25_results, label="PM25 Values")
+        plt.plot(date_results, temp_results, label="Temperature Values")
+        plt.xlabel('Dates')
+        plt.ylabel('Values')
+        plt.legend()
+        plt.show()
+
+>>>>>>> 9ef7d316fdb62ea8147855a9cc36409f4adc2274:edu/pwr/database/main.py
         print("Data for Sensor:", sensor_id)
         print("Total Entries=", len(data_list))
         p = round((len(data_list)/30343)*100, 2)
@@ -166,8 +214,10 @@ def getSensors(conn):
 
 def dataSummary(conn):
     sList = getSensors(conn)
-    for sensor in sList:
-        sensorSummary(sensor[0], conn)
+
+    sensorSummary(sList[0], conn)
+    #for sensor in sList:
+    #   sensorSummary(sensor[0], conn)
 
 
 
