@@ -22,14 +22,20 @@ def dropTables(conn):
         conn.commit()
 
 
+def dropTiles(conn):
+    with conn.cursor() as cursor:
+        cursor.execute("DROP TABLE dbo.Tiles;")
+        conn.commit()
+
+
 def createTilesTable(conn):
     with conn.cursor() as cursor:
-        print("\tsensors")
-        cursor.execute('''CREATE TABLE dbo.Tiles (TileID int primary key,
-                                                MapId int,
-                                                class varchar(25),
+        print("\t creating tiles")
+        cursor.execute('''CREATE TABLE dbo.Tiles (tileId int primary key,
+                                                mapId int,
+                                                class varchar(50),
                                                 diameter float,
-                                                centerLatLong varchar(50),
+                                                centerLatLon varchar(50),
                                                 vertex1 varchar(50),
                                                 vertex2 varchar(50),
                                                 vertex3 varchar(50),
@@ -42,6 +48,7 @@ def createTilesTable(conn):
                                                 pm10_avg float, 
                                                 pm1_avg float,
                                                 pm25_avg float,
+                                                polygon varchar(500)
                                                 );
                             ''')
         conn.commit()
@@ -97,11 +104,11 @@ def insertSensor(conn, sensor):
 
 def insertTile(conn, tile):
     with conn.cursor() as cursor:
-        insert_sql = '''INSERT INTO dbo.Tiles (TileID,
-                                                MapId,
+        insert_sql = '''INSERT INTO dbo.Tiles (tileId,
+                                                mapId,
                                                 class,
                                                 diameter,
-                                                centerLatLong,
+                                                centerLatLon,
                                                 vertex1,
                                                 vertex2,
                                                 vertex3,
@@ -114,19 +121,50 @@ def insertTile(conn, tile):
                                                 pm10_avg, 
                                                 pm1_avg,
                                                 pm25_avg,
-                                                ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'''
+                                                polygon
+                                                ) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)'''
 
-        cursor.execute(insert_sql, int(tile.tid), int(tile.mapId), tile.tileClass, tile.diameter, tile.center, tile.coordinates[0],
-                       tile.coordinates[1], tile.coordinates[2], tile.coordinates[3], tile.coordinates[4], tile.coordinates[5], tile.min_elevevation, tile.max_elevation,
-                       tile.temperature, tile.pm10_avg, tile.pm1_avg, tile.pm25_avg)
+        cursor.execute(insert_sql, (int(tile.tileId), int(tile.mapId), tile.tileClass, tile.diameter,
+                       tile.centerPt.latlon_str,
+                       tile.coordinates[0].latlon_str, tile.coordinates[1].latlon_str, tile.coordinates[2].latlon_str,
+                       tile.coordinates[3].latlon_str, tile.coordinates[4].latlon_str, tile.coordinates[5].latlon_str,
+                       tile.min_elevation, tile.max_elevation,
+                       tile.temperature, tile.pm10_avg, tile.pm1_avg, tile.pm25_avg, tile.poly_str))
 
-        cursor.commit()
+        conn.commit()
 
 
 def fetchValidSensors(conn):
     with conn.cursor() as cursor:
         fetch_sql = '''SELECT * FROM dbo.Sensors
                         WHERE latitude!=-1 AND longitude!=-1;'''
+        cursor.execute(fetch_sql)
+        return cursor.fetchall()
+
+
+def fetchMapGridPolys(conn, mapId):
+    with conn.cursor() as cursor:
+        fetch_sql = '''SELECT polygon FROM dbo.Tiles WHERE MapId = %s;'''
+        cursor.execute(fetch_sql, (mapId,))
+        return cursor.fetchall()
+
+
+def update_sensor_tile(conn, sensor_id, tile_id):
+    with conn.cursor() as cursor:
+        sql = "UPDATE dbo.Sensors SET tileId = %s WHERE sensorID = %s"
+        cursor.execute(sql, (tile_id, sensor_id))
+        conn.commit()
+
+def getSensors(conn):
+    with conn.cursor() as cursor:
+        query1 = 'SELECT sensorID FROM dbo.Sensors;'
+        cursor.execute(query1)
+        return cursor.fetchall()
+
+
+def getTiles(conn):
+    with conn.cursor() as cursor:
+        fetch_sql = "SELECT * FROM dbo.Tiles;"
         cursor.execute(fetch_sql)
         return cursor.fetchall()
 

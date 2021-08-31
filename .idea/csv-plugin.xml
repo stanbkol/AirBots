@@ -31,6 +31,13 @@
             </Attribute>
           </value>
         </entry>
+        <entry key="\edu\pwr\database\DataProcessing.py">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
         <entry key="\edu\pwr\database\main.py">
           <value>
             <Attribute>
@@ -42,6 +49,13 @@
           <value>
             <Attribute>
               <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="\edu\pwr\main\app.py">
+          <value>
+            <Attribute>
+              <option name="separator" value=":" />
             </Attribute>
           </value>
         </entry>

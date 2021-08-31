@@ -6,15 +6,15 @@ class TileBin:
     sensor_bin = []
 
     def __init__(self, mapID, tileID, center, numSides, coordinates=None, max_elevation=None, min_elevation=None,
-                 diameter=100, tileType=None, temp=None, pm1=None, pm10=None, pm25=None):
+                 diameter=100, tileType=None, temp=None, pm1=None, pm10=None, pm25=None, polyString=""):
         # List of MapPoints
         if coordinates is None:
             coordinates = []
         # if not any(isinstance(c, MapPoint) for c in coordinates):
         #     raise TypeError("coordinates must be of type MapPoint")
-        self.tid = tileID
+        self.tileId = tileID
         # map it belongs to
-        self.map = mapID
+        self.mapId = mapID
         self.coordinates = coordinates
         self.diameter = diameter
         self.centerPt = center
@@ -26,12 +26,13 @@ class TileBin:
         self.pm1_avg = pm1
         self.pm25_avg = pm25
         self.numSides = numSides
+        self.poly_str = polyString
 
     def getSensors(self):
         return self.sensor_bin
 
     def getNeighborTiles(self):
-        # DB query, in what order? Northernmost going clockwise?
+        # DB query, in what order? Northeastern-most going clockwise?
         pass
 
     def setClass(self, tileClass):
@@ -51,6 +52,18 @@ class TileBin:
 
         return self.coordinates
 
+    def set_PolyString(self, poly):
+        if isinstance(poly, str):
+            self.poly_str = poly
+            return True
+
+        return False
+
+    def set_vertices(self, vertex_list):
+        if len(vertex_list) == self.numSides:
+            for i in self.numSides:
+                self.coordinates.append(vertex_list[i])
+
 
 def drange(start, stop, jump):
     while start < stop:
@@ -59,5 +72,4 @@ def drange(start, stop, jump):
 
 
 if __name__ == '__main__':
-    print(list(drange(0, 360, 360 / 6)))
     pass
