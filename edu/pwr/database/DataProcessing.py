@@ -1,12 +1,11 @@
 import unicodedata
-from datetime import time
+from datetime import datetime
 import psycopg2
 from edu.pwr.database.utils import *
 from edu.pwr.database.Entry import *
 from edu.pwr.database.Sensor import *
 from edu.pwr.database.DataLoader import *
 from shapely.geometry import Polygon, Point
-
 
 invalid_count = 0
 sensor_list = []
@@ -125,39 +124,6 @@ def readData(filename, conn):
             pm25_index += 4
             pm10_index += 4
     file.close()
-
-
-def sensorSummary(sensor_id, conn):
-    with conn.cursor() as cursor:
-        query = 'SELECT * FROM dbo.Measurements WHERE sensorID = %s;'
-        data = [sensor_id]
-        cursor.execute(query, data)
-        data_list = cursor.fetchall()
-        # sample code on how to unpack/package the row information from query
-        # data_dict = {}
-        # for row in data_list:
-        #     dk, sid, dt, pm1, pm25, pm10, temp = row
-        #     data_dict[dk] = (sid, dt, pm1, pm25, pm10, temp)
-
-        # sample code for basic numpy scatterplots
-        # f = plt.figure()
-        # f.set_figwidth(10)
-        # f.set_figheight(2)
-        # plt.plot(date_results, pm1_results, label="PM1 Values")
-        # plt.plot(date_results, pm10_results, label="PM10 Values")
-        # plt.plot(date_results, pm25_results, label="PM25 Values")
-        # plt.plot(date_results, temp_results, label="Temperature Values")
-        # plt.xlabel('Dates')
-        # plt.ylabel('Values')
-        # plt.legend()
-        # plt.show()
-
-        print("Data for Sensor:", sensor_id)
-        print("Total Entries=", len(data_list))
-        p = round((len(data_list) / 30343) * 100, 2)
-        print(f'Percentage of Valid Entries={p}%')
-        print("")
-        conn.commit()
 
 
 def populateDatabase(conn):
