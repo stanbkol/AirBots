@@ -140,10 +140,18 @@ def populateDatabase(conn):
     print("data table written")
 
 
-def dataSummary(conn):
-    sList = getSensors(conn)
-    for sensor in sList:
-        sensorSummary(sensor[0], conn)
+def getSensorObjects(conn):
+    data = getSensors(conn)
+    for s in data:
+        sid, tid, ad1, ad2, adn, lat, long, elev = s
+        sList.append(Sensor(sid, tid, ad1, ad2, adn, lat, long, elev))
+    return sList
+
+
+def dataSummary(conn, start, end):
+    sensors = getSensorObjects(conn)
+    for sensor in sensors:
+        sensor.getData(conn, start, end)
 
 
 def updateSensorsTile(conn):
