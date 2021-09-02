@@ -1,11 +1,11 @@
 import unicodedata
 from datetime import datetime
 import psycopg2
-from edu.pwr.database.DataLoader import *
 from edu.pwr.database.utils import *
 from edu.pwr.database.Entry import *
 from edu.pwr.database.Sensor import *
-
+from edu.pwr.database.DataLoader import *
+from shapely.geometry import Polygon, Point
 
 invalid_count = 0
 sensor_list = []
@@ -140,19 +140,29 @@ def populateDatabase(conn):
     print("data table written")
 
 
-def getSensors(conn):
-    with conn.cursor() as cursor:
-        sList = []
-        query1 = 'SELECT * FROM dbo.Sensors;'
-        cursor.execute(query1)
-        data = cursor.fetchall()
-        for s in data:
-            sid, tid, ad1, ad2, adn, lat, long, elev = s
-            sList.append(Sensor(sid, tid, ad1, ad2, adn, lat, long, elev))
-        return sList
+def dataSummary(conn):
+    sList = getSensors(conn)
+    for sensor in sList:
+        sensorSummary(sensor[0], conn)
 
 
-def dataSummary(conn, start, end):
+def updateSensorsTile(conn):
+    sensor_lon = 6
+    sensor_lat = 5
+    sid = 0
+    tid = 0
+    # tiles 5-10 for vertices la,lo
     sensors = getSensors(conn)
+    tiles = getTiles(conn)
     for sensor in sensors:
-        sensor.getData(conn, start, end)
+        sensor_marker = Point(sensor[sensor_lon], sensor[sensor_lat])
+        sensor_id = sensor[sid]
+        for tile in tiles:
+            vertices = []
+            for vertex_col in range(5, 11):
+                lonlat = tuple([float(c) for c in str(tile[vertex_col]).split(",")][::-1])
+                vertices.append(lonlat)
+
+            tile_poly = Polygon(vertices)
+            if tile_poly.contains(sensor_marker):
+                update_sensor_tile(conn, sensor_id, tile[tid])

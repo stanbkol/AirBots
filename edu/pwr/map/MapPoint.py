@@ -31,6 +31,10 @@ class MapPoint:
     def LonLatCoords(self):
         return (self.lon, self.lat)
 
+    @property
+    def latlon_str(self):
+        return str(self.lat) + "," + str(self.lon)
+
     def __str__(self):
         return self.name + '_' + '(' + str(self.lat) + ',' + str(self.lon) + ')'
 
