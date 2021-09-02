@@ -142,6 +142,7 @@ def populateDatabase(conn):
 
 def getSensorObjects(conn):
     data = getSensors(conn)
+    sList = []
     for s in data:
         sid, tid, ad1, ad2, adn, lat, long, elev = s
         sList.append(Sensor(sid, tid, ad1, ad2, adn, lat, long, elev))
