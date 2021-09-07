@@ -38,7 +38,7 @@ def base():
 def getSensorCoords():
     conn = createConnection()
     sensorsData = fetchValidSensors(conn)
-    print(sensorsData[0])
+    # print(sensorsData[0])
     sensorCoords = [(t[6], t[5]) for t in sensorsData]
     return sensorCoords
 
@@ -90,21 +90,26 @@ def create_layers():
     opole = 1
     genHexGrid()
     geo_tiles_from_db(opole)
+    genSensorLayer()
 
 
 def geo_tiles_from_db(mapId):
     conn = createConnection()
     tile_polys = fetchMapGridPolys(conn, mapId)
-
     tile_features = []
 
-    for poly_str in tile_polys:
-        print(poly_str)
-        # this should work
-        p = exec(poly_str)
-        f = Feature(geometry=p)
+    for vertices_tup in tile_polys:
+        lonlats = []
+        for v_strs in list(vertices_tup):
+            c_strings = v_strs.split(",")
+            lonlats.append((float(c_strings[1]), float(c_strings[0])))
+        lonlats.append(lonlats[0])
+        p = Polygon([lonlats])
+        f = Feature(geometry=Polygon(p))
         tile_features.append(f)
 
+
+    print("saving..")
     tile_collection = FeatureCollection(tile_features)
 
     # C:\\Users\\stanb\\PycharmProjects
@@ -117,7 +122,6 @@ def genHexGrid():
     hex = 6
     tile_d = 100
     tile_r = tile_d / 2
-    polys = []
     hex_h_coef = 3 / 2
     hex_w_coef = sqrt(3)
 
@@ -125,14 +129,8 @@ def genHexGrid():
     map_ne = (50.76997429, 18.03269049)
     map_se = (50.58761735, 18.03269049)
     map_sw = (50.58761735, 17.77959063)
-    opole_bounds = [map_nw, map_ne, map_se, map_sw, map_nw]
 
     # Long Lat order
-    opole_bounds = [(t[1], t[0]) for t in opole_bounds]
-
-    boxed_city = Polygon([opole_bounds])
-    map_polys = [boxed_city]
-
     width_m = calcDistance(map_nw, map_ne)
     height_m = calcDistance(map_nw, map_sw)
 
@@ -160,9 +158,6 @@ def genHexGrid():
             tile.set_PolyString(poly_str)
             tiles.append(tile)
 
-            # create Polygon and add it to list
-            # p = Polygon([vertices])
-            # polys.append(p)
 
     # indented tiles
     startLL = calcCoordinate(calcCoordinate(startLL, 3 / 4 * tile_d, 180), x_jump / 2, 90)
@@ -182,75 +177,11 @@ def genHexGrid():
             tile.set_PolyString(poly_str)
             tiles.append(tile)
 
-            # create Polygon and add it to list
-            # p = Polygon([vertices])
-            # polys.append(p)
-
-    # keys = [t.tileId for t in tiles]
-    # for i in range(len(keys)):
-    #     print(i, end=": ")
-    #     print(keys[i])
-
-    # tile_tups = [(int(tile.tileId), int(tile.mapId), tile.tileClass, tile.diameter,
-    #               tile.centerPt.latlon_str,
-    #               tile.coordinates[0].latlon_str, tile.coordinates[1].latlon_str, tile.coordinates[2].latlon_str,
-    #               tile.coordinates[3].latlon_str, tile.coordinates[4].latlon_str, tile.coordinates[5].latlon_str,
-    #               tile.min_elevation, tile.max_elevation,
-    #               tile.temperature, tile.pm10_avg, tile.pm1_avg, tile.pm25_avg, tile.poly_str)
-    #              for tile in tiles]
-
     print("inserting..")
     conn = createConnection()
 
-    # creating psql conn to insert tiles
-    # try:
-    #     conn = createConnection()
-    #     insert_sql = '''INSERT INTO dbo.Tiles (tileId,
-    #                                                     mapId,
-    #                                                     class,
-    #                                                     diameter,
-    #                                                     centerLatLon,
-    #                                                     vertex1,
-    #                                                     vertex2,
-    #                                                     vertex3,
-    #                                                     vertex4,
-    #                                                     vertex5,
-    #                                                     vertex6,
-    #                                                     min_elevation,
-    #                                                     max_elevation,
-    #                                                     temperature,
-    #                                                     pm10_avg,
-    #                                                     pm1_avg,
-    #                                                     pm25_avg,
-    #                                                     polygon
-    #                                                     ) values %s'''
-    #     with conn.cursor() as cur:
-    #         execute_values(cur, insert_sql, tile_tups, template=None, page_size=100)
-
     for tile in tiles:
         insertTile(conn, tile)
-
-    # except (Exception, psycopg2.Error) as error:
-    #     print("Error inserting data to PostgreSQL table", error)
-    #
-    # finally:
-    #     # closing database connection
-    #     if conn:
-    #         conn.close()
-    #         print("PostgreSQL connection is closed \n")
-
-    # now part of geo_tiles_from_db function
-    # tile_features = []
-    #
-    # for p in polys:
-    #     f = Feature(geometry=p)
-    #     tile_features.append(f)
-    #
-    # tile_collection = FeatureCollection(tile_features)
-    #
-    # # C:\\Users\\stanb\\PycharmProjects
-    # with open('..\\..\\AirBots\\geojsons\\tiles_layer.geojson', "w") as out:
-    #     geojson.dump(tile_collection, out)
 
 
 def getGeocoding(sensor):
@@ -295,15 +226,9 @@ def create_poly_string(longlat_list):
 
 
 if __name__ == "__main__":
-    # t1 = [(1,4),(3,5),(6,9)]
-    # t2 = [(3, 3), (5, 5), (9, 9)]
-    # vs = []
-    # vs.append(t1)
-    # vs.append(t2)
-    # print(vs)
-    genHexGrid()
-
+    geo_tiles_from_db(1)
+    # genSensorLayer()
     # create_layers()
-    # app.run(debug=True)
+    app.run(debug=True)
 
 

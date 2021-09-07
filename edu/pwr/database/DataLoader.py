@@ -137,14 +137,14 @@ def insertTile(conn, tile):
 def fetchValidSensors(conn):
     with conn.cursor() as cursor:
         fetch_sql = '''SELECT * FROM dbo.Sensors
-                        WHERE latitude!=-1 AND longitude!=-1;'''
+                        WHERE latitude != -1 AND longitude != -1;'''
         cursor.execute(fetch_sql)
         return cursor.fetchall()
 
 
 def fetchMapGridPolys(conn, mapId):
     with conn.cursor() as cursor:
-        fetch_sql = '''SELECT polygon FROM dbo.Tiles WHERE MapId = %s;'''
+        fetch_sql = '''SELECT vertex1, vertex2, vertex3, vertex4, vertex5, vertex6 FROM dbo.Tiles WHERE MapId = %s;'''
         cursor.execute(fetch_sql, (mapId,))
         return cursor.fetchall()
 

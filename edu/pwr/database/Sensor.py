@@ -27,6 +27,9 @@ class Sensor:
                 query = 'SELECT * FROM dbo.Measurements WHERE sensorID = %s AND date BETWEEN %s AND %s;'
                 data = [self.SID, start_interval, end_interval]
             cursor.execute(query, data)
+            cols = []
+            for elt in cursor.description:
+                cols.append(elt[0])
             data_list = cursor.fetchall()
 
             # sample code on how to unpack/package the row information from query
@@ -55,3 +58,5 @@ class Sensor:
             print(f'Percentage of Valid Entries={p}%')
             print("")
             conn.commit()
+
+            return cols, data_list
