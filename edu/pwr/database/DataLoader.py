@@ -162,6 +162,13 @@ def getSensors(conn):
         return cursor.fetchall()
 
 
+def getSensorsAll(conn):
+    with conn.cursor() as cursor:
+        query1 = 'SELECT * FROM dbo.Sensors;'
+        cursor.execute(query1)
+        return cursor.fetchall()
+
+
 def getTiles(conn):
     with conn.cursor() as cursor:
         fetch_sql = "SELECT * FROM dbo.Tiles;"

@@ -161,8 +161,9 @@ def updateSensorsTile(conn):
     sid = 0
     tid = 0
     # tiles 5-10 for vertices la,lo
-    sensors = getSensors(conn)
+    sensors = getSensorsAll(conn)
     tiles = getTiles(conn)
+    print("processing sensor tiles: ")
     for sensor in sensors:
         sensor_marker = Point(sensor[sensor_lon], sensor[sensor_lat])
         sensor_id = sensor[sid]
