@@ -1,7 +1,9 @@
 from datetime import datetime
-
+from edu.pwr.database.Sensor import Sensor
 import psycopg2
 import pyodbc
+
+from edu.pwr.map.MapPoint import MapPoint, calcDistance
 
 
 class Loader:
@@ -91,14 +93,16 @@ def insertMeasure(measure, conn):
     dk = int(rawDate.strftime('%Y%m%d%H'))
     with conn.cursor() as cursor:
         cursor.execute("INSERT INTO dbo.Measurements (dateKey, sensorID, date, pm1, pm25, pm10, temperature) "
-            "VALUES(%s, %s, %s, %s, %s, %s, %s)", (dk, measure.SID, measure.date, measure.pm1, measure.pm25, measure.pm10, measure.temp))
+            "VALUES(%s, %s, %s, %s, %s, %s, %s)", (dk, measure.sensorid, measure.date, measure.pm1, measure.pm25, measure.pm10, measure.temp))
         conn.commit()
 
 
 def insertSensor(conn, sensor):
     with conn.cursor() as cursor:
         cursor.execute("INSERT INTO dbo.Sensors (sensorID, tileId, address1, address2, addressNumber, latitude, longitude, elevation) "
-                       "VALUES(%s, %s, %s, %s, %s, %s, %s, %s)", (int(sensor.SID), sensor.tile, sensor.address_1, sensor.address_2, sensor.address_num,sensor.latitude, sensor.longitude, int(sensor.elevation)))
+                       "VALUES(%s, %s, %s, %s, %s, %s, %s, %s)",
+                       (int(sensor.sensorid), sensor.tileid, sensor.address1, sensor.address2, sensor.addressnumber,
+                        sensor.latitude, sensor.longitude, int(sensor.elevation)))
         conn.commit()
 
 
@@ -151,15 +155,9 @@ def fetchMapGridPolys(conn, mapId):
 
 def update_sensor_tile(conn, sensor_id, tile_id):
     with conn.cursor() as cursor:
-        sql = "UPDATE dbo.Sensors SET tileId = %s WHERE sensorID = %s"
+        sql = "UPDATE dbo.Sensors SET tileid = %s WHERE sensorid = %s"
         cursor.execute(sql, (tile_id, sensor_id))
         conn.commit()
-
-def getSensors(conn):
-    with conn.cursor() as cursor:
-        query1 = 'SELECT sensorID FROM dbo.Sensors;'
-        cursor.execute(query1)
-        return cursor.fetchall()
 
 
 def getSensorsAll(conn):
@@ -167,6 +165,35 @@ def getSensorsAll(conn):
         query1 = 'SELECT * FROM dbo.Sensors;'
         cursor.execute(query1)
         return cursor.fetchall()
+
+#TODO: add condition clause feature
+def getSensors(conn, *field_names, chunk_size=2000):
+    if '*' in field_names:
+        fields_format = '*'
+        field_names = [field.name for field in Sensor.get_db_fields(conn)]
+    else:
+        fields_format = ', '.join(field_names)
+
+
+    print(field_names)
+
+    query = f"SELECT {fields_format} FROM dbo.sensors"
+
+    with conn.cursor() as cursor:
+        cursor.execute(query)
+
+        sensor_objects = list()
+        fetching_completed = False
+        while not fetching_completed:
+            rows = cursor.fetchmany(size=chunk_size)
+            for row in rows:
+                row_data = dict(zip(field_names, row))
+                print(row_data)
+                sensor_objects.append(Sensor.sensor_set_fields(**row_data))
+
+            fetching_completed = len(rows) < chunk_size
+
+        return sensor_objects
 
 
 def getTiles(conn):
@@ -176,7 +203,51 @@ def getTiles(conn):
         return cursor.fetchall()
 
 
-def createConnection(user=None, pwrd=None, server=None):
+def getOtherSensors(conn, exclude_id, batch_size=2000):
+    field_names = [field.name for field in Sensor.get_db_fields(conn)]
+
+    with conn.cursor() as cursor:
+        sql = '''SELECT * from dbo.sensors WHERE sensorid != %s'''
+        cursor.execute(sql, (exclude_id,))
+
+        sensor_objects = list()
+        fetching_completed = False
+        while not fetching_completed:
+            rows = cursor.fetchmany(size=batch_size)
+            for row in rows:
+                row_data = dict(zip(field_names, row))
+                sensor_objects.append(Sensor.sensor_set_fields(**row_data))
+
+            fetching_completed = len(rows) < batch_size
+
+        return sensor_objects
+
+
+def findNearestSensors(conn, sensorid):
+    base_sensor = getSensor(conn, sensorid)
+
+    sensors = getOtherSensors(conn, sensorid)
+    distances = []
+    startLL = MapPoint(base_sensor.latitude, base_sensor.longitude)
+    for sensor in sensors:
+        meters_away = calcDistance(startLL, MapPoint(sensor.latitude, sensor.longitude))
+        distances.append((sensor, meters_away))
+
+    distances.sort(key=lambda x: x[1])
+
+    return distances
+
+
+def getSensor(conn, sid):
+    with conn.cursor() as cursor:
+        query = 'SELECT * FROM dbo.Sensors WHERE sensorID = %s;'
+        data = [sid]
+        cursor.execute(query, data)
+        sensor_info = cursor.fetchone()
+        return Sensor(sensor_info[0], sensor_info[1], sensor_info[2], sensor_info[3], sensor_info[4], sensor_info[5], sensor_info[6], sensor_info[7])
+
+
+def createConnection():
     conn = psycopg2.connect(
         host="pgsql13.asds.nazwa.pl",
         database="asds_PWR",

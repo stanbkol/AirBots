@@ -1,4 +1,4 @@
-from edu.pwr.map.MapPoint import MapPoint, calcCoordinate
+from edu.pwr.map.MapPoint import calcCoordinate, calcDistance
 import decimal
 
 
@@ -63,6 +63,10 @@ class TileBin:
         if len(vertex_list) == self.numSides:
             for i in self.numSides:
                 self.coordinates.append(vertex_list[i])
+
+    def metersTo(self, other):
+        if isinstance(other, TileBin):
+            return calcDistance(startLL=self.centerPt, endLL=other.centerPt)
 
 
 def drange(start, stop, jump):

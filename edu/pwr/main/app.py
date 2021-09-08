@@ -5,13 +5,6 @@ from edu.pwr.airbots.wma import *
 from IPython.display import display
 
 
-def getSensor(conn, sid):
-    with conn.cursor() as cursor:
-        query = 'SELECT * FROM dbo.Sensors WHERE sensorID = %s;'
-        data = [sid]
-        cursor.execute(query, data)
-        sensor_info = cursor.fetchone()
-        return Sensor(sensor_info[0], sensor_info[1], sensor_info[2], sensor_info[3], sensor_info[4], sensor_info[5], sensor_info[6], sensor_info[7])
 
 
 def getPM1(conn, sid, start_interval=None, end_interval=None):
@@ -32,8 +25,8 @@ def getPM1(conn, sid, start_interval=None, end_interval=None):
 def main():
     print("connecting to server")
     conn = createConnection()
-# #     dropTiles(conn)
-# #     createTilesTable(conn)
+#     dropTiles(conn)
+#     createTilesTable(conn)
 #     start = datetime(2020, 1, 1, 0)
 #     end = datetime(2020, 1, 8, 0)
 #     # my_sensor = getSensor(conn, 11563)
@@ -51,8 +44,13 @@ def main():
 #     plt.ylabel('Values')
 #     plt.legend()
 #     plt.show()
-    updateSensorsTile(conn)
+    nearest = findNearestSensors(conn, 11563)
+    for s in nearest:
+        print(str(s[0].sensorid) +"-->" + str(round(s[1],3)) + " meters")
 
+    # sensors = getSensors(conn, '*')
+    # for s in sensors:
+    #     print(str(s))
 
 
 if __name__ == '__main__':
