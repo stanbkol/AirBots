@@ -14,3 +14,12 @@ def parse_dms(dms):
     if len(parts) < 4:
         return -1
     return dms2dd(parts[0], parts[1], parts[2], parts[3])
+
+
+class Field:
+    def __init__(self, name, data_type):
+        self.name = name
+        self.data_type = data_type
+
+    def __repr__(self):
+        return f"<{self.__class__.__name__}: {self.name} ({self.data_type})>"
