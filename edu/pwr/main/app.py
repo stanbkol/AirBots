@@ -46,7 +46,7 @@ def main():
 #     plt.show()
     nearest = findNearestSensors(conn, 11563)
     for s in nearest:
-        print(str(s[0].sensorid) +"-->" + str(round(s[1],3)) + " meters")
+        print(str(s[0].sensorid) +"-->" + str(round(s[1]/1000,3)) + " Kilometers")
 
     # sensors = getSensors(conn, '*')
     # for s in sensors:
