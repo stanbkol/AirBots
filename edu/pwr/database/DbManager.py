@@ -1,12 +1,26 @@
 import psycopg2
 from sqlalchemy.orm import sessionmaker
 from edu.pwr.map.Sensor import Sensor
+from edu.pwr.map.Map import Map
+from edu.pwr.map.Measure import Measure
 
 
 def createSensors():
     eng = createEngine()
     sensor = Sensor()
     sensor.create(eng)
+
+
+def createMaps():
+    eng = createEngine()
+    new_map = Map()
+    new_map.create(eng)
+
+
+def createMeasures():
+    eng = createEngine()
+    measure = Measure()
+    measure.create(eng)
 
 
 def createSession(engine):
