@@ -5,8 +5,6 @@ from edu.pwr.airbots.wma import *
 from IPython.display import display
 
 
-
-
 def getPM1(conn, sid, start_interval=None, end_interval=None):
     with conn.cursor() as cursor:
         if not start_interval and not end_interval:
@@ -46,7 +44,7 @@ def main():
 #     plt.show()
     nearest = findNearestSensors(conn, 11563)
     for s in nearest:
-        print(str(s[0].sensorid) +"-->" + str(round(s[1],3)) + " meters")
+        print(str(s[0].sensorid) + "-->" + str(round(s[1],3)) + " meters")
 
     # sensors = getSensors(conn, '*')
     # for s in sensors:
