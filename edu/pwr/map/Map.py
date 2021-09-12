@@ -4,12 +4,12 @@ class Map:
     tileMesh = []
     aggregationOptions = []
 
-    def __init__(self, coord_NW, coord_NE, coord_SW, coord_SE, map_ID, name):
+    def __init__(self, map_ID, name, coord_NW, coord_NE, coord_SW, coord_SE, ):
+        self.map_ID = map_ID
         self.coord_NW = coord_NW
         self.coord_NE = coord_NE
         self.coord_SW = coord_SW
         self.coord_SE = coord_SE
-        self.map_ID = map_ID
         self.name = name
 
 
