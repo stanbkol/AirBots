@@ -63,7 +63,7 @@ class MapPoint:
 # degrees: 0 – North, 90 – East, 180 – South, 270 or -90 – West.
 def calcCoordinate(startLL, dist, degrees):
     coors = distance.distance(meters=dist).destination(startLL.LatLonCoords, bearing=degrees, distance=Distance(meters=dist))
-    return MapPoint(round(coors.latitude, 8), round(coors.longitude, 8))
+    return MapPoint(round(coors.lat, 8), round(coors.long, 8))
 
 
 def calcDistance(startLL, endLL):

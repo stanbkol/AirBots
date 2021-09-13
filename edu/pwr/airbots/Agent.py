@@ -31,4 +31,4 @@ class Agent:
         self.alg = algChoice(c)
 
     def makePrediction(self, sensor):
-        getData(sensor.sensorid, "derp", "lerp")
+        getData(sensor.sid, "derp", "lerp")
