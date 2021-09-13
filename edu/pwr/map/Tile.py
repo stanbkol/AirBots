@@ -1,19 +1,19 @@
+from sqlalchemy.orm import relationship
+
 from edu.pwr.map.MapPoint import calcCoordinate, calcDistance, MapPoint
 import decimal
 from sqlalchemy import create_engine, Column, String, Integer, Float, ForeignKey
-from sqlalchemy.ext.declarative import declarative_base
+from edu.pwr.database.DbManager import Base
 
 from edu.pwr.database.utils import drange
 
-base = declarative_base()
 
-
-class Tile(base):
+class Tile(Base):
     __tablename__ = 'tiles'
     __table_args__ = {"schema": "airbots"}
 
     tid = Column('tile_id', Integer, primary_key=True)
-    mid = Column('map_id', Integer, ForeignKey('maps.map_id'), nullable=False)
+    mid = Column('map_id', Integer, ForeignKey("airbots.maps.map_id"), nullable=False)
     sides = Column('num_sides', Integer)
     center = Column('center_latlon', String(50))
     v1 = Column('vertex1', String(50))
@@ -30,6 +30,8 @@ class Tile(base):
     pm10 = Column('pm10_avg', Float)
     pm1 = Column('pm1_avg', Float)
     pm25 = Column('pm25_avg', Float)
+
+    maps = relationship("Map", secondary="airbots.maps")
 
     def __init__(self, tileID=None, mapID=None, numSides=None, coordinates=None, diameter=None, centerPoint=None,
                  tileClass=None, max_elevation=None, min_elevation=None, temperature=None,

@@ -1,34 +1,11 @@
 import psycopg2
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, declarative_base
 from sqlalchemy.schema import CreateSchema
-from edu.pwr.map.Sensor import Sensor
-from edu.pwr.map.Map import Map
-from edu.pwr.map.Measure import Measure
-from sqlalchemy.ext.declarative import declarative_base
-
-
-
-# def createSensors():
-#     eng = createEngine()
-#     sensor = Sensor()
-#     sensor.create(eng)
-
-
-def createMaps():
-    eng = createEngine()
-    new_map = Map()
-    new_map.create(eng)
-
-
-def createMeasures():
-    eng = createEngine()
-    measure = Measure()
-    measure.create(eng)
 
 
 def createSession(engine):
-    Session = sessionmaker(engine)
+    Session = sessionmaker(bind=engine)
     return Session()
 
 
@@ -47,9 +24,12 @@ def createAirbots(eng):
     eng.execute(CreateSchema('airbots'))
 
 
-def createSensors(eng):
-    Base = declarative_base()
-    table_objects = [Sensor.__table__]
-    Base.metadata.create_all(eng, tables=table_objects)
+# def createAllTables(eng):
+#     table_objects = [Map.__table__, Tile.__table__, Sensor.__table__, Measure.__table__]
+#     Base.metadata.create_all(eng, tables=table_objects)
 
+
+engine = createEngine()
+Session = createSession(engine)
+Base = declarative_base(bind=engine)
 

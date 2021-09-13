@@ -1,22 +1,25 @@
-from sqlalchemy import create_engine, Column, String, Integer, Float, ForeignKey
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import Column, String, Integer, Float, ForeignKey
+from sqlalchemy.orm import relationship
+from edu.pwr.database.DbManager import Base
+
+
 from edu.pwr.map.MapPoint import calcDistance, MapPoint
 
-base = declarative_base()
 
-
-class Sensor(base):
+class Sensor(Base):
     __tablename__ = 'sensors'
     __table_args__ = {"schema": "airbots"}
 
     sid = Column('sensor_id', Integer, primary_key=True)
-    tid = Column('tile_id', Integer, nullable=False)
+    tid = Column('tile_id', Integer, ForeignKey('airbots.tiles.tile_id'), nullable=False)
     adr1 = Column('address1', String(50))
     adr2 = Column('address2', String(50))
     adrn = Column('address_num', String(5))
     lat = Column('latitude', Float)
     lon = Column('longitude', Float)
     elv = Column('elevation', Integer)
+
+    tiles = relationship("Tile", secondary="airbots.tiles")
 
     def __init__(self, sensorid=None, tid=None, address1=None, address2=None, address_num=None, latitude=None,
                  longitude=None, elevation=None):

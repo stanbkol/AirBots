@@ -1,7 +1,5 @@
 from sqlalchemy import create_engine, Column, String, Integer, Float, ForeignKey
-from sqlalchemy.ext.declarative import declarative_base
-
-Base = declarative_base()
+from edu.pwr.database.DbManager import Base
 
 
 class Map(Base):

@@ -3,7 +3,11 @@ import psycopg2
 import matplotlib.pyplot as plt
 from edu.pwr.airbots.wma import *
 from IPython.display import display
-from edu.pwr.database.DbManager import *
+from edu.pwr.database.DbManager import engine, Base, Session
+from edu.pwr.map.Map import Map
+from edu.pwr.map.Sensor import Sensor
+from edu.pwr.map.Measure import Measure
+from edu.pwr.map.Tile import Tile
 
 
 def getPM1(conn, sid, start_interval=None, end_interval=None):
@@ -42,11 +46,11 @@ def main():
 
     # db_str = "postgresql://asds_PWR:W#4bvgBxDi$v6zB@pgsql13.asds.nazwa.pl/asds_PWR"
     # eng = createEngine(db_string)
-    eng = createEngine()
-    createAirbots(eng)
-    print(eng)
+
+    # createAirbots(eng)
+    # print(eng)
     print("creating sensors..")
-    createSensors(eng)
+    Base.metadata.create_all(engine)
 
 
 if __name__ == '__main__':
