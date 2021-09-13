@@ -7,15 +7,16 @@ from edu.pwr.map.MapPoint import calcDistance, MapPoint
 class Sensor:
     table_name = "sensors"
 
-    def __init__(self, s_id=None, tid=None, ad1=None, ad2=None, adn=None, lat=None, long=None, elev=None):
-        self.sensorid = s_id
-        self.tileid = tid
-        self.address1 = ad1
-        self.address2 = ad2
-        self.addressnumber = adn
-        self.longitude = long
-        self.latitude = lat
-        self.elevation = elev
+    def __init__(self, sensor_id=None, tile_id=None, address1=None, address2=None, address_num=None, latitude=None,
+                 longitude=None, elevation=None):
+        self.sid = sensor_id
+        self.tid = tile_id
+        self.adr1 = address1
+        self.adr2 = address2
+        self.adrn = address_num
+        self.lat = latitude
+        self.long = longitude
+        self.elv = elevation
         self.agent = None
         self.state = True
 
@@ -29,14 +30,14 @@ class Sensor:
         self.state = s
 
     def __str__(self):
-        return "SID=" + str(self.sensorid) + " Address Line 1:" + str(self.address1) + " Address Line 2:" + str(self.address2) + \
-               "Address Number:" + str(self.addressnumber) + " lat: " + str(self.latitude) + " lon: " + \
-               str(self.longitude) + " elevation: " + str(self.elevation)
+        return "SID=" + str(self.sid) + " Address Line 1:" + str(self.adr1) + " Address Line 2:" + str(self.adr2) + \
+               "Address Number:" + str(self.adrn) + " lat: " + str(self.lat) + " lon: " + \
+               str(self.long) + " elevation: " + str(self.elv)
 
     def metersTo(self, other):
         if isinstance(other, Sensor):
-            return calcDistance(startLL=MapPoint(self.latitude, self.longitude),
-                                endLL=MapPoint(other.latitude, other.longitude))
+            return calcDistance(startLL=MapPoint(self.lat, self.long),
+                                endLL=MapPoint(other.lat, other.long))
 
     @classmethod
     def get_db_fields(cls, conn):
@@ -50,10 +51,10 @@ class Sensor:
         with conn.cursor() as cursor:
             if not start_interval and not end_interval:
                 query = 'SELECT * FROM dbo.Measurements WHERE sensorID = %s;'
-                data = [self.sensorid]
+                data = [self.sid]
             else:
                 query = 'SELECT * FROM dbo.Measurements WHERE sensorID = %s AND date BETWEEN %s AND %s;'
-                data = [self.sensorid, start_interval, end_interval]
+                data = [self.sid, start_interval, end_interval]
             cursor.execute(query, data)
             cols = []
             for elt in cursor.description:
@@ -79,7 +80,7 @@ class Sensor:
             # plt.legend()
             # plt.show()
 
-            print("Data for Sensor:", self.sensorid)
+            print("Data for Sensor:", self.sid)
             print("Valid Entries=", len(data_list))
             print("Total Entries=", self.convertInterval(start_interval, end_interval))
             p = round((len(data_list) / self.convertInterval(start_interval, end_interval)) * 100, 2)
