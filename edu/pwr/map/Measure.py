@@ -7,7 +7,7 @@ class Measure(Base):
     __tablename__ = 'measures'
     __table_args__ = {"schema": "airbots"}
 
-    datekey = Column('date_key', Integer, primary_key=True)
+    dk = Column('date_key', Integer, primary_key=True)
     sid = Column('sensor_id', Integer, ForeignKey("airbots.sensors.sensor_id"), primary_key=True)
     date = Column('date', DateTime)
     temp = Column('temperature', Float)
@@ -17,10 +17,9 @@ class Measure(Base):
 
     sensors = relationship("Sensor", secondary="airbots.sensors")
 
-
-    def __init__(self, date_key, s_id, date, pm1, pm25, pm10, temperature):
-        self.datekey = date_key
-        self.sid = s_id
+    def __init__(self, date_key=None, sensor_id=None, date=None, pm1=None, pm25=None, pm10=None, temperature=None):
+        self.dk = date_key
+        self.sid = sensor_id
         self.date = date
         self.temp = temperature
         self.pm1 = pm1
