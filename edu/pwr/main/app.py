@@ -1,4 +1,5 @@
 from edu.pwr.database.DataProcessing import *
+from edu.pwr.database.DbManager import insertSensors, insertMeasures
 import psycopg2
 import matplotlib.pyplot as plt
 from edu.pwr.airbots.wma import *
@@ -41,16 +42,28 @@ def show_wma():
     plt.show()
 
 
+def populateTables():
+    conn = createConnection()
+    s_list = getSensors(conn, '*')
+    print("sensor data fetched")
+    m_list = getMeasures(conn, '*')
+    print("measurement data fetched")
+    conn.close()
+    insertSensors(s_list)
+    insertMeasures(m_list)
+
+
 def main():
-    print("connecting to server")
+    populateTables()
+
 
     # db_str = "postgresql://asds_PWR:W#4bvgBxDi$v6zB@pgsql13.asds.nazwa.pl/asds_PWR"
     # eng = createEngine(db_string)
 
     # createAirbots(eng)
     # print(eng)
-    print("creating sensors..")
-    Base.metadata.create_all(engine)
+    # print("creating tables..")
+    #Base.metadata.create_all(engine)
 
 
 if __name__ == '__main__':
