@@ -4,7 +4,7 @@ from sqlalchemy.ext.declarative import declarative_base
 base = declarative_base()
 
 
-class Measure:
+class Measure(base):
     __tablename__ = 'measures'
     __table_args__ = {"schema": "airbots"}
 
