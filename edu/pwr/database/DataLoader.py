@@ -19,7 +19,7 @@ def createSchema(name, conn):
 def dropTables(conn):
     with conn.cursor() as cursor:
         cursor.execute('''DROP TABLE dbo.Sensors;''')
-        cursor.execute('''DROP TABLE dbo.Measurements ;''')
+        cursor.execute('''DROP TABLE dbo.Measurements;''')
         #cursor.execute('''DROP TABLE dbo.Tiles ;''')
         conn.commit()
 

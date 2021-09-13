@@ -1,10 +1,10 @@
 from sqlalchemy import create_engine, Column, String, Integer, Float, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 
-base = declarative_base()
+Base = declarative_base()
 
 
-class Map:
+class Map(Base):
     __tablename__ = 'maps'
     __table_args__ = {"schema": "airbots"}
 
@@ -14,18 +14,19 @@ class Map:
 
     map_ID = Column('map_id', Integer,  primary_key=True)
     name = Column('name', String(20))
-    coord_NW = Column('C_NW', Float)
-    coord_NE = Column('C_NE', Float)
-    coord_SW = Column('C_SW', Float)
-    coord_SE = Column('C_SE', Float)
+    coord_NW = Column('Coordinates_NW', Float)
+    coord_NE = Column('Coordinates_NE', Float)
+    coord_SW = Column('Coordinates_SW', Float)
+    coord_SE = Column('Coordinates_SE', Float)
 
-    def __init__(self, coord_NW, coord_NE, coord_SW, coord_SE, map_ID, name):
+    def __init__(self, map_ID, name, coord_NW, coord_NE, coord_SW, coord_SE, ):
+        self.map_ID = map_ID
+        self.name = name
         self.coord_NW = coord_NW
         self.coord_NE = coord_NE
         self.coord_SW = coord_SW
         self.coord_SE = coord_SE
-        self.map_ID = map_ID
-        self.name = name
+        
 
 
 # method for generating tile mesh

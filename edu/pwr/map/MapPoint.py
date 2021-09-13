@@ -35,6 +35,11 @@ class MapPoint:
     def latlon_str(self):
         return str(self.lat) + "," + str(self.lon)
 
+    @classmethod
+    def createFromStr(cls, latlon_str):
+        c_strings = latlon_str.split(",")
+        return MapPoint(latitude=float(c_strings[0]), longitude=float(c_strings[1]))
+
     def __str__(self):
         return self.name + '_' + '(' + str(self.lat) + ',' + str(self.lon) + ')'
 

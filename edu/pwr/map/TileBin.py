@@ -1,5 +1,6 @@
 from edu.pwr.map.MapPoint import calcCoordinate, calcDistance
 import decimal
+from edu.pwr.database.utils import drange
 
 
 class TileBin:
@@ -67,12 +68,6 @@ class TileBin:
     def metersTo(self, other):
         if isinstance(other, TileBin):
             return calcDistance(startLL=self.centerPt, endLL=other.centerPt)
-
-
-def drange(start, stop, jump):
-    while start < stop:
-        yield float(start)
-        start += decimal.Decimal(jump)
 
 
 if __name__ == '__main__':

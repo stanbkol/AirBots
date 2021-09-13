@@ -1,7 +1,5 @@
 from sqlalchemy import create_engine, Column, String, Integer, Float, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
-from edu.pwr.database.DbManager import createEngine
 from edu.pwr.map.MapPoint import calcDistance, MapPoint
 
 base = declarative_base()
@@ -12,7 +10,7 @@ class Sensor(base):
     __table_args__ = {"schema": "airbots"}
 
     sid = Column('sensor_id', Integer, primary_key=True)
-    tid = Column('tile_id', Integer, ForeignKey("tile.tile_id"), nullable=False)
+    tid = Column('tile_id', Integer, nullable=False)
     adr1 = Column('address1', String(50))
     adr2 = Column('address2', String(50))
     adrn = Column('address_num', String(5))
