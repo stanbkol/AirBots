@@ -2,7 +2,7 @@ import psycopg2
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 from sqlalchemy.schema import CreateSchema
-
+from edu.pwr.database.DataLoader import getSensors, getTiles, createConnection
 
 def createSession(engine):
     Session = sessionmaker(bind=engine)
@@ -32,4 +32,19 @@ def createAirbots(eng):
 engine = createEngine()
 Session = createSession(engine)
 Base = declarative_base(bind=engine)
+
+
+def insertTiles(tilebins):
+    from edu.pwr.map.Tile import Tile
+
+    with Session as session:
+        for tb in tilebins:
+            tile = Tile(tileID=tb.tileid, mapID=tb.mapid, numSides=tb.numSides, coordinates=tb.coordinates,
+                        diameter=tb.diameter, center=tb.centerlatlon, tileClass=tb.tclass, max_elevation=tb.max_elevation,
+                        min_elevation=tb.min_elevation, temperature=tb.temperature,
+                        pm10_avg=tb.pm10_avg, pm1_avg=tb.pm1_avg, pm25_avg=tb.pm25_avg)
+            print(repr(tile))
+            session.add(tile)
+            session.commit()
+
 

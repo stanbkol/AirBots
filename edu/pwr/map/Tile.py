@@ -33,7 +33,7 @@ class Tile(Base):
 
     maps = relationship("Map", secondary="airbots.maps")
 
-    def __init__(self, tileID=None, mapID=None, numSides=None, coordinates=None, diameter=None, centerPoint=None,
+    def __init__(self, tileID=None, mapID=None, numSides=None, coordinates=None, diameter=None, center=None,
                  tileClass=None, max_elevation=None, min_elevation=None, temperature=None,
                  pm10_avg=None, pm1_avg=None, pm25_avg=None):
         self.tid = tileID
@@ -46,7 +46,7 @@ class Tile(Base):
         self.v5 = coordinates[4].latlon_str
         self.v6 = coordinates[5].latlon_str
         self.dm = diameter
-        self.center = centerPoint
+        self.center = center
         self.tclass = tileClass
         self.max_elev = max_elevation
         self.min_elev = min_elevation
@@ -56,7 +56,7 @@ class Tile(Base):
         self.pm25 = pm25_avg
 
     def __repr__(self):
-        return "<Sensor(tileid='%s',mapid='%s', center='%s', type='%s')>" % (self.tid, self.mid, self.center,
+        return "<Tile(tileid='%s',mapid='%s', center='%s', type='%s')>" % (self.tid, self.mid, self.center,
                                                                              self.tclass)
 
     def generate_vertices_coordinates(self):

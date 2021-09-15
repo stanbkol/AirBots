@@ -155,6 +155,21 @@ def dataSummary(conn, start, end):
         sensor.getMeasurements(conn, start, end)
 
 
+def up_sensors_tileid(conn):
+    sensors = getSensors(conn, '*')
+    tiles = getTiles(conn, '*')
+    for sensor in sensors:
+        sensor_marker = Point(sensor.longitude, sensor.latitude)
+        sid = sensor.sensorid
+        for tile in tiles:
+            vertices = [(mp.longitude, mp.latitude) for mp in tile.coordinates]
+            tile_poly = Polygon(vertices)
+
+            if tile_poly.contains(sensor_marker):
+                update_sensor_tile(conn, sid, tile.tileid)
+
+
+
 def updateSensorsTile(conn):
     sensor_lon = 6
     sensor_lat = 5
