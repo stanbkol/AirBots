@@ -4,7 +4,7 @@ import psycopg2
 import matplotlib.pyplot as plt
 from edu.pwr.airbots.wma import *
 from IPython.display import display
-from edu.pwr.database.DbManager import engine, Base, Session
+from edu.pwr.database.DbManager import engine, Base, Session, insertTiles
 from edu.pwr.map.Map import Map
 from edu.pwr.map.Sensor import Sensor
 from edu.pwr.map.Measure import Measure
@@ -55,15 +55,14 @@ def populateTables():
 
 def main():
     populateTables()
-
-
-    # db_str = "postgresql://asds_PWR:W#4bvgBxDi$v6zB@pgsql13.asds.nazwa.pl/asds_PWR"
-    # eng = createEngine(db_string)
+    
+    tiles = getTiles(conn, '*')
+    insertTiles(tiles)
 
     # createAirbots(eng)
     # print(eng)
     # print("creating tables..")
-    #Base.metadata.create_all(engine)
+    # Base.metadata.create_all(engine)
 
 
 if __name__ == '__main__':
