@@ -62,10 +62,10 @@ def populateTables():
 
 
 def main():
-    # populateTables()
     # createAirbots(eng)
     # print(eng)
     print("creating tables..")
+    # Base.metadata.clear()
     Base.metadata.create_all(engine)
     populateTables()
 

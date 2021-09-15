@@ -7,8 +7,8 @@ class Measure(Base):
     __tablename__ = 'measures'
     __table_args__ = {"schema": "airbots"}
 
-    dk = Column('date_key', Integer, primary_key=True)
-    sid = Column('sensor_id', Integer, ForeignKey("airbots.sensors.sensor_id"), primary_key=True)
+    dk = Column('datekey', Integer, primary_key=True)
+    sid = Column('sensorid', Integer, ForeignKey("airbots.sensors.sensor_id"), primary_key=True)
     date = Column('date', DateTime)
     temp = Column('temperature', Float)
     pm1 = Column('pm1', Float)

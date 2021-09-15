@@ -96,7 +96,7 @@ def insertMeasure(measure, conn):
     dk = int(rawDate.strftime('%Y%m%d%H'))
     with conn.cursor() as cursor:
         cursor.execute("INSERT INTO dbo.Measurements (dateKey, sensorID, date, pm1, pm25, pm10, temperature) "
-            "VALUES(%s, %s, %s, %s, %s, %s, %s)", (dk, measure.sid, measure.date, measure.pm1, measure.pm25, measure.pm10, measure.temp))
+            "VALUES(%s, %s, %s, %s, %s, %s, %s)", (dk, measure.sensorid, measure.date, measure.pm1, measure.pm25, measure.pm10, measure.temperature))
         conn.commit()
 
 
@@ -104,7 +104,7 @@ def insertSensor(conn, sensor):
     with conn.cursor() as cursor:
         cursor.execute("INSERT INTO dbo.Sensors (sensorID, tileId, address1, address2, addressNumber, latitude, longitude, elevation) "
                        "VALUES(%s, %s, %s, %s, %s, %s, %s, %s)",
-                       (int(sensor.sid), sensor.tid, sensor.adr1, sensor.adr2, sensor.adrn,
+                       (int(sensor.sensorid), sensor.tid, sensor.adr1, sensor.adr2, sensor.adrn,
                         sensor.lat, sensor.long, int(sensor.elv)))
         conn.commit()
 

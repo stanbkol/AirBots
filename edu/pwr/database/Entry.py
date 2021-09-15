@@ -5,16 +5,20 @@ class Entry:
     table_name = "measurements"
 
     def __init__(self, date_key=None, sensor_id=None, date=None, pm1=None, pm25=None, pm10=None, temperature=None):
+        self.datekey = date_key
+        self.sensorid = sensor_id
         self.date = date
-        self.dk = date_key
-        self.sid = sensor_id
-        self.temp = temperature
+        self.temperature = temperature
         self.pm1 = pm1
         self.pm10 = pm10
         self.pm25 = pm25
 
     def __str__(self):
-        return "D="+self.date+" SID="+self.SID + " Temp="+self.temp + " Pm25="+self.pm25 + " Pm1="+self.pm1 + " Pm10="+self.pm10
+        return "Measure: date=" + self.date +" SID=" + self.sensorid + " Temp=" + self.temperature + " Pm25=" + self.pm25 + " Pm1=" + self.pm1 + " Pm10=" + self.pm10
+
+    def __repr__(self):
+        return "<Measure(datekey='%s',date='%s', sensorid='%s', temp='%s', pm25='%s', pm10='%s', pm1='%s')>" % (
+            self.datekey, self.date, self.sensorid, self.temperature, self.pm25, self.pm10, self.pm1)
 
     @classmethod
     def get_db_fields(cls, conn):

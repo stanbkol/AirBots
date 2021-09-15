@@ -39,7 +39,7 @@ def insertSensors(sensors):
 
     with Session as session:
         for s in sensors:
-            sensor = Sensor(sensor_id=s.sid, tile_id=s.tid, address1=s.adr1, address2=s.adr2, address_num=s.adrn,
+            sensor = Sensor(sensor_id=s.sensorid, tile_id=s.tid, address1=s.adr1, address2=s.adr2, address_num=s.adrn,
                             latitude=s.lat,
                             longitude=s.long, elevation=s.elv)
             session.add(sensor)
@@ -52,8 +52,8 @@ def insertMeasures(measures):
 
     with Session as session:
         for m in measures:
-            measure = Measure(date_key=m.dk, sensor_id=m.sid, date=m.date, pm1=m.pm1, pm25=m.pm25, pm10=m.pm10,
-                              temperature=m.temp)
+            measure = Measure(date_key=m.datekey, sensor_id=m.sensorid, date=m.date, pm1=m.pm1, pm25=m.pm25, pm10=m.pm10,
+                              temperature=m.temperature)
             session.add(measure)
             session.commit()
     print("Measurement Inserts Complete")
