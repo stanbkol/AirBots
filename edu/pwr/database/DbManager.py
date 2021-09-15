@@ -72,3 +72,14 @@ def insertTiles(tilebins):
             session.add(tile)
             session.commit()
 
+
+def addOpoleMap():
+    with Session as sesh:
+        from edu.pwr.map.Map import Map
+
+        opole = Map(map_ID=1, name="Opole", coord_NW="50.76997429,17.77959063", coord_NE="50.76997429,18.03269049",
+                    coord_SE="50.58761735,18.03269049", coord_SW="50.58761735,17.77959063")
+
+        sesh.add(opole)
+        sesh.commit()
+

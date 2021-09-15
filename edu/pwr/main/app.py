@@ -1,5 +1,5 @@
 from edu.pwr.database.DataProcessing import *
-from edu.pwr.database.DbManager import insertSensors, insertMeasures
+from edu.pwr.database.DbManager import insertSensors, insertMeasures, addOpoleMap
 import psycopg2
 import matplotlib.pyplot as plt
 from edu.pwr.airbots.wma import *
@@ -48,21 +48,20 @@ def populateTables():
     print("sensor data fetched")
     m_list = getMeasures(conn, '*')
     print("measurement data fetched")
+    tiles = getTiles(conn, '*')
     conn.close()
     insertSensors(s_list)
     insertMeasures(m_list)
+    insertTiles(tiles)
 
 
 def main():
-    populateTables()
-    
-    tiles = getTiles(conn, '*')
-    insertTiles(tiles)
-
+    # populateTables()
     # createAirbots(eng)
     # print(eng)
     # print("creating tables..")
-    # Base.metadata.create_all(engine)
+    Base.metadata.create_all(engine)
+    addOpoleMap()
 
 
 if __name__ == '__main__':

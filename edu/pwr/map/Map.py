@@ -12,10 +12,10 @@ class Map(Base):
 
     map_ID = Column('map_id', Integer,  primary_key=True)
     name = Column('name', String(20))
-    coord_NW = Column('Coordinates_NW', Float)
-    coord_NE = Column('Coordinates_NE', Float)
-    coord_SW = Column('Coordinates_SW', Float)
-    coord_SE = Column('Coordinates_SE', Float)
+    coord_NW = Column('Coordinates_NW', String(50))
+    coord_NE = Column('Coordinates_NE', String(50))
+    coord_SW = Column('Coordinates_SW', String(50))
+    coord_SE = Column('Coordinates_SE', String(50))
 
     def __init__(self, map_ID, name, coord_NW, coord_NE, coord_SW, coord_SE, ):
         self.map_ID = map_ID
