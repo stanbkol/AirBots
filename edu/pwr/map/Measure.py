@@ -15,7 +15,7 @@ class Measure(Base):
     pm10 = Column('pm10', Float)
     pm25 = Column('pm25', Float)
 
-    sensors = relationship("Sensor", secondary="airbots.sensors")
+    # sensors = relationship("Sensor")
 
     def __init__(self, date_key=None, sensor_id=None, date=None, pm1=None, pm25=None, pm10=None, temperature=None):
         self.dk = date_key

@@ -226,8 +226,6 @@ def getTiles(conn, *field_names, chunk_size=2000):
     else:
         fields_format = ', '.join(field_names)
 
-    print(field_names)
-
     query = f"SELECT {fields_format} FROM dbo.tiles"
 
     with conn.cursor() as cursor:

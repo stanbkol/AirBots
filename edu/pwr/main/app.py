@@ -49,19 +49,25 @@ def populateTables():
     m_list = getMeasures(conn, '*')
     print("measurement data fetched")
     tiles = getTiles(conn, '*')
+    print("tilebin data fetched")
     conn.close()
-    insertSensors(s_list)
-    insertMeasures(m_list)
+    print("inserting maps..")
+    addOpoleMap()
+    print("inserting tiles..")
     insertTiles(tiles)
+    print("inserting sensors..")
+    insertSensors(s_list)
+    print("inserting measures..")
+    insertMeasures(m_list)
 
 
 def main():
     # populateTables()
     # createAirbots(eng)
     # print(eng)
-    # print("creating tables..")
+    print("creating tables..")
     Base.metadata.create_all(engine)
-    addOpoleMap()
+    populateTables()
 
 
 if __name__ == '__main__':

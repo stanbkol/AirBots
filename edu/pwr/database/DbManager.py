@@ -68,7 +68,6 @@ def insertTiles(tilebins):
                         diameter=tb.diameter, center=tb.centerlatlon, tileClass=tb.tclass, max_elevation=tb.max_elevation,
                         min_elevation=tb.min_elevation, temperature=tb.temperature,
                         pm10_avg=tb.pm10_avg, pm1_avg=tb.pm1_avg, pm25_avg=tb.pm25_avg)
-            print(repr(tile))
             session.add(tile)
             session.commit()
 

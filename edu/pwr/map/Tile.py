@@ -30,8 +30,9 @@ class Tile(Base):
     pm10 = Column('pm10_avg', Float)
     pm1 = Column('pm1_avg', Float)
     pm25 = Column('pm25_avg', Float)
+    sensors = relationship('Sensor', backref='Tile', lazy='dynamic')
 
-    maps = relationship("Map", secondary="airbots.maps")
+    # maps = relationship("Map")
 
     def __init__(self, tileID=None, mapID=None, numSides=None, coordinates=None, diameter=None, center=None,
                  tileClass=None, max_elevation=None, min_elevation=None, temperature=None,

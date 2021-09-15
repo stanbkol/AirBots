@@ -31,7 +31,7 @@ class TileBin:
         self.poly_str = polyString
 
     def __repr__(self):
-        return "<Tile(tileid='%s',mapid='%s', center='%s', sides='%s', type='%s')>" % (self.tileid, self.mapid, self.centerlatlon, self.numSides,
+        return "<TileBin(tileid='%s',mapid='%s', center='%s', sides='%s', type='%s')>" % (self.tileid, self.mapid, self.centerlatlon, self.numSides,
                                                                            self.tclass)
 
     @classmethod

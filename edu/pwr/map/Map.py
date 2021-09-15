@@ -1,4 +1,6 @@
 from sqlalchemy import create_engine, Column, String, Integer, Float, ForeignKey
+from sqlalchemy.orm import relationship
+
 from edu.pwr.database.DbManager import Base
 
 
@@ -16,6 +18,7 @@ class Map(Base):
     coord_NE = Column('Coordinates_NE', String(50))
     coord_SW = Column('Coordinates_SW', String(50))
     coord_SE = Column('Coordinates_SE', String(50))
+    tiles = relationship('Tile', backref='Map', lazy='dynamic')
 
     def __init__(self, map_ID, name, coord_NW, coord_NE, coord_SW, coord_SE, ):
         self.map_ID = map_ID

@@ -11,15 +11,15 @@ class Sensor(Base):
     __table_args__ = {"schema": "airbots"}
 
     sid = Column('sensor_id', Integer, primary_key=True)
-    tid = Column('tile_id', Integer, ForeignKey('airbots.tiles.tile_id'), nullable=False)
+    tid = Column('tile_id', Integer, ForeignKey('airbots.tiles.tile_id'), nullable=True)
     adr1 = Column('address1', String(50))
     adr2 = Column('address2', String(50))
     adrn = Column('address_num', String(5))
     lat = Column('latitude', Float)
     lon = Column('longitude', Float)
     elv = Column('elevation', Integer)
-
-    tiles = relationship("Tile", secondary="airbots.tiles")
+    measures = relationship('Measure', backref='Sensor', lazy='dynamic')
+    # tiles = relationship("Tile")
 
     def __init__(self, sensor_id=None, tile_id=None, address1=None, address2=None, address_num=None, latitude=None,
                  longitude=None, elevation=None):
