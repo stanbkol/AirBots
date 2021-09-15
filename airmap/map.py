@@ -186,7 +186,7 @@ def genHexGrid():
 
 
 def getGeocoding(sensor):
-    address = sensor.address1 + ' Opole, Poland'
+    address = sensor.adr1 + ' Opole, Poland'
     AUTH_KEY = 'AIzaSyDpiyrbHH1OE5f0YKvEh2xvTrhcPBUzuCI'
     base_url = 'https://maps.googleapis.com/maps/api/geocode/json?'
     params = {'address': address,
@@ -200,7 +200,7 @@ def getGeocoding(sensor):
 def extract_lat_lng(sensor, data_type='json'):
     api_key = 'AIzaSyDpiyrbHH1OE5f0YKvEh2xvTrhcPBUzuCI'
 
-    loc_query = sensor.address1 + ', Opole, Poland'
+    loc_query = sensor.adr1 + ', Opole, Poland'
 
     endpoint = f"https://maps.googleapis.com/maps/api/geocode/{data_type}"
     params = {"address": loc_query, "key": api_key}

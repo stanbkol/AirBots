@@ -21,10 +21,10 @@ class Sensor(Base):
 
     tiles = relationship("Tile", secondary="airbots.tiles")
 
-    def __init__(self, sensorid=None, tid=None, address1=None, address2=None, address_num=None, latitude=None,
+    def __init__(self, sensor_id=None, tile_id=None, address1=None, address2=None, address_num=None, latitude=None,
                  longitude=None, elevation=None):
-        self.sid = sensorid
-        self.tid = tid
+        self.sid = sensor_id
+        self.tid = tile_id
         self.adr1 = address1
         self.adr2 = address2
         self.adrn = address_num

@@ -34,6 +34,31 @@ Session = createSession(engine)
 Base = declarative_base(bind=engine)
 
 
+def insertSensors(sensors):
+    from edu.pwr.map.Sensor import Sensor
+
+    with Session as session:
+        for s in sensors:
+            sensor = Sensor(sensor_id=s.sid, tile_id=s.tid, address1=s.adr1, address2=s.adr2, address_num=s.adrn,
+                            latitude=s.lat,
+                            longitude=s.long, elevation=s.elv)
+            session.add(sensor)
+            session.commit()
+    print("Sensor Inserts Complete")
+
+
+def insertMeasures(measures):
+    from edu.pwr.map.Measure import Measure
+
+    with Session as session:
+        for m in measures:
+            measure = Measure(date_key=m.dk, sensor_id=m.sid, date=m.date, pm1=m.pm1, pm25=m.pm25, pm10=m.pm10,
+                              temperature=m.temp)
+            session.add(measure)
+            session.commit()
+    print("Measurement Inserts Complete")
+
+
 def insertTiles(tilebins):
     from edu.pwr.map.Tile import Tile
 
@@ -46,5 +71,4 @@ def insertTiles(tilebins):
             print(repr(tile))
             session.add(tile)
             session.commit()
-
 

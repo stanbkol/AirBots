@@ -1,4 +1,6 @@
 from datetime import datetime
+
+from edu.pwr.database.Entry import Entry
 from edu.pwr.database.Sensor import Sensor
 import psycopg2
 import pyodbc
@@ -94,7 +96,7 @@ def insertMeasure(measure, conn):
     dk = int(rawDate.strftime('%Y%m%d%H'))
     with conn.cursor() as cursor:
         cursor.execute("INSERT INTO dbo.Measurements (dateKey, sensorID, date, pm1, pm25, pm10, temperature) "
-            "VALUES(%s, %s, %s, %s, %s, %s, %s)", (dk, measure.sensorid, measure.date, measure.pm1, measure.pm25, measure.pm10, measure.temp))
+            "VALUES(%s, %s, %s, %s, %s, %s, %s)", (dk, measure.sid, measure.date, measure.pm1, measure.pm25, measure.pm10, measure.temp))
         conn.commit()
 
 
@@ -102,8 +104,8 @@ def insertSensor(conn, sensor):
     with conn.cursor() as cursor:
         cursor.execute("INSERT INTO dbo.Sensors (sensorID, tileId, address1, address2, addressNumber, latitude, longitude, elevation) "
                        "VALUES(%s, %s, %s, %s, %s, %s, %s, %s)",
-                       (int(sensor.sensorid), sensor.tileid, sensor.address1, sensor.address2, sensor.addressnumber,
-                        sensor.latitude, sensor.longitude, int(sensor.elevation)))
+                       (int(sensor.sid), sensor.tid, sensor.adr1, sensor.adr2, sensor.adrn,
+                        sensor.lat, sensor.long, int(sensor.elv)))
         conn.commit()
 
 
@@ -168,16 +170,35 @@ def getSensorsAll(conn):
         return cursor.fetchall()
 
 
-# TODO: add condition clause feature
+def getMeasures(conn, *field_names, chunk_size=2000):
+    if '*' in field_names:
+        fields_format = '*'
+        field_names = [field.name for field in Entry.get_db_fields(conn)]
+    else:
+        fields_format = ', '.join(field_names)
+
+    query = f"SELECT {fields_format} FROM dbo.measurements"
+
+    with conn.cursor() as cursor:
+        cursor.execute(query)
+
+        measurement_objects = list()
+        fetching_completed = False
+        while not fetching_completed:
+            rows = cursor.fetchmany(size=chunk_size)
+            for row in rows:
+                row_data = dict(zip(field_names, row))
+                measurement_objects.append(Entry.entry_set_fields(**row_data))
+            fetching_completed = len(rows) < chunk_size
+        return measurement_objects
+
+
 def getSensors(conn, *field_names, chunk_size=2000):
     if '*' in field_names:
         fields_format = '*'
         field_names = [field.name for field in Sensor.get_db_fields(conn)]
     else:
         fields_format = ', '.join(field_names)
-
-
-    print(field_names)
 
     query = f"SELECT {fields_format} FROM dbo.sensors"
 
@@ -225,21 +246,6 @@ def getTiles(conn, *field_names, chunk_size=2000):
         return tile_objects
 
 
-# def getTiles(conn, ):
-#     tiles = getTiles(conn)
-#     tile_obs = []
-#     for tile_tup in tiles:
-#         mps = []
-#         for vertex_col in range(5, 11):
-#             vertices = tuple([float(c) for c in str(tile_tup[vertex_col]).split(",")])
-#             mp = MapPoint(vertices[0], vertices[1])
-#             mps.append(mp)
-#
-#         to = TileBin(mapID=tile_tup[0], tileID=tile_tup[1], center, numSides, coordinates=None, max_elevation=None, min_elevation=None,
-#                  diameter=100, tileType=None, temp=None, pm1=None, pm10=None, pm25=None)
-
-
-
 def getOtherSensors(conn, exclude_id, batch_size=2000):
     field_names = [field.name for field in Sensor.get_db_fields(conn)]
 
@@ -265,9 +271,9 @@ def findNearestSensors(conn, sensorid):
 
     sensors = getOtherSensors(conn, sensorid)
     distances = []
-    startLL = MapPoint(base_sensor.latitude, base_sensor.longitude)
+    startLL = MapPoint(base_sensor.lat, base_sensor.long)
     for sensor in sensors:
-        meters_away = calcDistance(startLL, MapPoint(sensor.latitude, sensor.longitude))
+        meters_away = calcDistance(startLL, MapPoint(sensor.lat, sensor.long))
         distances.append((sensor, meters_away))
 
     distances.sort(key=lambda x: x[1])

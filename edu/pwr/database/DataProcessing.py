@@ -114,7 +114,7 @@ def readData(filename, conn):
         for s in sensor_list:
             if checkValue(temp[pm1_index]) and checkValue(temp[pm10_index]) and checkValue(
                     temp[pm25_index]) and checkValue(temp[temp_index]):
-                new_entry = Entry(entry_date, int(s.sensorid), float(temp[pm1_index]), float(temp[pm25_index]),
+                new_entry = Entry(entry_date, int(s.sid), float(temp[pm1_index]), float(temp[pm25_index]),
                                   float(temp[pm10_index]), float(temp[temp_index]))
                 insertMeasure(new_entry, conn)
             else:
