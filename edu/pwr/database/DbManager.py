@@ -38,38 +38,59 @@ def insertSensors(sensors):
     from edu.pwr.map.Sensor import Sensor
 
     with Session as session:
-        for s in sensors:
-            sensor = Sensor(sensor_id=s.sensorid, tile_id=s.tid, address1=s.adr1, address2=s.adr2, address_num=s.adrn,
-                            latitude=s.lat,
-                            longitude=s.long, elevation=s.elv)
-            session.add(sensor)
-            session.commit()
-    print("Sensor Inserts Complete")
+        # for s in sensors:
+        #     sensor = Sensor(sensor_id=s.sensorid, tile_id=s.tid, address1=s.adr1, address2=s.adr2, address_num=s.adrn,
+        #                     latitude=s.lat, longitude=s.long, elevation=s.elv)
+        #     session.add(sensor)
+        #     session.commit()
+        orm_sensors = [
+            Sensor(sensor_id=s.sensorid, tile_id=s.tid, address1=s.adr1, address2=s.adr2, address_num=s.adrn,
+                   latitude=s.lat, longitude=s.long, elevation=s.elv)
+            for s in sensors
+        ]
+        session.bulk_save_objects(orm_sensors)
+        session.commit()
+    print("Sensor inserts completed")
 
 
 def insertMeasures(measures):
     from edu.pwr.map.Measure import Measure
 
     with Session as session:
-        for m in measures:
-            measure = Measure(date_key=m.datekey, sensor_id=m.sensorid, date=m.date, pm1=m.pm1, pm25=m.pm25, pm10=m.pm10,
-                              temperature=m.temperature)
-            session.add(measure)
-            session.commit()
-    print("Measurement Inserts Complete")
+        # for m in measures:
+        #     measure = Measure(date_key=m.datekey, sensor_id=m.sensorid, date=m.date, pm1=m.pm1, pm25=m.pm25, pm10=m.pm10,
+        #                       temperature=m.temperature)
+        #     session.add(measure)
+        orm_measures = [Measure(date_key=m.datekey, sensor_id=m.sensorid, date=m.date, pm1=m.pm1, pm25=m.pm25, pm10=m.pm10,
+                              temperature=m.temperature) for m in measures]
+        session.bulk_save_objects(orm_measures)
+        session.commit()
+    print("Measurement inserts completed")
 
 
 def insertTiles(tilebins):
     from edu.pwr.map.Tile import Tile
 
     with Session as session:
-        for tb in tilebins:
-            tile = Tile(tileID=tb.tileid, mapID=tb.mapid, numSides=tb.numSides, coordinates=tb.coordinates,
-                        diameter=tb.diameter, center=tb.centerlatlon, tileClass=tb.tclass, max_elevation=tb.max_elevation,
-                        min_elevation=tb.min_elevation, temperature=tb.temperature,
-                        pm10_avg=tb.pm10_avg, pm1_avg=tb.pm1_avg, pm25_avg=tb.pm25_avg)
-            session.add(tile)
-            session.commit()
+        # for tb in tilebins:
+        #     tile = Tile(tileID=tb.tileid, mapID=tb.mapid, numSides=tb.numSides, coordinates=tb.coordinates,
+        #                 diameter=tb.diameter, center=tb.centerlatlon, tileClass=tb.tclass, max_elevation=tb.max_elevation,
+        #                 min_elevation=tb.min_elevation, temperature=tb.temperature,
+        #                 pm10_avg=tb.pm10_avg, pm1_avg=tb.pm1_avg, pm25_avg=tb.pm25_avg)
+        #     session.add(tile)
+        #     session.commit()
+
+        tiles = [
+            Tile(tileID=tb.tileid, mapID=tb.mapid, numSides=tb.numSides, coordinates=tb.coordinates,
+                 diameter=tb.diameter, center=tb.centerlatlon, tileClass=tb.tclass, max_elevation=tb.max_elevation,
+                 min_elevation=tb.min_elevation, temperature=tb.temperature,
+                 pm10_avg=tb.pm10_avg, pm1_avg=tb.pm1_avg, pm25_avg=tb.pm25_avg)
+            for tb in tilebins
+        ]
+        session.bulk_save_objects(tiles)
+        session.commit()
+    print("Tile inserts completed")
+
 
 
 def addOpoleMap():
