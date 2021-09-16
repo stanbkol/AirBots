@@ -1,16 +1,33 @@
-class Map:
+from sqlalchemy import create_engine, Column, String, Integer, Float, ForeignKey
+from sqlalchemy.orm import relationship
+
+from edu.pwr.database.DbManager import Base
+
+
+class Map(Base):
+    __tablename__ = 'maps'
+    __table_args__ = {"schema": "airbots"}
 
     # collection of tiles-> collection tiles with coords and elevation.
     tileMesh = []
     aggregationOptions = []
 
-    def __init__(self, coord_NW, coord_NE, coord_SW, coord_SE, map_ID, name):
+    map_ID = Column('map_id', Integer,  primary_key=True)
+    name = Column('name', String(20))
+    coord_NW = Column('Coordinates_NW', String(50))
+    coord_NE = Column('Coordinates_NE', String(50))
+    coord_SW = Column('Coordinates_SW', String(50))
+    coord_SE = Column('Coordinates_SE', String(50))
+    tiles = relationship('Tile', backref='Map', lazy='dynamic')
+
+    def __init__(self, map_ID, name, coord_NW, coord_NE, coord_SW, coord_SE, ):
+        self.map_ID = map_ID
+        self.name = name
         self.coord_NW = coord_NW
         self.coord_NE = coord_NE
         self.coord_SW = coord_SW
         self.coord_SE = coord_SE
-        self.map_ID = map_ID
-        self.name = name
+        
 
 
 # method for generating tile mesh

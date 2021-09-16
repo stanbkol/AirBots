@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from edu.pwr.map.TileBin import drange
+from edu.pwr.database.utils import drange
 
 
 def weightedmovingaverage(Data, period):

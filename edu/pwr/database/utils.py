@@ -1,3 +1,4 @@
+import decimal
 import re
 
 
@@ -14,6 +15,12 @@ def parse_dms(dms):
     if len(parts) < 4:
         return -1
     return dms2dd(parts[0], parts[1], parts[2], parts[3])
+
+
+def drange(start, stop, jump):
+    while start < stop:
+        yield float(start)
+        start += decimal.Decimal(jump)
 
 
 class Field:

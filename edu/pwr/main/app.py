@@ -1,10 +1,14 @@
 from edu.pwr.database.DataProcessing import *
+from edu.pwr.database.DbManager import insertSensors, insertMeasures, addOpoleMap
 import psycopg2
 import matplotlib.pyplot as plt
 from edu.pwr.airbots.wma import *
 from IPython.display import display
-
-
+from edu.pwr.database.DbManager import engine, Base, Session, insertTiles
+from edu.pwr.map.Map import Map
+from edu.pwr.map.Sensor import Sensor
+from edu.pwr.map.Measure import Measure
+from edu.pwr.map.Tile import Tile
 
 
 def getPM1(conn, sid, start_interval=None, end_interval=None):
@@ -22,35 +26,48 @@ def getPM1(conn, sid, start_interval=None, end_interval=None):
         data_list = cursor.fetchall()
         return cols, data_list
 
-def main():
-    print("connecting to server")
-    conn = createConnection()
-#     dropTiles(conn)
-#     createTilesTable(conn)
-#     start = datetime(2020, 1, 1, 0)
-#     end = datetime(2020, 1, 8, 0)
-#     # my_sensor = getSensor(conn, 11563)
-#     cols, measures = getPM1(conn, 11563, start, end)
-#     conn.close()
-#     res = weighted_rolling_mean(measures, 24, cols, exp=False)
-#     print(res)
-#
-#     plt.plot(res['date'], res['pm1'], label="PM1 Values")
-#     plt.plot(res['date'], res['MA'], label="MA Values")
-#     # plt.plot(date_results, pm10_results, label="PM10 Values")
-#     # plt.plot(date_results, pm25_results, label="PM25 Values")
-#     # plt.plot(date_results, temp_results, label="Temperature Values")
-#     plt.xlabel('Dates')
-#     plt.ylabel('Values')
-#     plt.legend()
-#     plt.show()
-    nearest = findNearestSensors(conn, 11563)
-    for s in nearest:
-        print(str(s[0].sensorid) +"-->" + str(round(s[1],3)) + " meters")
 
-    # sensors = getSensors(conn, '*')
-    # for s in sensors:
-    #     print(str(s))
+def show_wma():
+    conn = createConnection()
+    start = datetime(2020, 1, 1, 0)
+    end = datetime(2020, 1, 8, 0)
+    cols, measures = getPM1(conn, 11563, start, end)
+    conn.close()
+    res = weighted_rolling_mean(measures, 24, cols, exp=True)
+    plt.plot(res['date'], res['pm1'], label="PM1 Values")
+    plt.plot(res['date'], res['MA_PM1'], label="MA Values")
+    plt.xlabel('Dates')
+    plt.ylabel('Values')
+    plt.legend()
+    plt.show()
+
+
+def populateTables():
+    conn = createConnection()
+    s_list = getSensors(conn, '*')
+    print("sensor data fetched")
+    m_list = getMeasures(conn, '*')
+    print("measurement data fetched")
+    tiles = getTiles(conn, '*')
+    print("tilebin data fetched")
+    conn.close()
+    print("inserting maps..")
+    addOpoleMap()
+    print("inserting tiles..")
+    insertTiles(tiles)
+    print("inserting sensors..")
+    insertSensors(s_list)
+    print("inserting measures..")
+    insertMeasures(m_list)
+
+
+def main():
+    # createAirbots(eng)
+    # print(eng)
+    print("creating tables..")
+    # Base.metadata.clear()
+    Base.metadata.create_all(engine)
+    populateTables()
 
 
 if __name__ == '__main__':

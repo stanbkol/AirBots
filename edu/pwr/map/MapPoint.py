@@ -35,6 +35,11 @@ class MapPoint:
     def latlon_str(self):
         return str(self.lat) + "," + str(self.lon)
 
+    @classmethod
+    def createFromStr(cls, latlon_str):
+        c_strings = latlon_str.split(",")
+        return MapPoint(latitude=float(c_strings[0]), longitude=float(c_strings[1]))
+
     def __str__(self):
         return self.name + '_' + '(' + str(self.lat) + ',' + str(self.lon) + ')'
 
@@ -58,7 +63,7 @@ class MapPoint:
 # degrees: 0 – North, 90 – East, 180 – South, 270 or -90 – West.
 def calcCoordinate(startLL, dist, degrees):
     coors = distance.distance(meters=dist).destination(startLL.LatLonCoords, bearing=degrees, distance=Distance(meters=dist))
-    return MapPoint(round(coors.latitude, 8), round(coors.longitude, 8))
+    return MapPoint(round(coors.lat, 8), round(coors.long, 8))
 
 
 def calcDistance(startLL, endLL):
