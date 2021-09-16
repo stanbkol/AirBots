@@ -104,8 +104,8 @@ def insertSensor(conn, sensor):
     with conn.cursor() as cursor:
         cursor.execute("INSERT INTO dbo.Sensors (sensorID, tileId, address1, address2, addressNumber, latitude, longitude, elevation) "
                        "VALUES(%s, %s, %s, %s, %s, %s, %s, %s)",
-                       (int(sensor.sensorid), sensor.tid, sensor.adr1, sensor.adr2, sensor.adrn,
-                        sensor.lat, sensor.long, int(sensor.elv)))
+                       (int(sensor.sensorid), sensor.tileid, sensor.address1, sensor.address2, sensor.addressnumber,
+                        sensor.latitude, sensor.longitude, int(sensor.elevation)))
         conn.commit()
 
 
@@ -269,9 +269,9 @@ def findNearestSensors(conn, sensorid):
 
     sensors = getOtherSensors(conn, sensorid)
     distances = []
-    startLL = MapPoint(base_sensor.lat, base_sensor.long)
+    startLL = MapPoint(base_sensor.latitude, base_sensor.longitude)
     for sensor in sensors:
-        meters_away = calcDistance(startLL, MapPoint(sensor.lat, sensor.long))
+        meters_away = calcDistance(startLL, MapPoint(sensor.latitude, sensor.longitude))
         distances.append((sensor, meters_away))
 
     distances.sort(key=lambda x: x[1])

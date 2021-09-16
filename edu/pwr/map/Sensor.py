@@ -1,8 +1,7 @@
 from sqlalchemy import Column, String, Integer, Float, ForeignKey
+from sqlalchemy.future import select
 from sqlalchemy.orm import relationship
-from edu.pwr.database.DbManager import Base
-
-
+from edu.pwr.database.DbManager import Base, Session
 from edu.pwr.map.MapPoint import calcDistance, MapPoint
 
 
@@ -38,18 +37,41 @@ class Sensor(Base):
         return "<Sensor(sensorid=%s,tileid=%s, lat=%s, lon=%s, elev=%s)>" % (self.sid, self.tid, self.lat, self.lon,
                                                                              self.elv)
 
+    def __str__(self):
+        return "Sensor_" + str(self.sid) + " Address Line 1='" + str(self.adr1) + "' Address Line 2='" + str(self.adr2) + \
+               "' Address Number='" + str(self.adrn) + "' lat,lon,elev=(" + str(self.lat) + ", " + \
+               str(self.lon) + ", " + str(self.elv) + ")"
+
+    @classmethod
+    def getSensor(cls, id):
+        with Session as sesh:
+            return sesh.query(Sensor).get(id)
+
     def setAgent(self, a):
         self.agent = a
 
     def changeState(self, s):
         self.state = s
 
-    def __str__(self):
-        return "Sensor_" + str(self.sensorid) + " Address Line 1='" + str(self.address1) + "' Address Line 2='" + str(self.address2) + \
-               "' Address Number='" + str(self.addressnumber) + "' lat,lon,elev=(" + str(self.latitude) + ", " + \
-               str(self.longitude) + ", " + str(self.elevation) + ")"
-
     def metersTo(self, other):
         if isinstance(other, Sensor):
             return calcDistance(startLL=MapPoint(self.latitude, self.longitude),
                                 endLL=MapPoint(other.latitude, other.longitude))
+
+    def nearest_neighbors(self, n):
+        with Session as sesh:
+            others = sesh.execute(select(Sensor).where(Sensor.sid != self.sid))
+
+            distances = []
+
+            startLL = MapPoint(self.lat, self.lon)
+            for row in others:
+                sensor = row[0]
+                meters_away = round(calcDistance(startLL, MapPoint(sensor.lat, sensor.lon)),3)
+                distances.append((sensor, meters_away))
+
+            if distances:
+                distances.sort(key=lambda x: x[1])
+
+            return distances[:n]
+

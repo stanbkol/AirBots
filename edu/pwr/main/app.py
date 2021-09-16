@@ -61,14 +61,23 @@ def populateTables():
     insertMeasures(m_list)
 
 
+def sensors_test():
+    conn = createConnection()
+    s_list = getSensors(conn, '*')
+    for s in s_list:
+        print(str(s))
+
 def main():
     # createAirbots(eng)
     # print(eng)
-    print("creating tables..")
-    # Base.metadata.clear()
-    Base.metadata.create_all(engine)
-    populateTables()
+    # print("creating tables..")
+    # # Base.metadata.clear()
+    # Base.metadata.create_all(engine)
+    # populateTables()
+    sensor = Sensor.getSensor(11563)
+    print(sensor)
 
 
 if __name__ == '__main__':
+    # sensors_test()
     main()
