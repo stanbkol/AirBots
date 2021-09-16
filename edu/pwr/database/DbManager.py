@@ -39,8 +39,8 @@ def insertSensors(sensors):
 
     with Session as session:
         orm_sensors = [
-            Sensor(sensor_id=s.sensorid, tile_id=s.tid, address1=s.adr1, address2=s.adr2, address_num=s.adrn,
-                   latitude=s.lat, longitude=s.long, elevation=s.elv)
+            Sensor(sensor_id=s.sensorid, tile_id=s.tileid, address1=s.address1, address2=s.address2, address_num=s.addressnumber,
+                   latitude=s.latitude, longitude=s.longitude, elevation=s.elevation)
             for s in sensors
         ]
         session.bulk_save_objects(orm_sensors)
