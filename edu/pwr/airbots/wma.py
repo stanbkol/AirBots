@@ -29,6 +29,7 @@ def weighted_rolling_mean(data, window, cols, exp=True):
     print(weights)
     print(sum(weights))
     df = pd.DataFrame(data=data, columns=cols)
+    df.sort_values(by='date')
     df['MA_PM1'] = df['pm1'].rolling(window).apply(lambda x: np.sum(weights * x))
     return df
 
@@ -55,6 +56,17 @@ def exp_weights(n):
     a = total * (1 - r) / (1 - r ** n)
     return [a * r ** i for i in range(n)]
 
+
+def spatial_weights(sensor, n):
+    neighbors = sensor.nearest_neighbors(n)
+    s = 0
+    d = 1
+    sum_dist = sum(n[d] for n in neighbors)
+
+    # normalized dist weights map(sid->dist_weight)
+    sid_dist = {n[s].sid: (n[d]/sum_dist) for n in neighbors}
+
+    return sid_dist
 
 def run():
     xp = exp_weights(2)
