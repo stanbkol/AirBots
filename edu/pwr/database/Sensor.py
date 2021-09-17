@@ -7,15 +7,16 @@ from edu.pwr.map.MapPoint import calcDistance, MapPoint
 class Sensor:
     table_name = "sensors"
 
-    def __init__(self, s_id=None, tid=None, ad1=None, ad2=None, adn=None, lat=None, long=None, elev=None):
-        self.sensorid = s_id
-        self.tileid = tid
-        self.address1 = ad1
-        self.address2 = ad2
-        self.addressnumber = adn
-        self.longitude = long
-        self.latitude = lat
-        self.elevation = elev
+    def __init__(self, sensor_id=None, tile_id=None, address1=None, address2=None, address_num=None, latitude=None,
+                 longitude=None, elevation=None):
+        self.sensorid = sensor_id
+        self.tileid = tile_id
+        self.address1 = address1
+        self.address2 = address2
+        self.addressnumber = address_num
+        self.latitude = latitude
+        self.longitude = longitude
+        self.elevation = elevation
         self.agent = None
         self.state = True
 
@@ -29,7 +30,7 @@ class Sensor:
         self.state = s
 
     def __str__(self):
-        return "SID=" + str(self.sensorid) + " Address Line 1:" + str(self.address1) + " Address Line 2:" + str(self.address2) + \
+        return "sensorid=" + str(self.sensorid) + " tileid=" + str(self.tileid) + " Address Line 1:" + str(self.address1) + " Address Line 2:" + str(self.address2) + \
                "Address Number:" + str(self.addressnumber) + " lat: " + str(self.latitude) + " lon: " + \
                str(self.longitude) + " elevation: " + str(self.elevation)
 
@@ -59,33 +60,6 @@ class Sensor:
             for elt in cursor.description:
                 cols.append(elt[0])
             data_list = cursor.fetchall()
-
-            # sample code on how to unpack/package the row information from query
-            # data_dict = {}
-            # for row in data_list:
-            #     dk, sid, dt, pm1, pm25, pm10, temp = row
-            #     data_dict[dk] = (sid, dt, pm1, pm25, pm10, temp)
-
-            # sample code for basic numpy scatterplots
-            # f = plt.figure()
-            # f.set_figwidth(10)
-            # f.set_figheight(2)
-            # plt.plot(date_results, pm1_results, label="PM1 Values")
-            # plt.plot(date_results, pm10_results, label="PM10 Values")
-            # plt.plot(date_results, pm25_results, label="PM25 Values")
-            # plt.plot(date_results, temp_results, label="Temperature Values")
-            # plt.xlabel('Dates')
-            # plt.ylabel('Values')
-            # plt.legend()
-            # plt.show()
-
-            print("Data for Sensor:", self.sensorid)
-            print("Valid Entries=", len(data_list))
-            print("Total Entries=", self.convertInterval(start_interval, end_interval))
-            p = round((len(data_list) / self.convertInterval(start_interval, end_interval)) * 100, 2)
-            print(f'Percentage of Valid Entries={p}%')
-            print("")
-            conn.commit()
 
             return cols, data_list
 

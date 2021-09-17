@@ -10,7 +10,8 @@ import folium
 from geojson import Polygon, Feature, FeatureCollection, Point
 from edu.pwr.database.DataLoader import createConnection, fetchValidSensors, fetchMapGridPolys, insertTile
 from edu.pwr.map.MapPoint import calcDistance, MapPoint, calcCoordinate
-from edu.pwr.map.TileBin import drange, TileBin
+from edu.pwr.map.TileBin import TileBin
+from edu.pwr.database.utils import drange
 
 app = Flask(__name__)
 
@@ -139,14 +140,14 @@ def genHexGrid():
     startLL = MapPoint(map_nw[0], map_nw[1])
 
     tiles = []
-    count = 0
+    tid = 0
     # first row -- not indented
+    print("creating tiles..")
     for y in drange(0, height_m, y_jump):
         for d in drange(0, width_m, x_jump):
             center = calcCoordinate(calcCoordinate(startLL, y, 180), d, 90)
-            count+=1
-            tid = count
-            tile = TileBin(1, int(tid), center, hex, diameter=tile_d)
+            tid += 1
+            tile = TileBin(tileID=int(tid), mapID=1, center=center, numSides=hex, diameter=tile_d)
             mapPoints = tile.generate_vertices_coordinates()
             vertices = [mp.LonLatCoords for mp in mapPoints]
 
@@ -164,9 +165,8 @@ def genHexGrid():
     for y in drange(0, height_m - y_jump, y_jump):
         for d in drange(0, width_m, x_jump):
             center = calcCoordinate(calcCoordinate(startLL, y, 180), d, 90)
-            count+=1
-            tid = count
-            tile = TileBin(1, int(tid), center, hex, diameter=tile_d)
+            tid += 1
+            tile = TileBin(mapID=1, tileID=int(tid), center=center, numSides=hex, diameter=tile_d)
             mapPoints = tile.generate_vertices_coordinates()
             vertices = [mp.LonLatCoords for mp in mapPoints]
 
@@ -177,7 +177,8 @@ def genHexGrid():
             tile.set_PolyString(poly_str)
             tiles.append(tile)
 
-    print("inserting..")
+    print("# tiles: " + str(len(tiles)))
+    print("inserting tiles to table..")
     conn = createConnection()
 
     for tile in tiles:
@@ -226,9 +227,10 @@ def create_poly_string(longlat_list):
 
 
 if __name__ == "__main__":
-    geo_tiles_from_db(1)
+    genHexGrid()
+    # geo_tiles_from_db(1)
     # genSensorLayer()
     # create_layers()
-    app.run(debug=True)
+    # app.run(debug=True)
 
 

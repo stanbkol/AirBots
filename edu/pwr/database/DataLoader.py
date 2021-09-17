@@ -1,9 +1,12 @@
 from datetime import datetime
+
+from edu.pwr.database.Entry import Entry
 from edu.pwr.database.Sensor import Sensor
 import psycopg2
 import pyodbc
 
 from edu.pwr.map.MapPoint import MapPoint, calcDistance
+from edu.pwr.map.TileBin import TileBin
 
 
 class Loader:
@@ -19,7 +22,7 @@ def createSchema(name, conn):
 def dropTables(conn):
     with conn.cursor() as cursor:
         cursor.execute('''DROP TABLE dbo.Sensors;''')
-        cursor.execute('''DROP TABLE dbo.Measurements ;''')
+        cursor.execute('''DROP TABLE dbo.Measurements;''')
         #cursor.execute('''DROP TABLE dbo.Tiles ;''')
         conn.commit()
 
@@ -93,7 +96,7 @@ def insertMeasure(measure, conn):
     dk = int(rawDate.strftime('%Y%m%d%H'))
     with conn.cursor() as cursor:
         cursor.execute("INSERT INTO dbo.Measurements (dateKey, sensorID, date, pm1, pm25, pm10, temperature) "
-            "VALUES(%s, %s, %s, %s, %s, %s, %s)", (dk, measure.sensorid, measure.date, measure.pm1, measure.pm25, measure.pm10, measure.temp))
+            "VALUES(%s, %s, %s, %s, %s, %s, %s)", (dk, measure.sensorid, measure.date, measure.pm1, measure.pm25, measure.pm10, measure.temperature))
         conn.commit()
 
 
@@ -128,12 +131,12 @@ def insertTile(conn, tile):
                                                 polygon
                                                 ) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)'''
 
-        cursor.execute(insert_sql, (int(tile.tileId), int(tile.mapId), tile.tileClass, tile.diameter,
-                       tile.centerPt.latlon_str,
-                       tile.coordinates[0].latlon_str, tile.coordinates[1].latlon_str, tile.coordinates[2].latlon_str,
-                       tile.coordinates[3].latlon_str, tile.coordinates[4].latlon_str, tile.coordinates[5].latlon_str,
-                       tile.min_elevation, tile.max_elevation,
-                       tile.temperature, tile.pm10_avg, tile.pm1_avg, tile.pm25_avg, tile.poly_str))
+        cursor.execute(insert_sql, (int(tile.tileid), int(tile.mapid), tile.tclass, tile.diameter,
+                                    tile.centerlatlon.latlon_str,
+                                    tile.coordinates[0].latlon_str, tile.coordinates[1].latlon_str, tile.coordinates[2].latlon_str,
+                                    tile.coordinates[3].latlon_str, tile.coordinates[4].latlon_str, tile.coordinates[5].latlon_str,
+                                    tile.min_elevation, tile.max_elevation,
+                                    tile.temperature, tile.pm10_avg, tile.pm1_avg, tile.pm25_avg, tile.poly_str))
 
         conn.commit()
 
@@ -166,16 +169,36 @@ def getSensorsAll(conn):
         cursor.execute(query1)
         return cursor.fetchall()
 
-#TODO: add condition clause feature
+
+def getMeasures(conn, *field_names, chunk_size=2000):
+    if '*' in field_names:
+        fields_format = '*'
+        field_names = [field.name for field in Entry.get_db_fields(conn)]
+    else:
+        fields_format = ', '.join(field_names)
+
+    query = f"SELECT {fields_format} FROM dbo.measurements"
+
+    with conn.cursor() as cursor:
+        cursor.execute(query)
+
+        measurement_objects = list()
+        fetching_completed = False
+        while not fetching_completed:
+            rows = cursor.fetchmany(size=chunk_size)
+            for row in rows:
+                row_data = dict(zip(field_names, row))
+                measurement_objects.append(Entry.entry_set_fields(**row_data))
+            fetching_completed = len(rows) < chunk_size
+        return measurement_objects
+
+
 def getSensors(conn, *field_names, chunk_size=2000):
     if '*' in field_names:
         fields_format = '*'
         field_names = [field.name for field in Sensor.get_db_fields(conn)]
     else:
         fields_format = ', '.join(field_names)
-
-
-    print(field_names)
 
     query = f"SELECT {fields_format} FROM dbo.sensors"
 
@@ -188,7 +211,6 @@ def getSensors(conn, *field_names, chunk_size=2000):
             rows = cursor.fetchmany(size=chunk_size)
             for row in rows:
                 row_data = dict(zip(field_names, row))
-                print(row_data)
                 sensor_objects.append(Sensor.sensor_set_fields(**row_data))
 
             fetching_completed = len(rows) < chunk_size
@@ -196,11 +218,30 @@ def getSensors(conn, *field_names, chunk_size=2000):
         return sensor_objects
 
 
-def getTiles(conn):
+def getTiles(conn, *field_names, chunk_size=2000):
+    print("fetching tilebins")
+    if '*' in field_names:
+        fields_format = '*'
+        field_names = [field.name for field in TileBin.get_db_fields(conn)]
+    else:
+        fields_format = ', '.join(field_names)
+
+    query = f"SELECT {fields_format} FROM dbo.tiles"
+
     with conn.cursor() as cursor:
-        fetch_sql = "SELECT * FROM dbo.Tiles;"
-        cursor.execute(fetch_sql)
-        return cursor.fetchall()
+        cursor.execute(query)
+
+        tile_objects = list()
+        fetching_completed = False
+        while not fetching_completed:
+            rows = cursor.fetchmany(size=chunk_size)
+            for row in rows:
+                row_data = dict(zip(field_names, row))
+                tile_objects.append(TileBin.tilebin_set_fields(**row_data))
+
+            fetching_completed = len(rows) < chunk_size
+
+        return tile_objects
 
 
 def getOtherSensors(conn, exclude_id, batch_size=2000):
