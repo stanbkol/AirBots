@@ -42,8 +42,7 @@ def show_wma():
     plt.show()
 
 
-def populateTables():
-    conn = createConnection()
+def populateTables(conn):
     s_list = getSensors(conn, '*')
     print("sensor data fetched")
     m_list = getMeasures(conn, '*')
@@ -61,7 +60,7 @@ def populateTables():
     insertMeasures(m_list)
 
 
-def sensors_test():
+def main():
     conn = createConnection()
 
 
