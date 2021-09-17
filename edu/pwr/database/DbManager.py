@@ -2,7 +2,12 @@ import psycopg2
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 from sqlalchemy.schema import CreateSchema
-from edu.pwr.database.DataLoader import getSensors, getTiles, createConnection
+from edu.pwr.database.DataLoader import getSensors, getTiles, getMeasures
+from edu.pwr.map.Map import Map
+from edu.pwr.map.Measure import Measure
+from edu.pwr.map.Sensor import Sensor
+from edu.pwr.map.Tile import Tile
+
 
 def createSession(engine):
     Session = sessionmaker(bind=engine)
@@ -20,18 +25,18 @@ def createEngine(dialect="postgresql", driver=None, db_user="asds_PWR", password
     return create_engine(db_string)
 
 
+engine = createEngine()
+Session = createSession(engine)
+Base = declarative_base(bind=engine)
+
+
 def createAirbots(eng):
     eng.execute(CreateSchema('airbots'))
 
 
-# def createAllTables(eng):
-#     table_objects = [Map.__table__, Tile.__table__, Sensor.__table__, Measure.__table__]
-#     Base.metadata.create_all(eng, tables=table_objects)
-
-
-engine = createEngine()
-Session = createSession(engine)
-Base = declarative_base(bind=engine)
+def createAllTables(eng):
+     table_objects = [Map.__table__, Tile.__table__, Sensor.__table__, Measure.__table__]
+     Base.metadata.create_all(eng, tables=table_objects)
 
 
 def insertSensors(sensors):
@@ -75,7 +80,6 @@ def insertTiles(tilebins):
     print("Tile inserts completed")
 
 
-
 def addOpoleMap():
     with Session as sesh:
         from edu.pwr.map.Map import Map
@@ -86,3 +90,22 @@ def addOpoleMap():
         sesh.add(opole)
         sesh.commit()
 
+
+def populateTables(conn):
+    s_list = getSensors(conn, '*')
+    print("sensor data fetched")
+    m_list = getMeasures(conn, '*')
+    print("measurement data fetched")
+    tiles = getTiles(conn, '*')
+    print("tilebin data fetched")
+    conn.close()
+    print("inserting maps..")
+    addOpoleMap()
+    print("inserting tiles..")
+    insertTiles(tiles)
+    print("inserting sensors..")
+    insertSensors(s_list)
+    print("inserting measures..")
+    insertMeasures(m_list)
+
+# Methods to be done: getSensorsAll, getSensor, getTilesAll, getTile, getMapsAll, getMap
