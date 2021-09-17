@@ -1,14 +1,8 @@
 from edu.pwr.database.DataProcessing import *
-from edu.pwr.database.DbManager import insertSensors, insertMeasures, addOpoleMap
 import psycopg2
 import matplotlib.pyplot as plt
 from edu.pwr.airbots.wma import *
 from IPython.display import display
-from edu.pwr.database.DbManager import engine, Base, Session, insertTiles
-from edu.pwr.map.Map import Map
-from edu.pwr.map.Sensor import Sensor
-from edu.pwr.map.Measure import Measure
-from edu.pwr.map.Tile import Tile
 
 
 def getPM1(conn, sid, start_interval=None, end_interval=None):
@@ -27,44 +21,30 @@ def getPM1(conn, sid, start_interval=None, end_interval=None):
         return cols, data_list
 
 
-def show_wma():
+def main():
+    print("connecting to server")
     conn = createConnection()
     start = datetime(2020, 1, 1, 0)
-    end = datetime(2020, 1, 8, 0)
+    end = datetime(2020, 5, 31, 0)
     cols, measures = getPM1(conn, 11563, start, end)
+    df = pd.DataFrame(data=measures, columns=cols)
     conn.close()
-    res = weighted_rolling_mean(measures, 24, cols, exp=True)
+    res = df.sort_values(by="date", ascending=True)
+    res['Prediction'] = res.pm1.rolling(10, min_periods=1).mean()
+    res['Prediction_cma'] = res.pm1.expanding(20).mean()
+    res['Error'] = abs(((res['pm1']-res['Prediction'])/res['pm1'])*100)
+    #rolling(x, min periods=y): higher x, lower accuracy
+    print(res)
     plt.plot(res['date'], res['pm1'], label="PM1 Values")
-    plt.plot(res['date'], res['MA_PM1'], label="MA Values")
+    plt.plot(res['date'], res['Prediction'], label="Pred_ma")
+    plt.plot(res['date'], res['Prediction_cma'], label="Pred_cma")
+     # plt.plot(df2['date'], df2['pm1'], label="Prediction")
     plt.xlabel('Dates')
     plt.ylabel('Values')
     plt.legend()
     plt.show()
 
 
-def populateTables():
-    conn = createConnection()
-    s_list = getSensors(conn, '*')
-    print("sensor data fetched")
-    m_list = getMeasures(conn, '*')
-    print("measurement data fetched")
-    tiles = getTiles(conn, '*')
-    print("tilebin data fetched")
-    conn.close()
-    print("inserting maps..")
-    addOpoleMap()
-    print("inserting tiles..")
-    insertTiles(tiles)
-    print("inserting sensors..")
-    insertSensors(s_list)
-    print("inserting measures..")
-    insertMeasures(m_list)
-
-
-def sensors_test():
-    conn = createConnection()
-
 
 if __name__ == '__main__':
-    # sensors_test()
     main()
