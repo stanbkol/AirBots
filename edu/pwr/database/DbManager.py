@@ -3,10 +3,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 from sqlalchemy.schema import CreateSchema
 from edu.pwr.database.DataLoader import getSensors, getTiles, getMeasures
-from edu.pwr.map.Map import Map
-from edu.pwr.map.Measure import Measure
-from edu.pwr.map.Sensor import Sensor
-from edu.pwr.map.Tile import Tile
+from edu.pwr.map.Models import *
 
 
 def createSession(engine):
@@ -34,17 +31,13 @@ def createAirbots(eng):
     eng.execute(CreateSchema('airbots'))
 
 
-def createAllTables(eng):
-     table_objects = [Map.__table__, Tile.__table__, Sensor.__table__, Measure.__table__]
-     Base.metadata.create_all(eng, tables=table_objects)
-
-
 def insertSensors(sensors):
     from edu.pwr.map.Sensor import Sensor
 
     with Session as session:
         orm_sensors = [
-            Sensor(sensor_id=s.sensorid, tile_id=s.tileid, address1=s.address1, address2=s.address2, address_num=s.addressnumber,
+            Sensor(sensor_id=s.sensorid, tile_id=s.tileid, address1=s.address1, address2=s.address2,
+                   address_num=s.addressnumber,
                    latitude=s.latitude, longitude=s.longitude, elevation=s.elevation)
             for s in sensors
         ]
@@ -57,8 +50,9 @@ def insertMeasures(measures):
     from edu.pwr.map.Measure import Measure
 
     with Session as session:
-        orm_measures = [Measure(date_key=m.datekey, sensor_id=m.sensorid, date=m.date, pm1=m.pm1, pm25=m.pm25, pm10=m.pm10,
-                              temperature=m.temperature) for m in measures]
+        orm_measures = [
+            Measure(date_key=m.datekey, sensor_id=m.sensorid, date=m.date, pm1=m.pm1, pm25=m.pm25, pm10=m.pm10,
+                    temperature=m.temperature) for m in measures]
         session.bulk_save_objects(orm_measures)
         session.commit()
     print("Measurement inserts completed")
@@ -89,23 +83,3 @@ def addOpoleMap():
 
         sesh.add(opole)
         sesh.commit()
-
-
-def populateTables(conn):
-    s_list = getSensors(conn, '*')
-    print("sensor data fetched")
-    m_list = getMeasures(conn, '*')
-    print("measurement data fetched")
-    tiles = getTiles(conn, '*')
-    print("tilebin data fetched")
-    conn.close()
-    print("inserting maps..")
-    addOpoleMap()
-    print("inserting tiles..")
-    insertTiles(tiles)
-    print("inserting sensors..")
-    insertSensors(s_list)
-    print("inserting measures..")
-    insertMeasures(m_list)
-
-# Methods to be done: getSensorsAll, getSensor, getTilesAll, getTile, getMapsAll, getMap
