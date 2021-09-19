@@ -1,3 +1,6 @@
+from matplotlib.widgets import Slider
+from scipy.interpolate import UnivariateSpline
+
 from edu.pwr.database.DataProcessing import *
 import psycopg2
 import matplotlib.pyplot as plt
@@ -25,22 +28,23 @@ def main():
     print("connecting to server")
     conn = createConnection()
     start = datetime(2020, 1, 1, 0)
-    end = datetime(2020, 5, 31, 0)
+    end = datetime(2020, 1, 1, 23)
     cols, measures = getPM1(conn, 11563, start, end)
     df = pd.DataFrame(data=measures, columns=cols)
     conn.close()
     res = df.sort_values(by="date", ascending=True)
     res['Prediction'] = res.pm1.rolling(10, min_periods=1).mean()
-    res['Error'] = abs(((res['pm1']-res['Prediction'])/res['pm1'])*100)
-    #rolling(x, min periods=y): higher x, lower accuracy
+    res['Confidence'] = 100-abs(((res['pm1']-res['Prediction'])/res['pm1'])*100)
+
+    # rolling(x, min periods=y): higher x, lower accuracy
     print(res)
-    plt.plot(res['date'], res['pm1'], label="PM1 Values")
-    plt.plot(res['date'], res['Prediction'], label="Pred")
-     # plt.plot(df2['date'], df2['pm1'], label="Prediction")
-    plt.xlabel('Dates')
-    plt.ylabel('Values')
-    plt.legend()
-    plt.show()
+    # plt.plot(res['date'], res['pm1'], label="PM1 Values")
+    # plt.plot(res['date'], res['Prediction'], label="Pred")
+    # plt.xlabel('Dates')
+    # plt.ylabel('Values')
+    # plt.legend()
+    # plt.show()
+
 
 
 
