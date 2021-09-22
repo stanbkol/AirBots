@@ -1,9 +1,8 @@
 from datetime import datetime
 
-from edu.pwr.database.Entry import Entry
-from edu.pwr.database.Sensor import Sensor
+from edu.pwr.archive.Entry import Entry
+from edu.pwr.archive.Sensor_initial import Sensor
 import psycopg2
-import pyodbc
 
 from edu.pwr.map.MapPoint import MapPoint, calcDistance
 from edu.pwr.map.TileBin import TileBin

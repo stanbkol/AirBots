@@ -1,9 +1,5 @@
 import unicodedata
-from datetime import datetime
-import psycopg2
 from edu.pwr.database.utils import *
-from edu.pwr.database.Entry import *
-from edu.pwr.database.Sensor import *
 from edu.pwr.database.DataLoader import *
 from shapely.geometry import Polygon, Point
 

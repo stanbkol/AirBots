@@ -1,11 +1,6 @@
-from matplotlib.widgets import Slider
-from scipy.interpolate import UnivariateSpline
+from edu.pwr.archive.DataProcessing import *
+from edu.pwr.archive.wma import *
 
-from edu.pwr.database.DataProcessing import *
-import psycopg2
-import matplotlib.pyplot as plt
-from edu.pwr.airbots.wma import *
-from IPython.display import display
 
 
 def getPM1(conn, sid, start_interval=None, end_interval=None):

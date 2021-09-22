@@ -1,8 +1,5 @@
-from edu.pwr.database.DataProcessing import *
-import psycopg2
-import matplotlib.pyplot as plt
-from edu.pwr.airbots.wma import *
-from IPython.display import display
+from edu.pwr.archive.DataProcessing import *
+from edu.pwr.archive.wma import *
 
 
 def getPM1(conn, sid, start_interval=None, end_interval=None):

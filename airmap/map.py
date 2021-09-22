@@ -1,9 +1,7 @@
 import json
-from urllib.parse import urlencode, urlparse, parse_qsl
+from urllib.parse import urlencode
 from math import sqrt
 import geojson
-import psycopg2
-from psycopg2.extras import execute_values
 import requests
 from flask import Flask
 import folium

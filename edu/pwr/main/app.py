@@ -8,8 +8,12 @@ def main():
     s1 = Sensor.getSensor(11563)
     print(s1)
     results = s1.getMeasures(start_interval=start, end_interval=end)
+    cols, measures = prepareMeasures(results, 'pm1')
+    df = pd.DataFrame(data=measures, columns=cols)
+    res = df.sort_values(by="date", ascending=True)
+    print(res)
     #viable options ATM: pm1, pm10, pm25, temp
-    prepareMeasures(results, "pm1")
+
     # print(s1.nearestNeighbors(2))
 
 
