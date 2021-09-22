@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod, abstractproperty
 from sklearn import linear_model
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 from edu.pwr.database.utils import drange
 
 
@@ -35,6 +36,41 @@ def calc_weights(n):
     return [c / total for c in sample]
 
 
+# to be updated
+def prepareMeasures(dataset, col):
+    columns = []
+    measure_data = []
+    if col == "pm1":
+        print("Fetching pm1 measures..")
+        for entry in dataset:
+            measure_data.append((entry.sid, entry.date, entry.pm1))
+            columns = ['sensorid', 'date', 'pm1']
+    if col == "pm10":
+        print("Fetching pm10 measures..")
+        for entry in dataset:
+            measure_data.append((entry.sid, entry.date, entry.pm10))
+            columns = ['sensorid', 'date', 'pm10']
+
+    if col == "pm25":
+        print("Fetching pm25 measures..")
+        for entry in dataset:
+            measure_data.append((entry.sid, entry.date, entry.pm25))
+            columns = ['sensorid', 'date', 'pm25']
+
+    if col == "temp":
+        print("Fetching temperature measures..")
+        for entry in dataset:
+            measure_data.append((entry.sid, entry.date, entry.temp))
+            columns = ['sensorid', 'date', 'temp']
+    return columns, measure_data
+
+
+def createDataframe(cols, measures):
+    df = pd.DataFrame(data=measures, columns=cols)
+    return df.sort_values(by="date", ascending=True)
+
+
+# Exponential Moving Average
 class MovingAverageV1(Agent):
 
     def makePrediction(self, data):
@@ -56,6 +92,45 @@ class MovingAverageV1(Agent):
         df.sort_values(by='date')
         df['MA_PM1'] = df['pm1'].rolling(window).apply(lambda x: np.sum(weights * x))
         return df
+
+
+# Simple Moving Average
+class MovingAverageV2(Agent):
+    def makePrediction(self, orm_data):
+        col, data = prepareMeasures(orm_data, "pm1")
+        results = createDataframe(col, data)
+        results['Prediction'] = results.pm1.rolling(10, min_periods=1).mean()
+        results['Confidence'] = 100 - abs(((results['pm1'] - results['Prediction']) / results['pm1']) * 100)
+        plt.plot(results['date'], results['pm1'], label="PM1 Values")
+        plt.plot(results['date'], results['Prediction'], label="Pred")
+        plt.xlabel('Dates')
+        plt.ylabel('Values')
+        plt.legend()
+        plt.show()
+
+    def confidence_factor(self):
+        pass
+
+
+# Cumulative Moving Average
+class MovingAverageV3(Agent):
+    def makePrediction(self, orm_data):
+        col, data = prepareMeasures(orm_data, "pm1")
+        results = createDataframe(col, data)
+        results['Prediction'] = results.pm1.rolling(10, min_periods=1).mean()
+        results['Prediction_cma'] = results.pm1.expanding(20).mean()
+        results['Error'] = abs(((results['pm1'] - results['Prediction']) / results['pm1']) * 100)
+        plt.plot(results['date'], results['pm1'], label="PM1 Values")
+        plt.plot(results['date'], results['Prediction'], label="Pred_ma")
+        plt.plot(results['date'], results['Prediction_cma'], label="Pred_cma")
+        # plt.plot(df2['date'], df2['pm1'], label="Prediction")
+        plt.xlabel('Dates')
+        plt.ylabel('Values')
+        plt.legend()
+        plt.show()
+
+    def confidence_factor(self):
+        pass
 
 
 class MultiDimensionV1(Agent):
