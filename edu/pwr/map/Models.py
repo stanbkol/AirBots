@@ -1,14 +1,12 @@
 from datetime import datetime
-
-from edu.pwr.database.DbManager import Base, engine, Session, getSensors, getMeasures, getTiles, addOpoleMap, \
-    insertTiles, insertSensors, insertMeasures
+from edu.pwr.database.DbManager import Base, Session, addOpoleMap, insertTiles, insertSensors, insertMeasures
+from edu.pwr.database.DataLoader import getSensors, getTiles, getMeasures
 from edu.pwr.map.MapPoint import calcCoordinate, calcDistance, MapPoint
 from edu.pwr.database.DataLoader import createConnection
 from edu.pwr.database.utils import drange
 from sqlalchemy import Column, String, Integer, Float, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 from sqlalchemy.future import select
-import pandas as pd
 
 
 class Measure(Base):
@@ -246,12 +244,12 @@ class Map(Base):
     #     pass
 
 
-def getSensors():
+def getSensorsORM():
     with Session as sesh:
         return sesh.query(Sensor).all()
 
 
-def getTiles():
+def getTilesORM():
     with Session as sesh:
         return sesh.query(Tile).all()
 

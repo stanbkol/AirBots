@@ -1,8 +1,6 @@
-import psycopg2
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 from sqlalchemy.schema import CreateSchema
-from edu.pwr.database.DataLoader import getSensors, getTiles, getMeasures
 from edu.pwr.map.Models import *
 
 
@@ -32,7 +30,7 @@ def createAirbots(eng):
 
 
 def insertSensors(sensors):
-    from edu.pwr.map.Sensor import Sensor
+    from edu.pwr.archive.Sensor import Sensor
 
     with Session as session:
         orm_sensors = [
@@ -47,7 +45,7 @@ def insertSensors(sensors):
 
 
 def insertMeasures(measures):
-    from edu.pwr.map.Measure import Measure
+    from edu.pwr.archive.Measure import Measure
 
     with Session as session:
         orm_measures = [
@@ -59,7 +57,7 @@ def insertMeasures(measures):
 
 
 def insertTiles(tilebins):
-    from edu.pwr.map.Tile import Tile
+    from edu.pwr.archive.Tile import Tile
 
     with Session as session:
         tiles = [
@@ -76,7 +74,7 @@ def insertTiles(tilebins):
 
 def addOpoleMap():
     with Session as sesh:
-        from edu.pwr.map.Map import Map
+        from edu.pwr.archive.Map import Map
 
         opole = Map(map_ID=1, name="Opole", coord_NW="50.76997429,17.77959063", coord_NE="50.76997429,18.03269049",
                     coord_SE="50.58761735,18.03269049", coord_SW="50.58761735,17.77959063")
