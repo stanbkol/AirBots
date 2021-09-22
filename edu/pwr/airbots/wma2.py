@@ -38,12 +38,12 @@ def main():
 
     # rolling(x, min periods=y): higher x, lower accuracy
     print(res)
-    # plt.plot(res['date'], res['pm1'], label="PM1 Values")
-    # plt.plot(res['date'], res['Prediction'], label="Pred")
-    # plt.xlabel('Dates')
-    # plt.ylabel('Values')
-    # plt.legend()
-    # plt.show()
+    plt.plot(res['date'], res['pm1'], label="PM1 Values")
+    plt.plot(res['date'], res['Prediction'], label="Pred")
+    plt.xlabel('Dates')
+    plt.ylabel('Values')
+    plt.legend()
+    plt.show()
 
 
 
