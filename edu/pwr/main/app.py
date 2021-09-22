@@ -1,17 +1,18 @@
 from datetime import datetime
 from edu.pwr.map.Models import *
+from edu.pwr.map.Agents import *
 
 
 def main():
     start = datetime(2020, 1, 1, 0).strftime('%m/%d/%Y %H:%M')
-    end = datetime(2020, 1, 2, 0).strftime('%m/%d/%Y %H:%M')
+    end = datetime(2020, 5, 31, 0).strftime('%m/%d/%Y %H:%M')
     s1 = Sensor.getSensor(11563)
     print(s1)
-    results = s1.getMeasures(start_interval=start, end_interval=end)
-    cols, measures = prepareMeasures(results, 'pm1')
-    df = pd.DataFrame(data=measures, columns=cols)
-    res = df.sort_values(by="date", ascending=True)
-    print(res)
+    measures = s1.getMeasures(start_interval=start, end_interval=end)
+    my_agent = MovingAverageV2()
+    my_agent.makePrediction(measures)
+    my_agent_2 = MovingAverageV3()
+    my_agent_2.makePrediction(measures)
     #viable options ATM: pm1, pm10, pm25, temp
 
     # print(s1.nearestNeighbors(2))
