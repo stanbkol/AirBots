@@ -8,6 +8,7 @@ from edu.pwr.database.utils import drange
 from sqlalchemy import Column, String, Integer, Float, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 from sqlalchemy.future import select
+import pandas as pd
 
 
 class Measure(Base):
@@ -257,32 +258,31 @@ def getTiles():
 
 # to be updated
 def prepareMeasures(dataset, col):
-    time_data = []
+    columns = []
     measure_data = []
     if col == "pm1":
         print("Fetching pm1 measures..")
         for entry in dataset:
-            time_data.append(entry.dk)
-            measure_data.append(entry.pm1)
-
+            measure_data.append((entry.sid, entry.date, entry.pm1))
+            columns = ['sensorid', 'date', 'pm1']
     if col == "pm10":
         print("Fetching pm10 measures..")
         for entry in dataset:
-            time_data.append(entry.dk)
-            measure_data.append(entry.pm10)
+            measure_data.append((entry.sid, entry.date, entry.pm10))
+            columns = ['sensorid', 'date', 'pm10']
 
     if col == "pm25":
         print("Fetching pm25 measures..")
         for entry in dataset:
-            time_data.append(entry.dk)
-            measure_data.append(entry.pm25)
+            measure_data.append((entry.sid, entry.date, entry.pm25))
+            columns = ['sensorid', 'date', 'pm25']
 
     if col == "temp":
         print("Fetching temperature measures..")
         for entry in dataset:
-            time_data.append(entry.dk)
-            measure_data.append(entry.temp)
-    return time_data, measure_data
+            measure_data.append((entry.sid, entry.date, entry.temp))
+            columns = ['sensorid', 'date', 'temp']
+    return columns, measure_data
 
 
 def createAllTables(eng):
