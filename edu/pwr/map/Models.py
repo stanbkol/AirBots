@@ -109,9 +109,15 @@ class Sensor(Base):
             return calcDistance(startLL=MapPoint(self.lat, self.lon),
                                 endLL=MapPoint(other.lat, other.lon))
 
+    def getColumn(self, col, start_interval=datetime(2017, 11, 12, 0), end_interval=datetime(2021, 5, 5, 0)):
+        with Session as sesh:
+            return sesh.query(getattr(Measure, col)).filter(Measure.date >= start_interval).filter(
+                Measure.date <= end_interval).where(Measure.sid == self.sid).all()
+
     def getMeasures(self, start_interval=datetime(2017, 11, 12, 0), end_interval=datetime(2021, 5, 5, 0)):
         with Session as sesh:
-            return sesh.query(Measure).filter(Measure.date >= start_interval).filter(Measure.date <= end_interval).where(Measure.sid == self.sid).all()
+            return sesh.query(Measure).filter(Measure.date >= start_interval).filter(
+                Measure.date <= end_interval).where(Measure.sid == self.sid).all()
 
 
 class Tile(Base):

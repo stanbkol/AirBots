@@ -9,7 +9,7 @@ from edu.pwr.database.utils import drange
 class Agent(ABC):
 
     @abstractmethod
-    def makePrediction(self, data):
+    def makePrediction(self, orm_data):
         pass
 
     @abstractproperty
@@ -37,7 +37,7 @@ def calc_weights(n):
 
 
 # to be updated
-def prepareMeasures(dataset, col):
+def prepareMeasures(dataset, col='*'):
     columns = []
     measure_data = []
     if col == "pm1":
@@ -62,6 +62,10 @@ def prepareMeasures(dataset, col):
         for entry in dataset:
             measure_data.append((entry.sid, entry.date, entry.temp))
             columns = ['sensorid', 'date', 'temp']
+    else:
+        for entry in dataset:
+            measure_data.append((entry.sid, entry.date, entry.temp, entry.pm1, entry.pm10, entry.pm25))
+            columns = ['sensorid', 'date', 'temp', 'pm1', 'pm10', 'pm25']
     return columns, measure_data
 
 
@@ -70,10 +74,34 @@ def createDataframe(cols, measures):
     return df.sort_values(by="date", ascending=True)
 
 
+def getColumn(dataset, col):
+    column = []
+    if col == "pm1":
+        print("Fetching pm1 measures..")
+        for entry in dataset:
+            column.append(entry.pm1)
+    if col == "pm10":
+        print("Fetching pm10 measures..")
+        for entry in dataset:
+            column.append(entry.pm10)
+
+    if col == "pm25":
+        print("Fetching pm25 measures..")
+        for entry in dataset:
+            column.append(entry.pm25)
+
+    if col == "temp":
+        print("Fetching temperature measures..")
+        for entry in dataset:
+            column.append(entry.temp)
+    return column
+
+
 # Exponential Moving Average
 class MovingAverageV1(Agent):
 
-    def makePrediction(self, orm_data, window):
+    def makePrediction(self, orm_data):
+        window = 10
         weights = np.array(exp_weights(window))
         cols, data = prepareMeasures(orm_data, "pm1")
         df = createDataframe(cols, data)
@@ -90,11 +118,10 @@ class MovingAverageV1(Agent):
         pass
 
 
-
-
 # Simple Moving Average
 class MovingAverageV2(Agent):
-    def makePrediction(self, orm_data, window):
+    def makePrediction(self, orm_data):
+        window = 10
         col, data = prepareMeasures(orm_data, "pm1")
         results = createDataframe(col, data)
         results['Prediction'] = results.pm1.rolling(window, min_periods=1).mean()
@@ -112,7 +139,8 @@ class MovingAverageV2(Agent):
 
 # Cumulative Moving Average
 class MovingAverageV3(Agent):
-    def makePrediction(self, orm_data, window):
+    def makePrediction(self, orm_data):
+        window = 10
         col, data = prepareMeasures(orm_data, "pm1")
         results = createDataframe(col, data)
         results['Prediction'] = results.pm1.rolling(window, min_periods=1).mean()
@@ -133,43 +161,13 @@ class MovingAverageV3(Agent):
 
 class MultiDimensionV1(Agent):
 
-    def makePrediction(self, data):
-        pass
+    def makePrediction(self, orm_data):
+        regr = linear_model.LinearRegression()
+        x = list(zip(getColumn(orm_data, 'temp'), getColumn(orm_data, 'pm10'), getColumn(orm_data, 'pm25')))
+        y = getColumn(orm_data, 'pm1')
+        regr.fit(x, y)
+        prediction = regr.predict([[-2.77, 207.3, 135.18]])
+        print(prediction)
 
     def confidence_factor(self):
         pass
-
-    def hypothesis(self, theta, X):
-        return theta * X
-
-    def computeCost(self, X, y, theta):
-        y1 = self.hypothesis(theta, X)
-        y1 = np.sum(y1, axis=1)
-        return sum(np.sqrt((y1 - y) ** 2)) / (2 * 47)
-
-    def gradientDescent(self, X, y, theta, alpha, i):
-        J = []  # cost function in each iterations
-        k = 0
-        while k < i:
-            y1 = self.hypothesis(theta, X)
-            y1 = np.sum(y1, axis=1)
-            for c in range(0, len(X.columns)):
-                theta[c] = theta[c] - alpha * (sum((y1 - y) * X.iloc[:, c]) / len(X))
-            j = self.computeCost(X, y, theta)
-            J.append(j)
-            k += 1
-        return J, j, theta
-
-    '''-------------------------------------------------------'''
-
-    # TODO: figure out how to create DataFrame using ORM query.
-    def mv_reg_pred(self, df_data, temp, pm10, pm25):
-        X = df_data[['temperature', 'pm10', 'pm25']]
-        y = df_data['pm1']
-
-        regr = linear_model.LinearRegression()
-        regr.fit(X, y)
-
-        prediction = regr.predict([[temp, pm10, pm25]])
-
-        print(prediction)
