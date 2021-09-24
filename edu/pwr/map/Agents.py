@@ -73,33 +73,31 @@ def createDataframe(cols, measures):
 # Exponential Moving Average
 class MovingAverageV1(Agent):
 
-    def makePrediction(self, data):
-        pass
+    def makePrediction(self, orm_data, window):
+        weights = np.array(exp_weights(window))
+        cols, data = prepareMeasures(orm_data, "pm1")
+        df = createDataframe(cols, data)
+        df.sort_values(by='date')
+        pred = df['pm1'].rolling(window).apply(lambda x: np.sum(weights * x))
+        plt.plot(df['date'], df['pm1'], label="PM1 Values")
+        plt.plot(df['date'], pred, label="Pred")
+        plt.xlabel('Dates')
+        plt.ylabel('Values')
+        plt.legend()
+        plt.show()
 
     def confidence_factor(self):
         pass
 
-    def weighted_rolling_mean(self, data, window, cols, exp=True):
-        if exp:
-            weights = np.array(exp_weights(window))
-        else:
-            weights = np.array(calc_weights(window))
 
-        print("length of weights: " + str(len(weights)))
-        print(weights)
-        print(sum(weights))
-        df = pd.DataFrame(data=data, columns=cols)
-        df.sort_values(by='date')
-        df['MA_PM1'] = df['pm1'].rolling(window).apply(lambda x: np.sum(weights * x))
-        return df
 
 
 # Simple Moving Average
 class MovingAverageV2(Agent):
-    def makePrediction(self, orm_data):
+    def makePrediction(self, orm_data, window):
         col, data = prepareMeasures(orm_data, "pm1")
         results = createDataframe(col, data)
-        results['Prediction'] = results.pm1.rolling(10, min_periods=1).mean()
+        results['Prediction'] = results.pm1.rolling(window, min_periods=1).mean()
         results['Confidence'] = 100 - abs(((results['pm1'] - results['Prediction']) / results['pm1']) * 100)
         plt.plot(results['date'], results['pm1'], label="PM1 Values")
         plt.plot(results['date'], results['Prediction'], label="Pred")
@@ -114,10 +112,10 @@ class MovingAverageV2(Agent):
 
 # Cumulative Moving Average
 class MovingAverageV3(Agent):
-    def makePrediction(self, orm_data):
+    def makePrediction(self, orm_data, window):
         col, data = prepareMeasures(orm_data, "pm1")
         results = createDataframe(col, data)
-        results['Prediction'] = results.pm1.rolling(10, min_periods=1).mean()
+        results['Prediction'] = results.pm1.rolling(window, min_periods=1).mean()
         results['Prediction_cma'] = results.pm1.expanding(20).mean()
         results['Error'] = abs(((results['pm1'] - results['Prediction']) / results['pm1']) * 100)
         plt.plot(results['date'], results['pm1'], label="PM1 Values")

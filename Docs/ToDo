@@ -1,0 +1,21 @@
+
+
+General Tasks:
+-1. confidence factor: finalize structure of storing/updating value, finalize formula, autoupdate after each prediction
+-2. create Model.py top level to store all objects and create Model from provided text file (csv or json)
+-3. complete datacleaning procedure on missing data prior to model training phase
+        -calculateIntervals (find number of hourly intervals in providing start/end)
+        -calculateCompleteness (compare above value to number of ORM measures returned from query)
+        -checkCompleteness (method to check completeness value for given sensor in given interval against a minimum threshold)
+        -cleanInterval (method to populate missing entries for sensors that passed completeness check)
+-4. implement tileclassification method
+-5. implement map theory functionality for easier tile analysis
+-6. LUR!!!!! Land use regression agent asap.
+
+
+
+Assigned Tasks:
+Matt:
+-update movingaveragev1() and multidimensionv1() to work with new ORM methods
+- working on tasks 1 + 2
+- to be completed by 9/26/2021

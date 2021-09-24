@@ -109,14 +109,9 @@ class Sensor(Base):
             return calcDistance(startLL=MapPoint(self.lat, self.lon),
                                 endLL=MapPoint(other.lat, other.lon))
 
-    def getMeasures(self, start_interval=datetime(2017, 11, 12, 0).strftime('%m/%d/%Y %H:%M'),
-                    end_interval=datetime(2021, 5, 5, 0).strftime('%m/%d/%Y %H:%M'), column='*'):
-        rawDate_s = datetime.strptime(start_interval, '%m/%d/%Y %H:%M')
-        rawDate_e = datetime.strptime(end_interval, '%m/%d/%Y %H:%M')
-        start_dk = int(rawDate_s.strftime('%Y%m%d%H'))
-        end_dk = int(rawDate_e.strftime('%Y%m%d%H'))
+    def getMeasures(self, start_interval=datetime(2017, 11, 12, 0), end_interval=datetime(2021, 5, 5, 0)):
         with Session as sesh:
-            return sesh.query(Measure).where(Measure.sid == self.sid, Measure.dk > start_dk, Measure.dk < end_dk).all()
+            return sesh.query(Measure).filter(Measure.date >= start_interval).filter(Measure.date <= end_interval).where(Measure.sid == self.sid).all()
 
 
 class Tile(Base):
@@ -252,35 +247,6 @@ def getSensorsORM():
 def getTilesORM():
     with Session as sesh:
         return sesh.query(Tile).all()
-
-
-# to be updated
-def prepareMeasures(dataset, col):
-    columns = []
-    measure_data = []
-    if col == "pm1":
-        print("Fetching pm1 measures..")
-        for entry in dataset:
-            measure_data.append((entry.sid, entry.date, entry.pm1))
-            columns = ['sensorid', 'date', 'pm1']
-    if col == "pm10":
-        print("Fetching pm10 measures..")
-        for entry in dataset:
-            measure_data.append((entry.sid, entry.date, entry.pm10))
-            columns = ['sensorid', 'date', 'pm10']
-
-    if col == "pm25":
-        print("Fetching pm25 measures..")
-        for entry in dataset:
-            measure_data.append((entry.sid, entry.date, entry.pm25))
-            columns = ['sensorid', 'date', 'pm25']
-
-    if col == "temp":
-        print("Fetching temperature measures..")
-        for entry in dataset:
-            measure_data.append((entry.sid, entry.date, entry.temp))
-            columns = ['sensorid', 'date', 'temp']
-    return columns, measure_data
 
 
 def createAllTables(eng):
