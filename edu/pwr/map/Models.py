@@ -99,11 +99,6 @@ class Sensor(Base):
 
             return distances[:n]
 
-    @classmethod
-    def getSensor(cls, id):
-        with Session as sesh:
-            return sesh.query(Sensor).get(id)
-
     def metersTo(self, other):
         if isinstance(other, Sensor):
             return calcDistance(startLL=MapPoint(self.lat, self.lon),
@@ -253,6 +248,11 @@ def getSensorsORM():
 def getTilesORM():
     with Session as sesh:
         return sesh.query(Tile).all()
+
+
+def getSensorORM(id):
+    with Session as sesh:
+        return sesh.query(Sensor).where(Sensor.sid == id).one()
 
 
 def createAllTables(eng):
