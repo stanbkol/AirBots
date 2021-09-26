@@ -6,14 +6,23 @@ import matplotlib.pyplot as plt
 from edu.pwr.database.utils import drange
 
 
+# initial confidence calculation
+# self.cf += updateConfidence(self.cf, actual_value=, predicted_value=) <---in each make prediction method
+def updateConfidence(cf, predicted_value, actual_value):
+    delta = (predicted_value-actual_value)/actual_value
+    if delta < 0.1:
+        return cf+1
+    else:
+        return cf-1
+
+
 class Agent(ABC):
+
+    def __init__(self):
+        self.cf = 50
 
     @abstractmethod
     def makePrediction(self, orm_data):
-        pass
-
-    @abstractproperty
-    def confidence_factor(self):
         pass
 
 
@@ -114,9 +123,6 @@ class MovingAverageV1(Agent):
         plt.legend()
         plt.show()
 
-    def confidence_factor(self):
-        pass
-
 
 # Simple Moving Average
 class MovingAverageV2(Agent):
@@ -132,9 +138,6 @@ class MovingAverageV2(Agent):
         plt.ylabel('Values')
         plt.legend()
         plt.show()
-
-    def confidence_factor(self):
-        pass
 
 
 # Cumulative Moving Average
@@ -155,9 +158,6 @@ class MovingAverageV3(Agent):
         plt.legend()
         plt.show()
 
-    def confidence_factor(self):
-        pass
-
 
 class MultiDimensionV1(Agent):
 
@@ -168,6 +168,3 @@ class MultiDimensionV1(Agent):
         regr.fit(x, y)
         prediction = regr.predict([[-2.77, 207.3, 135.18]])
         print(prediction)
-
-    def confidence_factor(self):
-        pass
