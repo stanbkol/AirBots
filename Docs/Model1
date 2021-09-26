@@ -1,7 +1,7 @@
 {
 	"id": 1234,
 	"start_date" : "Jan 1 2020 12:00AM",
-	"end_date" : "Jan 1 2021 12:00AM",
+	"end_date" : "Jan 7 2020 12:00AM",
 	"accuracy_threshold" : 0.25,
 	"map" : {
 		"NW": {

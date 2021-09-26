@@ -8,6 +8,7 @@ def makeModel(file):
     getJson(file)
 
 
+# returns a dictionary containing the json file
 def getJson(file):
     f = open(file, )
     data = json.load(f)
