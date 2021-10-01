@@ -1,10 +1,33 @@
+Updated list as of October 1, 2021
+
+Deliverables October 7, 2021
+-Complete working implementation of autoupdating confidence factor
+-Implement few methods to facilitate running the model from .json file; starting from readJson and ending with saveModelResults (to a .txt or excell file)
+-Clean project structure, document and remove old methods, upload legacy code to github
+-Clean up Agents.py and remove code redundancies; Tweak MovingAverageV3() and Complete MultidimensionalV2()
+-Initial implementation of bayesian maximum entropy
 
 
-General Tasks:
--1. confidence factor: finalize structure of storing/updating value, finalize formula, autoupdate after each prediction
--2. complete datacleaning procedure on missing data prior to model training phase
-        -checkCompleteness (method to check completeness value for given sensor in given interval against a minimum threshold)
-        -cleanInterval (method to populate missing entries for sensors that passed completeness check)
--3. implement tileclassification method
--4. implement map theory functionality for easier tile analysis
--5. LUR!!!!! Land use regression agent asap.
+Deliverables October 21, 2021
+-Finalize TileClassification() and all required methods
+    -Potential Implementations: Random Forest, SVM (Support Vector Machines)
+    -Finalize methods to extract data from osmnx geodataframe
+    -Find tile level elevation data (mins, max, avg, etc.)
+
+
+Deliverables November 4th, 2021
+-Clean up tile layer to facilitate finding neighbouring tiles of a given tile
+    -Clean up order of tile creation method, in order to correctly label them and create a functional map grid
+-Initial implementation of Land Use Regression Agent
+
+
+Deliverables November 18th, 2021
+-Cont'd LUR
+
+
+Deliverables December 2nd, 2021
+-Finalized LUR
+-Clean up code prior to presentation; implement unit tests where critical, update all comments etc.
+-Simple UI implementation
+
+

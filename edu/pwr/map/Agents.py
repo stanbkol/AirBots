@@ -106,7 +106,7 @@ def getColumn(dataset, col):
     return column
 
 
-# Exponential Moving Average
+# Weighted Moving Average
 class MovingAverageV1(Agent):
 
     def makePrediction(self, orm_data):
@@ -124,7 +124,7 @@ class MovingAverageV1(Agent):
         plt.show()
 
 
-# Simple Moving Average
+# Simple Moving Average + Cumulative Moving Average
 class MovingAverageV2(Agent):
     def makePrediction(self, orm_data):
         window = 10
@@ -140,7 +140,7 @@ class MovingAverageV2(Agent):
         plt.show()
 
 
-# Cumulative Moving Average
+# To Do: AutoREgressiveIntegratedMovingAverage
 class MovingAverageV3(Agent):
     def makePrediction(self, orm_data):
         window = 10
