@@ -5,13 +5,20 @@ import json
 import pandas
 
 
+def fetchBB(data):
+    bounding_box = []
+    for entry in data:
+        bounding_box.append(entry["boundingbox"])
+    return bounding_box[0]
+
+
 def makeModel(file):
     getJson(file)
 
 
 # returns a dictionary containing the json file
 def getJson(file):
-    f = open(file, )
+    f = open(file, encoding="utf8")
     data = json.load(f)
     return data
 
