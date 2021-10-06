@@ -1,5 +1,4 @@
-from datetime import datetime
-from edu.pwr.map.Model import *
+from src.map.Model import *
 
 
 def main():

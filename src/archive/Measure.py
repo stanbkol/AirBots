@@ -1,14 +1,13 @@
-from sqlalchemy import create_engine, Column, String, Integer, Float, ForeignKey, DateTime
-from sqlalchemy.orm import relationship
-from edu.pwr.database.DbManager import Base
+from sqlalchemy import Column, Integer, Float, ForeignKey, DateTime
+from src.database.DbManager import Base
 
 
 class Measure(Base):
     __tablename__ = 'measures'
-    __table_args__ = {"schema": "airbots"}
+    __table_args__ = {"schema": "agents"}
 
     dk = Column('datekey', Integer, primary_key=True)
-    sid = Column('sensorid', Integer, ForeignKey("airbots.sensors.sensor_id"), primary_key=True)
+    sid = Column('sensorid', Integer, ForeignKey("agents.sensors.sensor_id"), primary_key=True)
     date = Column('date', DateTime)
     temp = Column('temperature', Float)
     pm1 = Column('pm1', Float)

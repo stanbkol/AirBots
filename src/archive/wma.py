@@ -3,7 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 
-from edu.pwr.database.utils import drange
+from src.database.utils import drange
 
 
 def weightedmovingaverage(Data, period):

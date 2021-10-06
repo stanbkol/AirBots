@@ -6,10 +6,10 @@ import requests
 from flask import Flask
 import folium
 from geojson import Polygon, Feature, FeatureCollection, Point
-from edu.pwr.database.DataLoader import createConnection, fetchValidSensors, fetchMapGridPolys, insertTile
-from edu.pwr.map.MapPoint import calcDistance, MapPoint, calcCoordinate
-from edu.pwr.map.TileBin import TileBin
-from edu.pwr.database.utils import drange
+from src.database.DataLoader import createConnection, fetchValidSensors, fetchMapGridPolys, insertTile
+from src.map.MapPoint import calcDistance, MapPoint, calcCoordinate
+from src import TileBin
+from src.database.utils import drange
 
 app = Flask(__name__)
 

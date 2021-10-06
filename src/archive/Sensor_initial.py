@@ -1,7 +1,5 @@
-import matplotlib.pyplot as plt
-
-from edu.pwr.database.utils import Field
-from edu.pwr.map.MapPoint import calcDistance, MapPoint
+from src.database.utils import Field
+from src.map.MapPoint import calcDistance, MapPoint
 
 
 class Sensor:

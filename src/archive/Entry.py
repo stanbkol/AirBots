@@ -1,4 +1,4 @@
-from edu.pwr.database.utils import Field
+from src.database.utils import Field
 
 
 class Entry:

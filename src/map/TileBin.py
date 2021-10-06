@@ -1,6 +1,5 @@
-from edu.pwr.map.MapPoint import calcCoordinate, calcDistance, MapPoint
-import decimal
-from edu.pwr.database.utils import drange, Field
+from src.map.MapPoint import calcCoordinate, calcDistance, MapPoint
+from src.database.utils import drange, Field
 
 
 class TileBin:

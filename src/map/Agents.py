@@ -1,9 +1,9 @@
-from abc import ABC, abstractmethod, abstractproperty
+from abc import ABC, abstractmethod
 from sklearn import linear_model
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from edu.pwr.database.utils import drange
+from src.database.utils import drange
 import statsmodels.api as sm
 
 
