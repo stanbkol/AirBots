@@ -2,6 +2,8 @@ from dateutil import parser
 import json
 import pandas
 
+from src.database.Models import getSensorORM, Measure
+
 
 class Model:
 
