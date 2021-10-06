@@ -1,12 +1,12 @@
-from sqlalchemy import create_engine, Column, String, Integer, Float, ForeignKey
+from sqlalchemy import Column, String, Integer
 from sqlalchemy.orm import relationship
 
-from edu.pwr.database.DbManager import Base
+from src.database.DbManager import Base
 
 
 class Map(Base):
     __tablename__ = 'maps'
-    __table_args__ = {"schema": "airbots"}
+    __table_args__ = {"schema": "agents"}
 
     # collection of tiles-> collection tiles with coords and elevation.
     tileMesh = []

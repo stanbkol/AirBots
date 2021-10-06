@@ -1,5 +1,3 @@
-from edu.pwr.map.Models import *
-from edu.pwr.map.Agents import *
 from dateutil import parser
 import json
 import pandas

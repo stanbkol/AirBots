@@ -1,5 +1,5 @@
 # weights based on distance for calculating moving average
-from edu.pwr.map.MapPoint import calcDistance, MapPoint
+from src.map.MapPoint import calcDistance, MapPoint
 
 A = MapPoint(1,1)
 B = MapPoint(2,2)

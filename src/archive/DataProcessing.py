@@ -1,6 +1,6 @@
 import unicodedata
-from edu.pwr.database.utils import *
-from edu.pwr.database.DataLoader import *
+from src.database.utils import *
+from src.database.DataLoader import *
 from shapely.geometry import Polygon, Point
 
 invalid_count = 0

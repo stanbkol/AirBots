@@ -1,16 +1,16 @@
 from sqlalchemy import Column, String, Integer, Float, ForeignKey
 from sqlalchemy.future import select
 from sqlalchemy.orm import relationship
-from edu.pwr.database.DbManager import Base, Session
-from edu.pwr.map.MapPoint import calcDistance, MapPoint
+from src.database.DbManager import Base, Session
+from src.map.MapPoint import calcDistance, MapPoint
 
 
 class Sensor(Base):
     __tablename__ = 'sensors'
-    __table_args__ = {"schema": "airbots"}
+    __table_args__ = {"schema": "agents"}
 
     sid = Column('sensor_id', Integer, primary_key=True)
-    tid = Column('tile_id', Integer, ForeignKey('airbots.tiles.tile_id'), nullable=True)
+    tid = Column('tile_id', Integer, ForeignKey('agents.tiles.tile_id'), nullable=True)
     adr1 = Column('address1', String(50))
     adr2 = Column('address2', String(50))
     adrn = Column('address_num', String(5))

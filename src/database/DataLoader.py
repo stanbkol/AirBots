@@ -1,11 +1,11 @@
 from datetime import datetime
 
-from edu.pwr.archive.Entry import Entry
-from edu.pwr.archive.Sensor_initial import Sensor
+from src.archive.Entry import Entry
+from src.archive.Sensor_initial import Sensor
 import psycopg2
 
-from edu.pwr.map.MapPoint import MapPoint, calcDistance
-from edu.pwr.map.TileBin import TileBin
+from src.map.MapPoint import MapPoint, calcDistance
+from src.map.TileBin import TileBin
 
 
 class Loader:

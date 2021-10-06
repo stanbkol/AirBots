@@ -1,9 +1,9 @@
 from datetime import datetime
-from edu.pwr.database.DbManager import Base, Session, addOpoleMap, insertTiles, insertSensors, insertMeasures
-from edu.pwr.database.DataLoader import getSensors, getTiles, getMeasures
-from edu.pwr.map.MapPoint import calcCoordinate, calcDistance, MapPoint
-from edu.pwr.database.DataLoader import createConnection
-from edu.pwr.database.utils import drange
+from src.database.DbManager import Base, Session, addOpoleMap, insertTiles, insertSensors, insertMeasures
+from src.database.DataLoader import getSensors, getTiles, getMeasures
+from src.map.MapPoint import calcCoordinate, calcDistance, MapPoint
+from src.database.DataLoader import createConnection
+from src.database.utils import drange
 from sqlalchemy import Column, String, Integer, Float, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 from sqlalchemy.future import select
@@ -11,10 +11,10 @@ from sqlalchemy.future import select
 
 class Measure(Base):
     __tablename__ = 'measures'
-    __table_args__ = {"schema": "airbots"}
+    __table_args__ = {"schema": "agents"}
 
     dk = Column('datekey', Integer, primary_key=True)
-    sid = Column('sensorid', Integer, ForeignKey("airbots.sensors.sensor_id"), primary_key=True)
+    sid = Column('sensorid', Integer, ForeignKey("agents.sensors.sensor_id"), primary_key=True)
     date = Column('date', DateTime)
     temp = Column('temperature', Float)
     pm1 = Column('pm1', Float)
@@ -39,10 +39,10 @@ class Measure(Base):
 
 class Sensor(Base):
     __tablename__ = 'sensors'
-    __table_args__ = {"schema": "airbots"}
+    __table_args__ = {"schema": "agents"}
 
     sid = Column('sensor_id', Integer, primary_key=True)
-    tid = Column('tile_id', Integer, ForeignKey('airbots.tiles.tile_id'), nullable=True)
+    tid = Column('tile_id', Integer, ForeignKey('agents.tiles.tile_id'), nullable=True)
     adr1 = Column('address1', String(50))
     adr2 = Column('address2', String(50))
     adrn = Column('address_num', String(5))
@@ -117,10 +117,10 @@ class Sensor(Base):
 
 class Tile(Base):
     __tablename__ = 'tiles'
-    __table_args__ = {"schema": "airbots"}
+    __table_args__ = {"schema": "agents"}
 
     tid = Column('tile_id', Integer, primary_key=True)
-    mid = Column('map_id', Integer, ForeignKey("airbots.maps.map_id"), nullable=False)
+    mid = Column('map_id', Integer, ForeignKey("agents.maps.map_id"), nullable=False)
     sides = Column('num_sides', Integer)
     center = Column('center_latlon', String(50))
     v1 = Column('vertex1', String(50))
@@ -202,7 +202,7 @@ class Tile(Base):
 
 class Map(Base):
     __tablename__ = 'maps'
-    __table_args__ = {"schema": "airbots"}
+    __table_args__ = {"schema": "agents"}
 
     # collection of tiles-> collection tiles with coords and elevation.
     tileMesh = []
