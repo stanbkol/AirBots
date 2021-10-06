@@ -6,9 +6,8 @@ import requests
 from flask import Flask
 import folium
 from geojson import Polygon, Feature, FeatureCollection, Point
-from src.database.DataLoader import createConnection, fetchValidSensors, fetchMapGridPolys, insertTile
 from src.map.MapPoint import calcDistance, MapPoint, calcCoordinate
-from src import TileBin
+from src.map.TileBin import TileBin
 from src.database.utils import drange
 
 app = Flask(__name__)
@@ -34,12 +33,10 @@ def base():
     return opole_map._repr_html_()
 
 
+# TODO: swtich to ORM querying
 def getSensorCoords():
-    conn = createConnection()
-    sensorsData = fetchValidSensors(conn)
-    # print(sensorsData[0])
-    sensorCoords = [(t[6], t[5]) for t in sensorsData]
-    return sensorCoords
+    # lon lat order
+    pass
 
 
 def genCityLayer():
@@ -86,34 +83,7 @@ def genSensorLayer():
 
 
 def create_layers():
-    opole = 1
-    genHexGrid()
-    geo_tiles_from_db(opole)
-    genSensorLayer()
-
-
-def geo_tiles_from_db(mapId):
-    conn = createConnection()
-    tile_polys = fetchMapGridPolys(conn, mapId)
-    tile_features = []
-
-    for vertices_tup in tile_polys:
-        lonlats = []
-        for v_strs in list(vertices_tup):
-            c_strings = v_strs.split(",")
-            lonlats.append((float(c_strings[1]), float(c_strings[0])))
-        lonlats.append(lonlats[0])
-        p = Polygon([lonlats])
-        f = Feature(geometry=Polygon(p))
-        tile_features.append(f)
-
-
-    print("saving..")
-    tile_collection = FeatureCollection(tile_features)
-
-    # C:\\Users\\stanb\\PycharmProjects
-    with open('..\\..\\AirBots\\geojsons\\tiles_layer.geojson', "w") as out:
-        geojson.dump(tile_collection, out)
+    pass
 
 
 
@@ -177,10 +147,12 @@ def genHexGrid():
 
     print("# tiles: " + str(len(tiles)))
     print("inserting tiles to table..")
-    conn = createConnection()
+    # conn = createConnection()
 
-    for tile in tiles:
-        insertTile(conn, tile)
+    # for tile in tiles:
+        # insertTile(conn, tile)
+
+    # TODO: update to insert into new ORM tables
 
 
 def getGeocoding(sensor):

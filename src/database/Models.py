@@ -1,8 +1,6 @@
 from datetime import datetime
 from src.database.DbManager import Base, Session, addOpoleMap, insertTiles, insertSensors, insertMeasures
-from src.database.DataLoader import getSensors, getTiles, getMeasures
 from src.map.MapPoint import calcCoordinate, calcDistance, MapPoint
-from src.database.DataLoader import createConnection
 from src.database.utils import drange
 from sqlalchemy import Column, String, Integer, Float, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
@@ -259,21 +257,3 @@ def createAllTables(eng):
     table_objects = [Map.__table__, Tile.__table__, Sensor.__table__, Measure.__table__]
     Base.metadata.create_all(eng, tables=table_objects)
 
-
-def populateTables():
-    conn = createConnection()
-    s_list = getSensors(conn, '*')
-    print("sensor data fetched")
-    m_list = getMeasures(conn, '*')
-    print("measurement data fetched")
-    tiles = getTiles(conn, '*')
-    print("tilebin data fetched")
-    conn.close()
-    print("inserting maps..")
-    addOpoleMap()
-    print("inserting tiles..")
-    insertTiles(tiles)
-    print("inserting sensors..")
-    insertSensors(s_list)
-    print("inserting measures..")
-    insertMeasures(m_list)
