@@ -190,8 +190,13 @@ class Tile(Base):
         self.updateClass(tile_class)
 
     def updateClass(self, tc):
+        # session.query(). \
+        #     filter(User.username == form.username.data). \
+        #     update({"no_of_logins": (User.no_of_logins + 1)})
+        # session.commit()
         with Session as sesh:
             sesh.execute(update(Tile).where(Tile.tid == self.tid).values(tclass=tc))
+            sesh.commit()
 
     def set_vertices(self, vertex_list):
         if len(vertex_list) == self.numSides:
