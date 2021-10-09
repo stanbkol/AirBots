@@ -1,5 +1,5 @@
 from datetime import datetime
-from src.database.DbManager import Base, Session, addOpoleMap, insertTiles, insertSensors, insertMeasures
+from src.database.DbManager import Base, Session, addOpoleMap
 from src.map.MapPoint import calcCoordinate, calcDistance, MapPoint
 from src.database.utils import drange
 from sqlalchemy import Column, String, Integer, Float, ForeignKey, DateTime
@@ -243,9 +243,9 @@ def getSensorsORM():
         return sesh.query(Sensor).all()
 
 
-def getTilesORM():
+def getTilesORM(mapID=1):
     with Session as sesh:
-        return sesh.query(Tile).all()
+        return sesh.query(Tile).where(Tile.mid == mapID).all()
 
 
 def getSensorORM(id):

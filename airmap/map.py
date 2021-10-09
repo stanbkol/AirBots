@@ -9,6 +9,7 @@ from geojson import Polygon, Feature, FeatureCollection, Point
 from src.map.MapPoint import calcDistance, MapPoint, calcCoordinate
 from src.map.TileBin import TileBin
 from src.database.utils import drange
+from src.database.Models import getTilesORM
 
 app = Flask(__name__)
 
@@ -63,6 +64,34 @@ def genCityLayer():
         geojson.dump(map_collection, out)
 
 
+def getPolys(tiles, lonlat=False):
+    polys = []
+    for t in tiles:
+        coords = t.getVertices()
+        coords.append(coords[0])
+        # if true, swaps order of coordinates to longitude, latitude
+        if lonlat:
+            coords = [(c[1], c[0]) for c in coords]
+
+        polys.append(Polygon(coords))
+
+    return polys
+
+
+def geo_tiles_from_db():
+    tiles = getTilesORM()
+    tile_polys = getPolys(tiles, lonlat=True)
+    tile_features = []
+    for poly in tile_polys:
+        f = Feature(geometry=poly)
+        tile_features.append(f)
+    print("saving..")
+    tile_collection = FeatureCollection(tile_features)
+    # C:\\Users\\stanb\\PycharmProjects
+    with open('..\\..\\AirBots\\geojsons\\tiles_layer.geojson', "w") as out:
+        geojson.dump(tile_collection, out)
+
+
 def genSensorLayer():
     sensor_feats = []
     sensorsLonLat = getSensorCoords()
@@ -84,7 +113,6 @@ def genSensorLayer():
 
 def create_layers():
     pass
-
 
 
 def genHexGrid():
@@ -197,10 +225,10 @@ def create_poly_string(longlat_list):
 
 
 if __name__ == "__main__":
-    genHexGrid()
+    # genHexGrid()
     # geo_tiles_from_db(1)
     # genSensorLayer()
     # create_layers()
-    # app.run(debug=True)
+    app.run(debug=True)
 
 
