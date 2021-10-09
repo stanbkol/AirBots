@@ -9,6 +9,5 @@ def main():
     createAllTables(engine)
     populateTables()
 
-
 if __name__ == '__main__':
     main()

@@ -10,6 +10,8 @@ from src.map.MapPoint import calcDistance, MapPoint, calcCoordinate
 from src.map.TileBin import TileBin
 from src.database.utils import drange
 from src.database.Models import getTilesORM
+import keplergl
+
 
 app = Flask(__name__)
 
@@ -33,6 +35,21 @@ def base():
 
     return opole_map._repr_html_()
 
+
+@app.route("/kepler")
+def kepler():
+    with open('..\\..\\AirBots\\geojsons\\sensor_layer.geojson', 'r') as f:
+        sensors = f.read()
+
+    with open('..\\..\\AirBots\\geojsons\\tiles_layer.geojson', 'r') as f:
+        tiles = f.read()
+
+    map_1 = keplergl.KeplerGl(height=600)
+
+    if tiles:
+        map_1.add_data(geojson, "geojson")
+
+    return map_1.repr_html_(read_only=True)
 
 # TODO: swtich to ORM querying
 def getSensorCoords():
