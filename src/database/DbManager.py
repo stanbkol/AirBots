@@ -25,7 +25,7 @@ Base = declarative_base(bind=engine)
 
 
 def createAirbots(eng):
-    eng.execute(CreateSchema('agents'))
+    eng.execute(CreateSchema('airbots'))
 
 
 # def insertSensors(sensors):
