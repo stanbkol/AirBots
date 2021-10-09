@@ -2,14 +2,14 @@ from datetime import datetime
 from src.database.DbManager import Base, Session, addOpoleMap
 from src.map.MapPoint import calcCoordinate, calcDistance, MapPoint
 from src.database.utils import drange
-from sqlalchemy import Column, String, Integer, Float, ForeignKey, DateTime
+from sqlalchemy import Column, String, Integer, Float, ForeignKey, DateTime, update
 from sqlalchemy.orm import relationship
 from sqlalchemy.future import select
 
 
 class Measure(Base):
     __tablename__ = 'measures'
-    __table_args__ = {"schema": "agents"}
+    __table_args__ = {"schema": "airbots"}
 
     dk = Column('datekey', Integer, primary_key=True)
     sid = Column('sensorid', Integer, ForeignKey("agents.sensors.sensor_id"), primary_key=True)
@@ -37,7 +37,7 @@ class Measure(Base):
 
 class Sensor(Base):
     __tablename__ = 'sensors'
-    __table_args__ = {"schema": "agents"}
+    __table_args__ = {"schema": "airbots"}
 
     sid = Column('sensor_id', Integer, primary_key=True)
     tid = Column('tile_id', Integer, ForeignKey('agents.tiles.tile_id'), nullable=True)
@@ -115,7 +115,7 @@ class Sensor(Base):
 
 class Tile(Base):
     __tablename__ = 'tiles'
-    __table_args__ = {"schema": "agents"}
+    __table_args__ = {"schema": "airbots"}
 
     tid = Column('tile_id', Integer, primary_key=True)
     mid = Column('map_id', Integer, ForeignKey("agents.maps.map_id"), nullable=False)
@@ -185,6 +185,11 @@ class Tile(Base):
 
     def setClass(self, tile_class):
         self.tclass = tile_class
+        self.updateClass(tile_class)
+
+    def updateClass(self, tc):
+        with Session as sesh:
+            sesh.execute(update(Tile).where(Tile.tid == self.tid).values(tclass=tc))
 
     def set_vertices(self, vertex_list):
         if len(vertex_list) == self.numSides:
@@ -200,7 +205,7 @@ class Tile(Base):
 
 class Map(Base):
     __tablename__ = 'maps'
-    __table_args__ = {"schema": "agents"}
+    __table_args__ = {"schema": "airbots"}
 
     # collection of tiles-> collection tiles with coords and elevation.
     tileMesh = []
@@ -246,6 +251,11 @@ def getSensorsORM():
 def getTilesORM(mapID=1):
     with Session as sesh:
         return sesh.query(Tile).where(Tile.mid == mapID).all()
+
+
+def getTileORM(id):
+    with Session as sesh:
+        return sesh.query(Tile).where(Tile.tid == id).one()
 
 
 def getSensorORM(id):

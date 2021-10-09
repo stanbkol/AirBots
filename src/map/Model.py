@@ -2,7 +2,8 @@ from dateutil import parser
 import json
 import pandas
 
-from src.database.Models import getSensorORM, Measure
+from src.database.Models import getSensorORM, Measure, getTileORM
+from src.map.TileClassifier import *
 
 
 class Model:
@@ -41,10 +42,10 @@ class Model:
         print("Cleaning the data..")
         total = countInterval(self.start, self.end)
         for s in self.sensor_data:
-            #print("Sensor-->", s)
+            # print("Sensor-->", s)
             temp = self.sensor_data[s]
             if len(temp) != total:
-                #print("Cleaning interval..")
+                # print("Cleaning interval..")
                 self.cleaned_data[s] = cleanInterval(temp)
             # else:
             #     print("Interval Complete..")
@@ -58,7 +59,7 @@ class Model:
             if (len(entries) / countInterval(self.start, self.end)) > self.threshold:
                 sensors_passed[k] = sorted(entries, key=lambda x: x.dk)
             else:
-                #print("Removing Sensor: "+str(k))
+                # print("Removing Sensor: "+str(k))
                 print(sensors_copy.pop(k))
         print(len(sensors_passed))
         self.sensors = sensors_copy
@@ -66,7 +67,7 @@ class Model:
 
     # once data has been confirmed to be clean, begin iterations to make predictions on provided data
     def runModel(self):
-        self.saveModel(self.model_file+"_Results")
+        self.saveModel(self.model_file + "_Results")
 
     def saveModel(self, filename):
         with open(filename, 'w', encoding="utf-8") as f:
@@ -79,10 +80,10 @@ class Model:
             f.write("The Chosen Sensors..\n")
             print(len(self.sensors))
             for s in self.sensors:
-                f.write("Data for sensor #"+str(s) + '\n')
-                f.write("Provided Entries: "+str(len(self.sensor_data[s])) + '\n')
+                f.write("Data for sensor #" + str(s) + '\n')
+                f.write("Provided Entries: " + str(len(self.sensor_data[s])) + '\n')
                 # add if statement block to check if interval was complete, else print amount of cleaned entries
-                #f.write("Entries After Clean: "+str(len(self.cleaned_data[s])))
+                # f.write("Entries After Clean: "+str(len(self.cleaned_data[s])))
         f.close()
 
 
@@ -140,6 +141,16 @@ def fetchSensors(sensor_list):
     for s in sensor_list:
         sensors.append(getSensorORM(s))
     return sensors
+
+
+def classifyTiles(filename):
+    data = getJson(filename)
+    for tile in data:
+        print("Classifying Tile:", tile)
+        tile_class = classifyT(data[tile])
+        print("Class-->", tile_class)
+        # tile_obj = getTileORM(tile)
+        # tile_obj.setClass(tile_class)
 
 
 def modelSummary(model_data):
