@@ -12,7 +12,7 @@ class Measure(Base):
     __table_args__ = {"schema": "airbots"}
 
     dk = Column('datekey', Integer, primary_key=True)
-    sid = Column('sensorid', Integer, ForeignKey("agents.sensors.sensor_id"), primary_key=True)
+    sid = Column('sensorid', Integer, ForeignKey("airbots.sensors.sensor_id"), primary_key=True)
     date = Column('date', DateTime)
     temp = Column('temperature', Float)
     pm1 = Column('pm1', Float)
@@ -40,7 +40,7 @@ class Sensor(Base):
     __table_args__ = {"schema": "airbots"}
 
     sid = Column('sensor_id', Integer, primary_key=True)
-    tid = Column('tile_id', Integer, ForeignKey('agents.tiles.tile_id'), nullable=True)
+    tid = Column('tile_id', Integer, ForeignKey('airbots.tiles.tile_id'), nullable=True)
     adr1 = Column('address1', String(50))
     adr2 = Column('address2', String(50))
     adrn = Column('address_num', String(5))
@@ -118,7 +118,7 @@ class Tile(Base):
     __table_args__ = {"schema": "airbots"}
 
     tid = Column('tile_id', Integer, primary_key=True)
-    mid = Column('map_id', Integer, ForeignKey("agents.maps.map_id"), nullable=False)
+    mid = Column('map_id', Integer, ForeignKey("airbots.maps.map_id"), nullable=False)
     sides = Column('num_sides', Integer)
     center = Column('center_latlon', String(50))
     v1 = Column('vertex1', String(50))
@@ -188,8 +188,13 @@ class Tile(Base):
         self.updateClass(tile_class)
 
     def updateClass(self, tc):
+        # session.query(). \
+        #     filter(User.username == form.username.data). \
+        #     update({"no_of_logins": (User.no_of_logins + 1)})
+        # session.commit()
         with Session as sesh:
             sesh.execute(update(Tile).where(Tile.tid == self.tid).values(tclass=tc))
+            sesh.commit()
 
     def set_vertices(self, vertex_list):
         if len(vertex_list) == self.numSides:

@@ -149,8 +149,8 @@ def classifyTiles(filename):
         print("Classifying Tile:", tile)
         tile_class = classifyT(data[tile])
         print("Class-->", tile_class)
-        # tile_obj = getTileORM(tile)
-        # tile_obj.setClass(tile_class)
+        tile_obj = getTileORM(tile)
+        tile_obj.setClass(tile_class)
 
 
 def modelSummary(model_data):
