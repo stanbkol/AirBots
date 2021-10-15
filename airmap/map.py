@@ -10,8 +10,16 @@ from src.map.MapPoint import calcDistance, MapPoint, calcCoordinate
 from src.map.TileBin import TileBin
 from src.database.utils import drange
 from src.database.Models import getTilesORM
-import keplergl
+from config import config
 
+# pip install wheel
+# pip install pipwin
+#
+# pipwin install gdal
+# pipwin install fiona
+# pipwin install geopandas
+# pip install kelpler
+import keplergl
 
 app = Flask(__name__)
 
@@ -20,7 +28,6 @@ app = Flask(__name__)
 def base():
     opole_map = folium.Map(location=[50.67211, 17.92533],
                            zoom_start=13, height=800
-
                            )
     geoJson_op = folium.GeoJson('..\\..\\AirBots\\geojsons\\tiles_layer.geojson',
                                 name='opole tiles')
@@ -38,24 +45,37 @@ def base():
 
 @app.route("/kepler")
 def kepler():
-    with open('..\\..\\AirBots\\geojsons\\sensor_layer.geojson', 'r') as f:
-        sensors = f.read()
+    opole = setKeplerMap()
 
-    with open('..\\..\\AirBots\\geojsons\\tiles_layer.geojson', 'r') as f:
-        tiles = f.read()
-
-    map_1 = keplergl.KeplerGl(height=600)
-
-    if tiles:
-        map_1.add_data(geojson, "geojson")
-
-    return map_1.repr_html_(read_only=True)
+    return opole._repr_html_()
 
 # TODO: swtich to ORM querying
 def getSensorCoords():
     # lon lat order
     pass
 
+
+def setKeplerMap():
+    with open('..\\..\\AirBots\\geojsons\\sensor_layer.geojson', 'r') as f:
+        sensors = f.read()
+
+    with open('..\\..\\AirBots\\geojsons\\tiles_layer.geojson', 'r') as f:
+        tiles = f.read()
+
+    with open('..\\..\\AirBots\\geojsons\\filledTiles_layer.geojson', 'r') as f:
+        tiles_filled = f.read()
+
+    opole = keplergl.KeplerGl(height=600, config=config)
+    if sensors:
+        opole.add_data(sensors, "sensors")
+    if tiles:
+        opole.add_data(tiles, "tiles")
+    if tiles_filled:
+        opole.add_data(tiles_filled, "tiles with sensors")
+
+    print(opole.config)
+
+    return opole
 
 def genCityLayer():
     map_nw = (50.76997429, 17.77959063)
