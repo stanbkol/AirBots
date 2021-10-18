@@ -270,6 +270,36 @@ def getSensorORM(id):
         return sesh.query(Sensor).where(Sensor.sid == id).one()
 
 
+def getMeasureORM(sid, date):
+    with Session as sesh:
+        return sesh.query(Measure).where(Measure.date == date).where(Measure.sid == sid).one()
+
+
+def getMeasuresORM(sid, start_interval=datetime(2017, 11, 12, 0), end_interval=datetime(2021, 5, 5, 0)):
+    with Session as sesh:
+        return sesh.query(Measure).filter(Measure.date >= start_interval).filter(
+            Measure.date <= end_interval).where(Measure.sid == sid).all()
+
+
+def getOtherSensorsORM(sid):
+    with Session as sesh:
+        return sesh.query(Sensor).where(Sensor.sid != sid).all()
+
+
+def findNearestSensors(sensorid):
+    base_sensor = getSensorORM(sensorid)
+    sensors = getOtherSensorsORM(sensorid)
+    distances = []
+    startLL = MapPoint(base_sensor.latitude, base_sensor.longitude)
+    for sensor in sensors:
+        meters_away = calcDistance(startLL, MapPoint(sensor.latitude, sensor.longitude))
+        distances.append((sensor, meters_away))
+
+    distances.sort(key=lambda x: x[1])
+
+    return distances
+
+
 def createAllTables(eng):
     table_objects = [Map.__table__, Tile.__table__, Sensor.__table__, Measure.__table__]
     Base.metadata.create_all(eng, tables=table_objects)
