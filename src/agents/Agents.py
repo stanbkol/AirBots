@@ -1,49 +1,22 @@
 from abc import ABC, abstractmethod
+from random import random
+
 from sklearn import linear_model
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from src.database.utils import drange
 import statsmodels.api as sm
+from src.database.Models import getMeasuresORM, findNearestSensors, getMeasureORM
 
-
-# initial confidence calculation
-# self.cf += updateConfidence(self.cf, actual_value=, predicted_value=) <---in each make prediction method
-def updateConfidence(cf, predicted_value, actual_value):
-    delta = (predicted_value - actual_value) / actual_value
-    if delta < 0.1:
-        return cf + 1
-    else:
-        return cf - 1
-
-
-class Agent(ABC):
-
-    def __init__(self):
-        self.cf = 50
-
-    @abstractmethod
-    def makePrediction(self, orm_data):
-        pass
-
-
-def exp_weights(n):
-    if n < 2:
-        return [n]
-    r = (1 + n ** 0.5) / 2
-    total = 1
-    a = total * (1 - r) / (1 - r ** n)
-    return [a * r ** i for i in range(n)]
-
-
-def calc_weights(n):
-    n += 1
-    diff = 1 / n
-    sample = [x for x in drange(0, 1, diff)][1::]
-    # print(sample)
-    total = sum(sample)
-    # print(total)
-    return [c / total for c in sample]
+# # or maybe this design?
+# class naiveAgent(Agent):
+#     def __init__(self, prediction_method):
+#         super().__init__()
+#         self.prediction = prediction_method
+#
+#     def makePrediction(self, orm_data):
+#         self.prediction(orm_data)
 
 
 # to be updated
@@ -107,14 +80,83 @@ def getColumn(dataset, col):
     return column
 
 
-# or maybe this design?
-class naiveAgent(Agent):
-    def __init__(self, prediction_method):
-        super().__init__()
-        self.prediction = prediction_method
+# initial confidence calculation
+# self.cf += updateConfidence(self.cf, actual_value=, predicted_value=) <---in each make prediction method
+def updateConfidence(cf, predicted_value, actual_value):
+    delta = (predicted_value - actual_value) / actual_value
+    if delta < 0.1:
+        return cf + 1
+    else:
+        return cf - 1
 
+
+def exp_weights(n):
+    if n < 2:
+        return [n]
+    r = (1 + n ** 0.5) / 2
+    total = 1
+    a = total * (1 - r) / (1 - r ** n)
+    return [a * r ** i for i in range(n)]
+
+
+def calc_weights(n):
+    """
+
+    :param n:
+    :return:
+    """
+    n += 1
+    diff = 1 / n
+    sample = [x for x in drange(0, 1, diff)][1::]
+    # print(sample)
+    total = sum(sample)
+    # print(total)
+    return [c / total for c in sample]
+
+
+class Agent(ABC):
+    """"""""
+    def __init__(self):
+        self.cf = 50
+
+    @abstractmethod
     def makePrediction(self, orm_data):
-        self.prediction(orm_data)
+        pass
+
+
+# predict value between 0 and maximum value of target sensor
+class randomAgent(Agent):
+    def makePrediction(self, sid):
+        data = getMeasuresORM(sid)
+        return random.uniform(0, max(data, key=lambda item: item.pm1))
+
+
+# avg of nearby sensors to target sensor
+class simpleAgentV1(Agent):
+
+    def makePrediction(self, sid, time, n):
+        sensors = findNearestSensors(sid)
+        total = 0
+        for s in sensors[:n]:
+            total += getMeasureORM(s[0].sid, time).pm1
+        return total / n
+
+
+# average from min/max of nearby sensors to target sensor
+class simpleAgentV2(Agent):
+    def makePrediction(self, sid, time, n):
+        sensors = findNearestSensors(sid)
+        sensor_vals = []
+        for s in sensors[:n]:
+            sensor_vals.append(getMeasureORM(s[0].sid, time))
+        return (max(sensor_vals, key=lambda item: item.pm1) + min(sensor_vals, key=lambda item: item.pm1)) / n
+
+
+# value of nearest station
+class simpleAgentV3(Agent):
+    def makePrediction(self, sid, time):
+        sensors = findNearestSensors(sid)
+        return getMeasureORM(sensors[0]).pm1
 
 
 # Weighted Moving Average
@@ -129,6 +171,29 @@ class MovingAverageV1(Agent):
         pred = df['pm1'].rolling(window).apply(lambda x: np.sum(weights * x))
         plt.plot(df['date'], df['pm1'], label="PM1 Values")
         plt.plot(df['date'], pred, label="Pred")
+        plt.xlabel('Dates')
+        plt.ylabel('Values')
+        plt.legend()
+        plt.show()
+
+
+class MovingAverageV2(Agent):
+    def __init__(self, cma=False):
+        super().__init__()
+        self.include_cma = cma
+
+    def makePrediction(self, orm_data):
+        window = 10
+        col, data = prepareMeasures(orm_data, "pm1")
+        results = createDataframe(col, data)
+        results['Prediction'] = results.pm1.rolling(window, min_periods=1).mean()
+        if self.include_cma:
+            results['Prediction_cma'] = results.pm1.expanding(20).mean()
+            plt.plot(results['date'], results['Prediction_cma'], label="Pred_cma")
+
+        results['Error'] = abs(((results['pm1'] - results['Prediction']) / results['pm1']) * 100)
+        plt.plot(results['date'], results['pm1'], label="PM1 Values")
+        plt.plot(results['date'], results['Prediction'], label="Pred_ma")
         plt.xlabel('Dates')
         plt.ylabel('Values')
         plt.legend()
@@ -172,34 +237,26 @@ class ARMIAX(Agent):
         return model_fit.forecast()[0]
 
 
-class MovingAverageV2(Agent):
-    def __init__(self, cma=False):
-        super().__init__()
-        self.include_cma = cma
-
-    def makePrediction(self, orm_data):
-        window = 10
-        col, data = prepareMeasures(orm_data, "pm1")
-        results = createDataframe(col, data)
-        results['Prediction'] = results.pm1.rolling(window, min_periods=1).mean()
-        if self.include_cma:
-            results['Prediction_cma'] = results.pm1.expanding(20).mean()
-            plt.plot(results['date'], results['Prediction_cma'], label="Pred_cma")
-
-        results['Error'] = abs(((results['pm1'] - results['Prediction']) / results['pm1']) * 100)
-        plt.plot(results['date'], results['pm1'], label="PM1 Values")
-        plt.plot(results['date'], results['Prediction'], label="Pred_ma")
-        plt.xlabel('Dates')
-        plt.ylabel('Values')
-        plt.legend()
-        plt.show()
-
-
+# update to involve two sensorids; use the predicting sensors data to define the model, and plug in values from the
+# target sensor to make prediction
 class MultiDimensionV1(Agent):
-    def makePrediction(self, orm_data):
-        regr = linear_model.LinearRegression()
-        x = list(zip(getColumn(orm_data, 'temp'), getColumn(orm_data, 'pm10'), getColumn(orm_data, 'pm25')))
-        y = getColumn(orm_data, 'pm1')
-        regr.fit(x, y)
-        prediction = regr.predict([[-2.77, 207.3, 135.18]])
-        print(prediction)
+    def makePrediction(self, pred_sens, target_sens, time):
+        reg_model = linear_model.LinearRegression()
+        interval = findModelInterval(pred_sens, time, 100)
+        model_data = getMeasuresORM(pred_sens, interval[0], interval[1])
+        x = list(zip(getColumn(model_data, 'temp'), getColumn(model_data, 'pm10'), getColumn(model_data, 'pm25')))
+        y = getColumn(model_data, 'pm1')
+        reg_model.fit(x, y)
+        actual_value = getMeasureORM(target_sens, time)
+        prediction = reg_model.predict([[actual_value.temp, actual_value.pm10, actual_value.pm25]])
+        return prediction
+
+
+def findModelInterval(sid, time, interval_size):
+    measure_list = getMeasuresORM(sid, end_interval=time)
+    if len(measure_list) > interval_size:
+        measure_list = sorted(measure_list, key=lambda x: x.date, reverse=False)
+        model_list = measure_list[-interval_size:]
+        return model_list[0], time
+    else:
+        return 0, 0
