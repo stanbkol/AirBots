@@ -133,13 +133,15 @@ class Agent(object):
     """
 
     """
+    configs = {"error": 0.75,
+                "confidence_error": 0.35,
+                }
+
     def __init__(self, sensor_id, config=None, confidence=50):
         self.cf = confidence
         if config:
-            self.config = config
-        else:
-            self.config = {"error" : 0.75,
-                           "confidence_error" : 0.45}
+            self.configs = config
+
         self.sensor = getSensorORM(sensor_id)
         self.sensor_list = []
         # self.pred_tile = target_tile
