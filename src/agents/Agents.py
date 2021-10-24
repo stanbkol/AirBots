@@ -1,13 +1,17 @@
 from abc import ABC, abstractmethod
-from random import random
+import random as rand
 
 from sklearn import linear_model
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from sqlalchemy.exc import NoResultFound
+
 from src.database.utils import drange
 import statsmodels.api as sm
-from src.database.Models import getMeasuresORM, findNearestSensors, getMeasureORM
+from src.database.Models import getMeasuresORM, getMeasureORM, getSensorORM
+from src.map.MapPoint import MapPoint, calcDistance
+
 
 # # or maybe this design?
 # class naiveAgent(Agent):
@@ -17,6 +21,25 @@ from src.database.Models import getMeasuresORM, findNearestSensors, getMeasureOR
 #
 #     def makePrediction(self, orm_data):
 #         self.prediction(orm_data)
+
+
+def findNearestSensors(sensorid, s_list):
+    base_sensor = getSensorORM(sensorid)
+    sensors_orm = []
+
+    for s in s_list:
+        if s != sensorid:
+            sensors_orm.append(getSensorORM(s))
+
+    distances = []
+    startLL = MapPoint(base_sensor.lat, base_sensor.lon)
+    for sensor in sensors_orm:
+        meters_away = calcDistance(startLL, MapPoint(sensor.lat, sensor.lon))
+        distances.append((sensor, meters_away))
+
+    distances.sort(key=lambda x: x[1])
+
+    return distances
 
 
 # to be updated
@@ -116,54 +139,78 @@ def calc_weights(n):
 
 class Agent(ABC):
     """"""""
+
     def __init__(self):
         self.cf = 50
+        self.sid = 0
+        self.configs = {}
+        self.sensor_list = []
 
     @abstractmethod
-    def makePrediction(self, orm_data):
+    def makePrediction(self, target, time):
         pass
 
 
 # predict value between 0 and maximum value of target sensor
 class randomAgent(Agent):
-    def makePrediction(self, sid):
-        data = getMeasuresORM(sid)
-        return random.uniform(0, max(data, key=lambda item: item.pm1))
+    def makePrediction(self, target, time):
+        data = getMeasuresORM(target)
+        max_m = max(data, key=lambda item: item.pm1)
+        return rand.randint(0, max_m.pm1)
 
 
 # avg of nearby sensors to target sensor
 class simpleAgentV1(Agent):
 
-    def makePrediction(self, sid, time, n):
-        sensors = findNearestSensors(sid)
+    def makePrediction(self, sid, time):
+        sensors = findNearestSensors(sid, self.sensor_list)
         total = 0
+        n = self.configs["n"]
         for s in sensors[:n]:
-            total += getMeasureORM(s[0].sid, time).pm1
+            print(s)
+            try:
+                total += getMeasureORM(s[0].sid, time).pm1
+            except NoResultFound:
+                print("No data for sensor")
         return total / n
 
 
 # average from min/max of nearby sensors to target sensor
 class simpleAgentV2(Agent):
-    def makePrediction(self, sid, time, n):
-        sensors = findNearestSensors(sid)
+    def makePrediction(self, sid, time):
+        sensors = findNearestSensors(sid, self.sensor_list)
         sensor_vals = []
+        n = self.configs["n"]
         for s in sensors[:n]:
-            sensor_vals.append(getMeasureORM(s[0].sid, time))
-        return (max(sensor_vals, key=lambda item: item.pm1) + min(sensor_vals, key=lambda item: item.pm1)) / n
+            try:
+                sensor_vals.append(getMeasureORM(s[0].sid, time))
+            except NoResultFound:
+                print("No data for sensor")
+        max_m = max(sensor_vals, key=lambda item: item.pm1)
+        min_m = min(sensor_vals, key=lambda item: item.pm1)
+        return (max_m.pm1 + min_m.pm1) / n
 
 
 # value of nearest station
 class simpleAgentV3(Agent):
     def makePrediction(self, sid, time):
-        sensors = findNearestSensors(sid)
-        return getMeasureORM(sensors[0]).pm1
+        sensors = findNearestSensors(sid, self.sensor_list)
+        values = []
+        for s in sensors:
+            try:
+                values.append(getMeasureORM(s, time).pm1)
+            except:
+                values.append(None)
+        print(values)
+        return next(item for item in values if item is not None)
 
 
 # Weighted Moving Average
 class MovingAverageV1(Agent):
 
-    def makePrediction(self, orm_data):
+    def makePrediction(self, target, time):
         window = 10
+        orm_data = getMeasuresORM(target)
         weights = np.array(exp_weights(window))
         cols, data = prepareMeasures(orm_data, "pm1")
         df = createDataframe(cols, data)
@@ -182,8 +229,9 @@ class MovingAverageV2(Agent):
         super().__init__()
         self.include_cma = cma
 
-    def makePrediction(self, orm_data):
+    def makePrediction(self, target, time):
         window = 10
+        orm_data = getMeasuresORM(target)
         col, data = prepareMeasures(orm_data, "pm1")
         results = createDataframe(col, data)
         results['Prediction'] = results.pm1.rolling(window, min_periods=1).mean()
@@ -206,7 +254,8 @@ class ARMIAX(Agent):
         super().__init__()
         self.seasonal = not stationary
 
-    def makePrediction(self, orm_data):
+    def makePrediction(self, target, time):
+        orm_data = getMeasuresORM(target)
         cols, measures = prepareMeasures(orm_data, '*')
         df = createDataframe(cols, measures)
         # ['sensorid', 'date', 'temp', 'pm1', 'pm10', 'pm25']
@@ -240,14 +289,14 @@ class ARMIAX(Agent):
 # update to involve two sensorids; use the predicting sensors data to define the model, and plug in values from the
 # target sensor to make prediction
 class MultiDimensionV1(Agent):
-    def makePrediction(self, pred_sens, target_sens, time):
+    def makePrediction(self, target, time):
         reg_model = linear_model.LinearRegression()
-        interval = findModelInterval(pred_sens, time, 100)
-        model_data = getMeasuresORM(pred_sens, interval[0], interval[1])
+        interval = findModelInterval(self.sid, time, 100)
+        model_data = getMeasuresORM(self.sid, interval[0], interval[1])
         x = list(zip(getColumn(model_data, 'temp'), getColumn(model_data, 'pm10'), getColumn(model_data, 'pm25')))
         y = getColumn(model_data, 'pm1')
         reg_model.fit(x, y)
-        actual_value = getMeasureORM(target_sens, time)
+        actual_value = getMeasureORM(target, time)
         prediction = reg_model.predict([[actual_value.temp, actual_value.pm10, actual_value.pm25]])
         return prediction
 

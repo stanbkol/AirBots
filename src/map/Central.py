@@ -3,31 +3,58 @@ import json
 import pandas
 
 from src.database.Models import getSensorORM, Measure, getTileORM
+from src.map.MapPoint import MapPoint, calcDistance
 from src.map.TileClassifier import *
+from src.agents.Agents import *
 
 
-class Model:
+def generateAgent(sid, name):
+    agent_options = {
+        "random": randomAgent(),
+        "simple_avg": simpleAgentV1(),
+        "minmax_avg": simpleAgentV2(),
+        "nearest": simpleAgentV3(),
+        "WMA": MovingAverageV1(),
+        "SMA": MovingAverageV2(),
+        "ARIMA": ARMIAX(),
+        "MVR": MultiDimensionV1()
+    }
+    a = agent_options.get(name)
+    a.sid = sid
+
+    return a
+
+
+class Central:
+    agents = []
+    sensors = []
+    agent_configs = {}
+    thresholds = {}
 
     def __init__(self, file):
         self.model_file = file
         self.data = getJson(file)
-        self.start = parser.parse(self.data["start_date"])
-        self.end = parser.parse(self.data["end_date"])
-        self.threshold = self.data["accuracy_threshold"]
-        self.target = getSensorORM(self.data["sensors"]["target"])
-        self.sensors = self.populateSensors()
-        self.sensor_data = {}
-        self.cleaned_data = {}
-        self.filterModel()
-        self.cleanModel()
-        self.runModel()
+        self.extractData()
 
-    def populateSensors(self):
-        s_list = fetchSensors(self.data["sensors"]["on"])
-        s_dict = {}
-        for s in s_list:
-            s_dict[s.sid] = s
-        return s_dict
+    def extractData(self):
+        self.thresholds = self.data["thresholds"]
+        self.sensors = self.data["sensors"]["on"]
+        sensor_list = [x[0] for x in self.sensors]
+        self.agent_configs = self.data["agent_configs"]
+        for s in self.sensors:
+            a = generateAgent(s[0], s[1])
+            a.configs = self.agent_configs[s[1]]
+            a.sensor_list = sensor_list
+            self.agents.append(a)
+
+    def makePrediction(self, target, time):
+        predictions = []
+        for a in self.agents:
+            print(type(a))
+            p = a.makePrediction(target, time)
+            print(p)
+            predictions.append(p)
+        return predictions
 
     def printModel(self):
         print("Model Summary")
@@ -66,7 +93,7 @@ class Model:
         self.sensor_data = sensors_passed
 
     # once data has been confirmed to be clean, begin iterations to make predictions on provided data
-    def runModel(self):
+    def runModel(self, target, time):
         self.saveModel(self.model_file + "_Results")
 
     def saveModel(self, filename):
@@ -120,15 +147,16 @@ def fillInterval(startMeasure, endMeasure):
         Soft_Data.append(
             Measure(date_key=dk, sensor_id=startMeasure.sid, date=e, pm1=avg_pm1, pm10=avg_pm10, pm25=avg_pm25,
                     temperature=avg_temp))
-    Soft_Data.pop(0)
-    Soft_Data.pop()
     return Soft_Data
 
 
 def cleanInterval(data):
     for first, second in zip(data, data[1:]):
         if (countInterval(first.date, second.date)) != 1:
-            data.extend(fillInterval(first, second))
+            filled = fillInterval(first, second)
+            filled.pop(0)
+            filled.pop()
+            data.extend(filled)
     return sorted(data, key=lambda x: x.dk)
 
 
