@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 import random as rand
 
+import pandas
 from sklearn import linear_model
 import numpy as np
 import pandas as pd
@@ -9,8 +10,9 @@ from sqlalchemy.exc import NoResultFound
 
 from src.database.utils import drange
 import statsmodels.api as sm
-from src.database.Models import getMeasuresORM, getMeasureORM, getSensorORM
+from src.database.Models import getMeasuresORM, getMeasureORM, getSensorORM, Measure
 from src.map.MapPoint import MapPoint, calcDistance
+
 
 
 # # or maybe this design?
@@ -103,16 +105,6 @@ def getColumn(dataset, col):
     return column
 
 
-# initial confidence calculation
-# self.cf += updateConfidence(self.cf, actual_value=, predicted_value=) <---in each make prediction method
-def updateConfidence(cf, predicted_value, actual_value):
-    delta = (predicted_value - actual_value) / actual_value
-    if delta < 0.1:
-        return cf + 1
-    else:
-        return cf - 1
-
-
 def exp_weights(n):
     if n < 2:
         return [n]
@@ -137,33 +129,84 @@ def calc_weights(n):
     return [c / total for c in sample]
 
 
-class Agent(ABC):
-    """"""""
+class Agent(object):
+    """
 
-    def __init__(self):
-        self.cf = 50
-        self.sid = 0
-        self.configs = {}
+    """
+    configs = {"error": 0.75,
+                "confidence_error": 0.35,
+                }
+
+    def __init__(self, sensor_id, config=None, confidence=50):
+        self.cf = confidence
+        if config:
+            self.configs = config
+
+        self.sensor = getSensorORM(sensor_id)
         self.sensor_list = []
+        # self.pred_tile = target_tile
+        # self.target_time = target_time
 
     @abstractmethod
-    def makePrediction(self, target, time):
+    def makePrediction(self, target_sensor, time, n=1, *values):
         pass
+
+    # initial confidence calculation
+    # self.cf += updateConfidence(self.cf, actual_value=, predicted_value=) <---in each make prediction method
+    def _updateConfidence(self, predicted_value, actual_value):
+        delta = (predicted_value - actual_value) / actual_value
+        if delta < 0.1:
+            return self.cf + 1
+        else:
+            return self.cf - 1
+
+    def _countInterval(self, start, end):
+        diff = end - start
+        days, seconds = diff.days, diff.seconds
+        total_intervals = days * 24 + seconds // 3600
+        return total_intervals
+
+    def _fillInterval(self, startMeasure, endMeasure):
+        avg_pm1 = (startMeasure.pm1 + endMeasure.pm1) / 2
+        avg_pm10 = (startMeasure.pm10 + endMeasure.pm10) / 2
+        avg_pm25 = (startMeasure.pm25 + endMeasure.pm25) / 2
+        avg_temp = (startMeasure.temp + endMeasure.temp) / 2
+        time_range = pandas.date_range(startMeasure.date, endMeasure.date, freq='H')
+        estimated_data = []
+        for e in time_range:
+            dk = int(e.strftime('%Y%m%d%H'))
+            estimated_data.append(
+                Measure(date_key=dk, sensor_id=startMeasure.sid, date=e, pm1=avg_pm1, pm10=avg_pm10, pm25=avg_pm25,
+                        temperature=avg_temp))
+        estimated_data.pop(0)
+        estimated_data.pop()
+        return estimated_data
+
+    def _cleanInterval(self, data):
+        for first, second in zip(data, data[1:]):
+            if (self._countInterval(first.date, second.date)) != 1:
+                data.extend(self._fillInterval(first, second))
+        return sorted(data, key=lambda x: x.dk)
+
+    def _rateInterval(self, dataset, total):
+        return (dataset - 1) / total
+
+    def _prepareData(self, target_sensor, time, values):
+        return None
 
 
 # predict value between 0 and maximum value of target sensor
 class randomAgent(Agent):
-    def makePrediction(self, target, time):
-        data = getMeasuresORM(target)
+    def makePrediction(self, target_sensor, time, n=1, *values):
+        data = getMeasuresORM(target_sensor)
         max_m = max(data, key=lambda item: item.pm1)
         return rand.randint(0, max_m.pm1)
 
 
 # avg of nearby sensors to target sensor
 class simpleAgentV1(Agent):
-
-    def makePrediction(self, sid, time):
-        sensors = findNearestSensors(sid, self.sensor_list)
+    def makePrediction(self, target_sensor, time, n=1, *values):
+        sensors = findNearestSensors(target_sensor, self.sensor_list)
         total = 0
         n = self.configs["n"]
         for s in sensors[:n]:
@@ -177,8 +220,8 @@ class simpleAgentV1(Agent):
 
 # average from min/max of nearby sensors to target sensor
 class simpleAgentV2(Agent):
-    def makePrediction(self, sid, time):
-        sensors = findNearestSensors(sid, self.sensor_list)
+    def makePrediction(self, target_sensor, time, n=1, *values):
+        sensors = findNearestSensors(target_sensor, self.sensor_list)
         sensor_vals = []
         n = self.configs["n"]
         for s in sensors[:n]:
@@ -193,8 +236,8 @@ class simpleAgentV2(Agent):
 
 # value of nearest station
 class simpleAgentV3(Agent):
-    def makePrediction(self, sid, time):
-        sensors = findNearestSensors(sid, self.sensor_list)
+    def makePrediction(self, target_sensor, time, n=1, *values):
+        sensors = findNearestSensors(target_sensor, self.sensor_list)
         values = []
         for s in sensors:
             try:
@@ -207,10 +250,9 @@ class simpleAgentV3(Agent):
 
 # Weighted Moving Average
 class MovingAverageV1(Agent):
-
-    def makePrediction(self, target, time):
+    def makePrediction(self, target_sensor, time, n=1, *values):
         window = 10
-        orm_data = getMeasuresORM(target)
+        orm_data = getMeasuresORM(target_sensor)
         weights = np.array(exp_weights(window))
         cols, data = prepareMeasures(orm_data, "pm1")
         df = createDataframe(cols, data)
@@ -229,9 +271,9 @@ class MovingAverageV2(Agent):
         super().__init__()
         self.include_cma = cma
 
-    def makePrediction(self, target, time):
+    def makePrediction(self, target_sensor, time, n=1, *values):
         window = 10
-        orm_data = getMeasuresORM(target)
+        orm_data = getMeasuresORM(target_sensor)
         col, data = prepareMeasures(orm_data, "pm1")
         results = createDataframe(col, data)
         results['Prediction'] = results.pm1.rolling(window, min_periods=1).mean()
@@ -254,8 +296,9 @@ class ARMIAX(Agent):
         super().__init__()
         self.seasonal = not stationary
 
-    def makePrediction(self, target, time):
-        orm_data = getMeasuresORM(target)
+
+    def makePrediction(self, target_sensor, time, n=1, *values):
+        orm_data = self._prepareData(target_sensor, time, values)
         cols, measures = prepareMeasures(orm_data, '*')
         df = createDataframe(cols, measures)
         # ['sensorid', 'date', 'temp', 'pm1', 'pm10', 'pm25']
@@ -289,14 +332,14 @@ class ARMIAX(Agent):
 # update to involve two sensorids; use the predicting sensors data to define the model, and plug in values from the
 # target sensor to make prediction
 class MultiDimensionV1(Agent):
-    def makePrediction(self, target, time):
+    def makePrediction(self, target_sensor, time, n=1, *values):
         reg_model = linear_model.LinearRegression()
         interval = findModelInterval(self.sid, time, 100)
         model_data = getMeasuresORM(self.sid, interval[0], interval[1])
         x = list(zip(getColumn(model_data, 'temp'), getColumn(model_data, 'pm10'), getColumn(model_data, 'pm25')))
         y = getColumn(model_data, 'pm1')
         reg_model.fit(x, y)
-        actual_value = getMeasureORM(target, time)
+        actual_value = getMeasureORM(target_sensor, time)
         prediction = reg_model.predict([[actual_value.temp, actual_value.pm10, actual_value.pm25]])
         return prediction
 
