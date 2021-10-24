@@ -1,13 +1,9 @@
-from src.map.Model import *
-from src.database.Models import *
-from src.database.DbManager import engine
+from src.map.Central import *
 
 
 def main():
-    # Model(r"C:\Users\mrusieck\PycharmProjects\AirBot\Docs\Model1")
-    # classifyTiles(r"C:\Users\User\Desktop\Multi-Agent\tile_info")
-    createAllTables(engine)
-    populateTables()
+    c = Central(r"C:\Users\User\PycharmProjects\AirBots\docs\Model1")
+    #print(c.makePrediction(8787, datetime(2020, 1, 1, 0)))
 
 
 if __name__ == '__main__':

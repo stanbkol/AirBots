@@ -1,37 +1,40 @@
 {
-	"id": 1234,
-	"start_date" : "Jan 1 2020 12:00AM",
-	"end_date" : "Jan 7 2020 12:00AM",
-	"accuracy_threshold" : 0.25,
-	"map" : {
-	    "name": "Opole",
-		"boundingbox": {
-	        "N" : 50.5876174,
-	        "S" : 50.7699743,
-	        "W" : 17.7795907,
-	        "E" : 18.0326905
-            	}
-    	},
-	"sensors" : {
-	        "target" : 2169,
+    "id": 1,
+    "thresholds" : {
+        "completeness_threshold" : 0.75,
+        "trust_threshold" : 0.25,
+        "confidence_threshold" : 0.25
+    },
+    "map" : {
+        "name": "Opole",
+        "boundingbox": {
+            "N" : 50.5876174,
+            "S" : 50.7699743,
+            "W" : 17.7795907,
+            "E" : 18.0326905
+                }
+        },
+    "sensors" : {
             "on" : [
-                        5681,
-                        5682,
-                        5683,
-                        5685,
-                        5687,
-                        5688,
-                        5689,
-                        5691,
-                        5693,
-                        5694,
-                        5696,
-                        5697,
-                        5698,
-                        5700,
-                        5702,
-                        5705,
-                        5706,
+                        [5681, "random"],
+                        [5682, "random"],
+                        [5683, "simple_avg"],
+                        [5685, "simple_avg"],
+                        [5687, "simple_avg"],
+                        [5688, "minmax_avg"],
+                        [5689, "minmax_avg"],
+                        [5691, "minmax_avg"],
+                        [5693, "minmax_avg"],
+                        [5694, "nearest"],
+                        [5696, "nearest"],
+                        [5697, "nearest"],
+                        [5698, "nearest"],
+                        [5700, "nearest"],
+                        [5702, "nearest"],
+                        [5705, "nearest"],
+                        [5706, "nearest"]
+                    ],
+            "off" : [
                         6494,
                         7777,
                         8787,
@@ -77,12 +80,42 @@
                         11679,
                         11681,
                         11842,
-                        13128
-                    ],
-            "off" : [
-			35858,
+                        13128,
+                        35858,
                         36913,
                         35840
                     ]
+    },
+    "agent_configs" : {
+            "random" : {
+                "interval" : 100
+            },
+            "simple_avg" : {
+                "n" : 3
+            },
+            "minmax_avg" : {
+                "n" : 3
+            },
+            "nearest" : {
+                "n" : 0
+            },
+            "WMA" : {
+                "window" : 10,
+                "interval" : 100
+            },
+            "SMA" : {
+                "window" : 10,
+                "interval" : 100
+            },
+            "ARIMA" : {
+                "interval" : 100,
+                "p" : 5,
+                "d" : 1,
+                "q" : 0
+
+            },
+            "MVR" : {
+                "interval" : 100
+            }
     }
 }
