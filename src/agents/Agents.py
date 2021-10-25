@@ -191,6 +191,7 @@ class Agent(object):
         return (dataset - 1) / total
 
     def _prepareData(self, target_sensor, time, values):
+
         return None
 
 
