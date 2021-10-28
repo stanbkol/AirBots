@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from dateutil import parser
 import json
 import pandas
@@ -10,18 +12,16 @@ from src.agents.Agents import *
 
 def generateAgent(sid, name):
     agent_options = {
-        "random": randomAgent(),
-        "simple_avg": simpleAgentV1(),
-        "minmax_avg": simpleAgentV2(),
-        "nearest": simpleAgentV3(),
-        "WMA": MovingAverageV1(),
-        "SMA": MovingAverageV2(),
-        "ARIMA": ARMIAX(),
-        "MVR": MultiDimensionV1()
+        "random": randomAgent(sensor_id=sid),
+        "simple_avg": simpleAgentV1(sensor_id=sid),
+        "minmax_avg": simpleAgentV2(sensor_id=sid),
+        "nearest": simpleAgentV3(sensor_id=sid),
+        "WMA": MovingAverageV1(sensor_id=sid),
+        "SMA": MovingAverageV2(sensor_id=sid),
+        "ARIMA": ARMIAX(sensor_id=sid),
+        "MVR": MultiDimensionV1(sensor_id=sid)
     }
     a = agent_options.get(name)
-    a.sid = sid
-
     return a
 
 
@@ -35,6 +35,11 @@ class Central:
         self.model_file = file
         self.data = getJson(file)
         self.extractData()
+        self.sensorSummary()
+
+    def sensorSummary(self):
+        for s in self.sensors:
+            print(examineSensor(s[0]))
 
     def extractData(self):
         self.thresholds = self.data["thresholds"]
@@ -126,6 +131,23 @@ def getJson(file):
     f = open(file, encoding="utf8")
     data = json.load(f)
     return data
+
+# check database for all measurements data for given sensor, using different granularity (ie. for full dataset,
+# by year, by month, by week, by day); should it be done with multiple, specific queries? or taking the full dataset
+# for a sensor and breaking it down using additional algorithms
+def examineSensor(sid, g="*"):
+    full_dataset = getMeasuresORM(sid)
+    earliest_date = full_dataset[0].date
+    latest_date = full_dataset[-1].date
+    total = countInterval(earliest_date, latest_date)
+    observed = len(full_dataset)
+    summary = {"sensor": sid, "first": earliest_date, "last": latest_date, "num_intervals": observed, "completion_v1": observed / total, "completion_v2": observed / countInterval(datetime(2017, 11, 12, 0), datetime(2021, 5, 5, 0))}
+    return summary
+
+# utilize threshold passed into json file, ie. sensor must have data within 48 intervals of chosen time, otherwise it
+# is not worth cleaning data for prediction
+def examineSensorDate(sid, date):
+    pass
 
 
 def countInterval(start, end):
