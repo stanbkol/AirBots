@@ -225,13 +225,17 @@ class simpleAgentV2(Agent):
         sensor_vals = []
         n = self.configs["n"]
         for s in sensors[:n]:
+            print(s)
             try:
                 sensor_vals.append(getMeasureORM(s[0].sid, time))
             except NoResultFound:
                 print("No data for sensor")
-        max_m = max(sensor_vals, key=lambda item: item.pm1)
-        min_m = min(sensor_vals, key=lambda item: item.pm1)
-        return (max_m.pm1 + min_m.pm1) / n
+        try:
+            max_m = max(sensor_vals, key=lambda item: item.pm1)
+            min_m = min(sensor_vals, key=lambda item: item.pm1)
+            return (max_m.pm1 + min_m.pm1) / n
+        except ValueError:
+            return 0
 
 
 # value of nearest station
@@ -245,8 +249,10 @@ class simpleAgentV3(Agent):
             except:
                 values.append(None)
         print(values)
-        return next(item for item in values if item is not None)
-
+        try:
+            return next(item for item in values if item is not None)
+        except StopIteration:
+            return 0
 
 # Weighted Moving Average
 class MovingAverageV1(Agent):
@@ -267,15 +273,13 @@ class MovingAverageV1(Agent):
 
 
 class MovingAverageV2(Agent):
-    def __init__(self, cma=False):
-        super().__init__()
-        self.include_cma = cma
 
     def makePrediction(self, target_sensor, time, n=1, *values):
         window = 10
         orm_data = getMeasuresORM(target_sensor)
         col, data = prepareMeasures(orm_data, "pm1")
         results = createDataframe(col, data)
+        self.include_cma = True
         results['Prediction'] = results.pm1.rolling(window, min_periods=1).mean()
         if self.include_cma:
             results['Prediction_cma'] = results.pm1.expanding(20).mean()
@@ -292,9 +296,9 @@ class MovingAverageV2(Agent):
 
 # To Do: AutoREgressiveIntegratedMovingAverage
 class ARMIAX(Agent):
-    def __init__(self, stationary=True):
-        super().__init__()
-        self.seasonal = not stationary
+    # def __init__(self, stationary=True):
+    #     super().__init__()
+    #     self.seasonal = not stationary
 
 
     def makePrediction(self, target_sensor, time, n=1, *values):
