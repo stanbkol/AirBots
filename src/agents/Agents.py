@@ -14,7 +14,6 @@ from src.database.Models import getMeasuresORM, getMeasureORM, getSensorORM, Mea
 from src.map.MapPoint import MapPoint, calcDistance
 
 
-
 # # or maybe this design?
 # class naiveAgent(Agent):
 #     def __init__(self, prediction_method):
@@ -134,8 +133,8 @@ class Agent(object):
 
     """
     configs = {"error": 0.75,
-                "confidence_error": 0.35,
-                }
+               "confidence_error": 0.35,
+               }
 
     def __init__(self, sensor_id, config=None, confidence=50):
         self.cf = confidence
@@ -200,7 +199,7 @@ class randomAgent(Agent):
     def makePrediction(self, target_sensor, time, n=1, *values):
         data = getMeasuresORM(target_sensor)
         max_m = max(data, key=lambda item: item.pm1)
-        return rand.randint(0, max_m.pm1)
+        return rand.uniform(0, max_m.pm1)
 
 
 # avg of nearby sensors to target sensor
@@ -254,6 +253,7 @@ class simpleAgentV3(Agent):
         except StopIteration:
             return 0
 
+
 # Weighted Moving Average
 class MovingAverageV1(Agent):
     def makePrediction(self, target_sensor, time, n=1, *values):
@@ -299,7 +299,6 @@ class ARMIAX(Agent):
     # def __init__(self, stationary=True):
     #     super().__init__()
     #     self.seasonal = not stationary
-
 
     def makePrediction(self, target_sensor, time, n=1, *values):
         orm_data = self._prepareData(target_sensor, time, values)
