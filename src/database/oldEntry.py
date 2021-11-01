@@ -14,7 +14,7 @@ class Entry:
         self.pm25 = pm25
 
     def __str__(self):
-        return "Measure: date=" + self.date +" SID=" + self.sensorid + " Temp=" + self.temperature + " Pm25=" + self.pm25 + " Pm1=" + self.pm1 + " Pm10=" + self.pm10
+        return "Measure: date=" + str(self.date) +" SID=" + str(self.sensorid) + " Temp=" + str(self.temperature) + " Pm25=" + str(self.pm25) + " Pm1=" + str(self.pm1) + " Pm10=" + str(self.pm10)
 
     def __repr__(self):
         return "<Measure(datekey='%s',date='%s', sensorid='%s', temp='%s', pm25='%s', pm10='%s', pm1='%s')>" % (

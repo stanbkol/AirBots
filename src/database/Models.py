@@ -1,12 +1,13 @@
 from datetime import datetime
 
-from src.database.DataLoader import getMeasures, getSensors, createConnection, getTiles
+from src.database.DataLoader import getMeasures, getSensors, createConnection, getTiles, getSensor
 from src.database.DbManager import Base, Session, addOpoleMap, insertTiles, insertSensors, insertMeasures
 from src.map.MapPoint import calcCoordinate, calcDistance, MapPoint
 from src.database.utils import drange
 from sqlalchemy import Column, String, Integer, Float, ForeignKey, DateTime, update
 from sqlalchemy.orm import relationship
 from sqlalchemy.future import select
+import re
 
 
 class Measure(Base):
@@ -20,8 +21,6 @@ class Measure(Base):
     pm1 = Column('pm1', Float)
     pm10 = Column('pm10', Float)
     pm25 = Column('pm25', Float)
-
-    # sensors = relationship("Sensor")
 
     def __init__(self, date_key=None, sensor_id=None, date=None, pm1=None, pm25=None, pm10=None, temperature=None):
         self.dk = date_key
@@ -51,8 +50,6 @@ class Sensor(Base):
     elv = Column('elevation', Integer)
     measures = relationship('Measure', backref='Sensor', lazy='dynamic')
 
-    # tiles = relationship("Tile")
-
     def __init__(self, sensor_id=None, tile_id=None, address1=None, address2=None, address_num=None, latitude=None,
                  longitude=None, elevation=None):
         self.sid = sensor_id
@@ -63,14 +60,6 @@ class Sensor(Base):
         self.lat = latitude
         self.lon = longitude
         self.elv = elevation
-        # self.agent = None
-        # self.state = True
-
-    # def setAgent(self, a):
-    #     self.agent = a
-    #
-    # def changeState(self, s):
-    #     self.state = s
 
     def __repr__(self):
         return "<Sensor(sensorid=%s,tileid=%s, lat=%s, lon=%s, elev=%s)>" % (self.sid, self.tid, self.lat, self.lon,
@@ -138,8 +127,6 @@ class Tile(Base):
     pm1 = Column('pm1_avg', Float)
     pm25 = Column('pm25_avg', Float)
     sensors = relationship('Sensor', backref='Tile', lazy='dynamic')
-
-    # maps = relationship("Map")
 
     def __init__(self, tileID=None, mapID=None, numSides=None, coordinates=None, diameter=None, center=None,
                  tileClass=None, max_elevation=None, min_elevation=None, temperature=None,
@@ -234,21 +221,6 @@ class Map(Base):
         self.coord_SW = coord_SW
         self.coord_SE = coord_SE
 
-    # # method for generating tile mesh
-    # def createMesh(self):
-    #     pass
-    #
-    # # getter for all fields in tile
-    # def getTileInfo(tile_id):
-    #     pass
-    #
-    # # print aggregations
-    # def displayAggeregations(*args):
-    #     pass
-    #
-    # def classifyTiles():
-    #     pass
-
 
 def getSensorsORM():
     with Session as sesh:
@@ -291,11 +263,46 @@ def createAllTables(eng):
     Base.metadata.create_all(eng, tables=table_objects)
 
 
+def sensorMerge(fname):
+    f = open(fname).read().splitlines()
+    merged_sensors = []
+    merged_measures = []
+    conn = createConnection()
+    for line in f:
+        sensors = re.split('\+', line)
+        if len(sensors) == 1:
+            merged_sensors.append(getSensor(conn, sensors[0]))
+            merged_measures.extend(getMeasures(conn, sensors[0]))
+        else:
+            print("Merging:", sensors)
+            temp_list = []
+            if '*' in sensors[0]:
+                sid = re.split('\*', sensors[0])
+                temp = getSensor(conn, sid[0])
+                merged_sensors.append(temp)
+                temp_list.extend(getMeasures(conn, sid[0]))
+                temp_list.extend(updateMeasures(getMeasures(conn, sensors[1]), sid[0]))
+
+            else:
+                sid = re.split('\*', sensors[1])
+                temp = getSensor(conn, sid[0])
+                merged_sensors.append(temp)
+                temp_list.extend(getMeasures(conn, sid[0]))
+                temp_list.extend(updateMeasures(getMeasures(conn, sensors[0]), sid[0]))
+            merged_measures.extend(temp_list)
+    return merged_sensors, merged_measures
+
+
+def updateMeasures(m_list, sid):
+    for m in m_list:
+        m.sensorid = sid
+    return m_list
+
+
 def populateTables():
     conn = createConnection()
-    s_list = getSensors(conn, '*')
+    s_list, m_list = sensorMerge(r"C:\Users\mrusieck\PycharmProjects\AirBot\docs\Sensor_Merge")
     print("sensor data fetched")
-    m_list = getMeasures(conn, '*')
     print("measurement data fetched")
     tiles = getTiles(conn, '*')
     print("tilebin data fetched")
