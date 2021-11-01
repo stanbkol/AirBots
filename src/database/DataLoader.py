@@ -22,7 +22,7 @@ def dropTables(conn):
     with conn.cursor() as cursor:
         cursor.execute('''DROP TABLE dbo.Sensors;''')
         cursor.execute('''DROP TABLE dbo.Measurements;''')
-        #cursor.execute('''DROP TABLE dbo.Tiles ;''')
+        # cursor.execute('''DROP TABLE dbo.Tiles ;''')
         conn.commit()
 
 
@@ -95,16 +95,19 @@ def insertMeasure(measure, conn):
     dk = int(rawDate.strftime('%Y%m%d%H'))
     with conn.cursor() as cursor:
         cursor.execute("INSERT INTO dbo.Measurements (dateKey, sensorID, date, pm1, pm25, pm10, temperature) "
-            "VALUES(%s, %s, %s, %s, %s, %s, %s)", (dk, measure.sensorid, measure.date, measure.pm1, measure.pm25, measure.pm10, measure.temperature))
+                       "VALUES(%s, %s, %s, %s, %s, %s, %s)", (
+                       dk, measure.sensorid, measure.date, measure.pm1, measure.pm25, measure.pm10,
+                       measure.temperature))
         conn.commit()
 
 
 def insertSensor(conn, sensor):
     with conn.cursor() as cursor:
-        cursor.execute("INSERT INTO dbo.Sensors (sensorID, tileId, address1, address2, addressNumber, latitude, longitude, elevation) "
-                       "VALUES(%s, %s, %s, %s, %s, %s, %s, %s)",
-                       (int(sensor.sensorid), sensor.tileid, sensor.address1, sensor.address2, sensor.addressnumber,
-                        sensor.latitude, sensor.longitude, int(sensor.elevation)))
+        cursor.execute(
+            "INSERT INTO dbo.Sensors (sensorID, tileId, address1, address2, addressNumber, latitude, longitude, elevation) "
+            "VALUES(%s, %s, %s, %s, %s, %s, %s, %s)",
+            (int(sensor.sensorid), sensor.tileid, sensor.address1, sensor.address2, sensor.addressnumber,
+             sensor.latitude, sensor.longitude, int(sensor.elevation)))
         conn.commit()
 
 
@@ -132,8 +135,10 @@ def insertTile(conn, tile):
 
         cursor.execute(insert_sql, (int(tile.tileid), int(tile.mapid), tile.tclass, tile.diameter,
                                     tile.centerlatlon.latlon_str,
-                                    tile.coordinates[0].latlon_str, tile.coordinates[1].latlon_str, tile.coordinates[2].latlon_str,
-                                    tile.coordinates[3].latlon_str, tile.coordinates[4].latlon_str, tile.coordinates[5].latlon_str,
+                                    tile.coordinates[0].latlon_str, tile.coordinates[1].latlon_str,
+                                    tile.coordinates[2].latlon_str,
+                                    tile.coordinates[3].latlon_str, tile.coordinates[4].latlon_str,
+                                    tile.coordinates[5].latlon_str,
                                     tile.min_elevation, tile.max_elevation,
                                     tile.temperature, tile.pm10_avg, tile.pm1_avg, tile.pm25_avg, tile.poly_str))
 
@@ -284,7 +289,22 @@ def getSensor(conn, sid):
         data = [sid]
         cursor.execute(query, data)
         sensor_info = cursor.fetchone()
-        return Sensor(sensor_info[0], sensor_info[1], sensor_info[2], sensor_info[3], sensor_info[4], sensor_info[5], sensor_info[6], sensor_info[7])
+        return Sensor(sensor_info[0], sensor_info[1], sensor_info[2], sensor_info[3], sensor_info[4], sensor_info[5],
+                      sensor_info[6], sensor_info[7])
+
+
+def getMeasures(conn, sid):
+    with conn.cursor() as cursor:
+        query = 'SELECT * FROM dbo.Measurements WHERE sensorID = %s;'
+        data = [sid]
+        cursor.execute(query, data)
+        measures = cursor.fetchall()
+        m_list = []
+        for measure_info in measures:
+            m_list.append(Entry(measure_info[0], measure_info[1], measure_info[2], measure_info[3], measure_info[4],
+                                measure_info[5],
+                                measure_info[6]))
+        return m_list
 
 
 def createConnection():
