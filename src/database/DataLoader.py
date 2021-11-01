@@ -304,7 +304,7 @@ def getMeasures(conn, sid):
             m_list.append(Entry(measure_info[0], measure_info[1], measure_info[2], measure_info[3], measure_info[4],
                                 measure_info[5],
                                 measure_info[6]))
-        return m_list
+        return sorted(m_list, key=lambda x: x.datekey)
 
 
 def createConnection():

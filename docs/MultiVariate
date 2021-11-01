@@ -1,0 +1,106 @@
+{
+   "id":1,
+   "thresholds":{
+      "completeness_threshold":0.75,
+      "trust_threshold":0.25,
+      "confidence_threshold":0.25,
+      "interval_threshold":48
+   },
+   "model_params":{
+      "num_iter":2,
+      "start_interval":"2019-01-01 00:00",
+      "end_interval":"2019-01-02 00:00",
+      "target": 6494
+   },
+   "map":{
+      "name":"Opole",
+      "boundingbox":{
+         "N":50.5876174,
+         "S":50.7699743,
+         "W":17.7795907,
+         "E":18.0326905
+      }
+   },
+   "sensors":{
+      "on":[
+         [11553, "MVR"],
+         [11563, "MVR"],
+         [11571, "MVR"],
+         [11583, "MVR"],
+         [11585, "MVR"],
+         [11587, "MVR"],
+         [11596, "MVR"],
+         [11597, "MVR"],
+         [11619, "MVR"],
+         [11640, "MVR"]
+      ],
+      "off":[
+         [2169, "simple_avg"],
+         [5697, "simple_avg"],
+         [5698, "simple_avg"],
+         [5700, "simple_avg"],
+         [5702, "simple_avg"],
+         [5705, "simple_avg"],
+         [11361, "simple_avg"],
+         [11541, "simple_avg"],
+         [11543, "simple_avg"],
+         [11545, "simple_avg"],
+         [11547, "simple_avg"],
+         [5681, "simple_avg"],
+         [5694, "simple_avg"],
+         [6494, "simple_avg"],
+         [10408, "simple_avg"],
+         [11521, "simple_avg"],
+         [11522, "simple_avg"],
+         [11523, "simple_avg"],
+         [11524, "simple_avg"],
+         [11526, "simple_avg"],
+         [11528, "simple_avg"],
+         [11529, "simple_avg"],
+         [11530, "simple_avg"],
+         [11531, "simple_avg"],
+         [11532, "simple_avg"],
+         [11534, "simple_avg"],
+         [11535, "simple_avg"],
+         [11559, "simple_avg"],
+         [11567, "simple_avg"],
+         [11577, "simple_avg"],
+         [11594, "simple_avg"],
+         [11679, "simple_avg"],
+         [11681, "simple_avg"],
+         [11842, "simple_avg"],
+         [13128, "simple_avg"]
+      ]
+   },
+   "agent_configs":{
+      "random":{
+         "interval":100
+      },
+      "simple_avg":{
+         "n":3
+      },
+      "minmax_avg":{
+         "n":3
+      },
+      "nearest":{
+         "n":0
+      },
+      "WMA":{
+         "window":10,
+         "interval":100
+      },
+      "SMA":{
+         "window":10,
+         "interval":100
+      },
+      "ARIMA":{
+         "interval":100,
+         "p":5,
+         "d":1,
+         "q":0
+      },
+      "MVR":{
+         "interval":100
+      }
+   }
+}

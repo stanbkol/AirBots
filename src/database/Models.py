@@ -247,7 +247,7 @@ def getMeasureORM(sid, date):
         return sesh.query(Measure).where(Measure.date == date).where(Measure.sid == sid).one()
 
 
-def getMeasuresORM(sid, start_interval=datetime(2017, 11, 12, 0), end_interval=datetime(2021, 5, 5, 0)):
+def getMeasuresORM(sid, start_interval=datetime(2018, 9, 3, 0), end_interval=datetime(2021, 5, 5, 0)):
     with Session as sesh:
         return sorted(sesh.query(Measure).filter(Measure.date >= start_interval).filter(
             Measure.date <= end_interval).where(Measure.sid == sid).all(), key=lambda x: x.dk)
@@ -281,14 +281,16 @@ def sensorMerge(fname):
                 temp = getSensor(conn, sid[0])
                 merged_sensors.append(temp)
                 temp_list.extend(getMeasures(conn, sid[0]))
+                print(temp_list.pop())
                 temp_list.extend(updateMeasures(getMeasures(conn, sensors[1]), sid[0]))
-
             else:
                 sid = re.split('\*', sensors[1])
                 temp = getSensor(conn, sid[0])
                 merged_sensors.append(temp)
-                temp_list.extend(getMeasures(conn, sid[0]))
                 temp_list.extend(updateMeasures(getMeasures(conn, sensors[0]), sid[0]))
+                print(temp_list.pop())
+                temp_list.extend(getMeasures(conn, sid[0]))
+
             merged_measures.extend(temp_list)
     return merged_sensors, merged_measures
 
@@ -304,13 +306,13 @@ def populateTables():
     s_list, m_list = sensorMerge(r"C:\Users\mrusieck\PycharmProjects\AirBot\docs\Sensor_Merge")
     print("sensor data fetched")
     print("measurement data fetched")
-    tiles = getTiles(conn, '*')
-    print("tilebin data fetched")
+    # tiles = getTiles(conn, '*')
+    # print("tilebin data fetched")
     conn.close()
-    print("inserting maps..")
-    addOpoleMap()
-    print("inserting tiles..")
-    insertTiles(tiles)
+    # print("inserting maps..")
+    # addOpoleMap()
+    # print("inserting tiles..")
+    # insertTiles(tiles)
     print("inserting sensors..")
     insertSensors(s_list)
     print("inserting measures..")

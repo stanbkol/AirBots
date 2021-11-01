@@ -1,11 +1,11 @@
 from datetime import datetime
-
-from src.database.Models import sensorMerge
+from src.database.Models import sensorMerge, populateTables
 from src.map.Central import *
 
 
 def main():
-    c = Central(r"C:\Users\mrusieck\PycharmProjects\AirBot\docs\Model1")
+    # populateTables()
+    c = Central(r"C:\Users\mrusieck\PycharmProjects\AirBot\docs\SimpleAvg")
     # c.sensorSummary()
 
 

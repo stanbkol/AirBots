@@ -1,9 +1,10 @@
-import datetime
+from datetime import datetime, timedelta
 import json
 from src.database.Models import *
 from src.map.TileClassifier import *
 from src.agents.Agents import *
 from src.database.DataLoader import *
+from sklearn.metrics import mean_squared_error
 
 
 def fetchBB(data):
@@ -29,9 +30,9 @@ def examineSensor(sid, g="*"):
     latest_date = full_dataset[-1].date
     total = countInterval(earliest_date, latest_date)
     observed = len(full_dataset)
-    summary = {"sensor": sid, "first": earliest_date, "last": latest_date, "num_intervals": observed,
-               "completion_v1": observed / total,
-               "completion_v2": observed / countInterval(datetime(2017, 11, 12, 0), datetime(2021, 5, 5, 0))}
+    summary = {"sensor": sid, "first": earliest_date.strftime("%D %H"), "last": latest_date.strftime("%D %H"),
+               "num_intervals": observed,
+               "completion_v2": observed / countInterval(datetime(2018, 9, 3, 0), datetime(2021, 5, 5, 0))}
     return summary
 
 
@@ -63,9 +64,9 @@ def classifyTiles(filename):
         tile_obj.setClass(tile_class)
 
 
-def MSE(actual, pred):
-    actual, pred = np.array(actual), np.array(pred)
-    return np.square(np.subtract(actual, pred)).mean()
+def MSE(a, p):
+    actual, pred = np.array(a), np.array(p)
+    return mean_squared_error(actual, pred)
 
 
 def generateAgent(sid, name):
@@ -94,21 +95,23 @@ class Central:
         self.data = getJson(self.model_file)
         self.model_params = self.data["model_params"]
         self.extractData()
+        # self.sensorSummary()
         self.trainModel()
 
     def trainModel(self):
-        start_interval = datetime.datetime.strptime(self.model_params["start_interval"], '%Y-%m-%d %H:%M')
-        end_interval = datetime.datetime.strptime(self.model_params["end_interval"], '%Y-%m-%d %H:%M')
+        start_interval = datetime.strptime(self.model_params["start_interval"], '%Y-%m-%d %H:%M')
+        end_interval = datetime.strptime(self.model_params["end_interval"], '%Y-%m-%d %H:%M')
+        target = self.model_params["target"]
         for i in range(1, self.model_params["num_iter"] + 1):
             for a in self.agents:
                 cursor = start_interval
-                print(a["type"])
+                print(type(a["agent"]))
                 predictions = []
                 values = []
                 while cursor != end_interval:
                     # try:
-                    pred = a["agent"].makePrediction(6494, start_interval)
-                    val = getMeasureORM(6494, start_interval).pm1
+                    pred = a["agent"].makePrediction(target, cursor)
+                    val = getMeasureORM(target, cursor).pm1
                     predictions.append(pred)
                     values.append(val)
                     # except:
@@ -117,13 +120,15 @@ class Central:
                     #     a["trust"] = a["trust"] + 1
                     # else:
                     #     a["trust"] = a["trust"] - 1
-                    cursor += datetime.timedelta(hours=1)
+                    cursor += timedelta(hours=1)
                 a["trust"] = MSE(predictions, values)
             self.saveModel(i)
 
     def sensorSummary(self):
+        print(len(self.sensors))
         for s in self.sensors:
             print(examineSensor(s[0]))
+        print(len(self.sensors))
 
     def extractData(self):
         self.thresholds = self.data["thresholds"]
@@ -135,7 +140,6 @@ class Central:
             agent_dict = {
                 "sensor": a.sensor.sid,
                 "agent": a,
-                "type": s[1],
                 "trust": 0,
                 "configs": a.configs
             }
@@ -155,7 +159,7 @@ class Central:
             f.write("Iteration #" + str(i) + "\n")
             for a in self.agents:
                 f.write("SID:" + str(a["sensor"]) + "\n")
-                f.write("Agent:" + a["type"] + "\n")
+                f.write("Agent:" + str(type(a)) + "\n")
                 f.write("TF=" + str(a["trust"]) + "\n")
                 f.write("Agent Configs" + "\n")
                 f.write(json.dumps(a["configs"]) + "\n")
