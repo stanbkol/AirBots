@@ -6,6 +6,11 @@
         "confidence_threshold" : 0.25,
         "interval_threshold" : 48
     },
+    "model_params" : {
+        "num_iter" : 1,
+        "start_interval" : "2019-01-01 00:00",
+        "end_interval" : "2019-01-02 00:00"
+    },
     "map" : {
         "name": "Opole",
         "boundingbox": {
@@ -17,7 +22,6 @@
         },
     "sensors" : {
             "on" : [
-                        [5681, "random"],
                         [5682, "random"],
                         [5683, "simple_avg"],
                         [5685, "simple_avg"],
@@ -26,14 +30,14 @@
                         [5689, "minmax_avg"],
                         [5691, "minmax_avg"],
                         [5693, "minmax_avg"],
-                        [5694, "nearest"],
-                        [5696, "nearest"],
-                        [5697, "nearest"],
-                        [5698, "nearest"],
-                        [5700, "nearest"],
-                        [5702, "nearest"],
-                        [5705, "nearest"],
-                        [5706, "nearest"]
+                        [5694, "simple_avg"],
+                        [5696, "simple_avg"],
+                        [5697, "simple_avg"],
+                        [5698, "simple_avg"],
+                        [5700, "simple_avg"],
+                        [5702, "simple_avg"],
+                        [5705, "simple_avg"],
+                        [5706, "simple_avg"]
                     ],
             "off" : [
                         6494,
