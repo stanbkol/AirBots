@@ -35,6 +35,17 @@ class Measure(Base):
         return "Datekey=" + str(self.dk) + " SID=" + str(self.sid) + " temp,pm1,pm10,pm25=(" + str(self.temp) + ", " + \
                str(self.pm1) + ", " + str(self.pm10) + ", " + str(self.pm25) + ")"
 
+    def __iter__(self):
+        for attr in self.attr_names:
+            yield getattr(self, attr)
+
+    @classmethod
+    def attr_names(cls):
+        names = [attr_name for attr_name in cls.__dict__ if '_' not in attr_name]
+        if 'Sensor' in names:
+            names.remove('Sensor')
+        return names
+
 
 class Sensor(Base):
     __tablename__ = 'sensors'
@@ -70,6 +81,14 @@ class Sensor(Base):
             self.adr1) + "' Address Line 2='" + str(self.adr2) + \
                "' Address Number='" + str(self.adrn) + "' lat,lon,elev=(" + str(self.lat) + ", " + \
                str(self.lon) + ", " + str(self.elv) + ")"
+
+    def __iter__(self):
+        for attr in self.attr_names:
+            yield getattr(self, attr)
+
+    @classmethod
+    def attr_names(cls):
+        return [attr_name for attr_name in cls.__dict__ if '_' not in attr_name]
 
     def nearestNeighbors(self, n):
         with Session as sesh:
@@ -153,6 +172,14 @@ class Tile(Base):
     def __repr__(self):
         return "<Tile(tileid='%s',mapid='%s', center='%s', type='%s')>" % (self.tid, self.mid, self.center,
                                                                            self.tclass)
+
+    def __iter__(self):
+        for attr in self.attr_names:
+            yield getattr(self, attr)
+
+    @property
+    def attr_names(self):
+        return [attr_name for attr_name in self.__dict__ if '_' not in attr_name]
 
     def generate_vertices_coordinates(self):
         vertices = []
