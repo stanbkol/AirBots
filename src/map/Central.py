@@ -71,14 +71,14 @@ def MSE(a, p):
 
 def generateAgent(sid, name):
     agent_options = {
-        "random": randomAgent(sensor_id=sid),
-        "simple_avg": simpleAgentV1(sensor_id=sid),
-        "minmax_avg": simpleAgentV2(sensor_id=sid),
-        "nearest": simpleAgentV3(sensor_id=sid),
-        "WMA": MovingAverageV1(sensor_id=sid),
-        "SMA": MovingAverageV2(sensor_id=sid),
-        "ARIMA": ARMIAX(sensor_id=sid),
-        "MVR": MultiDimensionV1(sensor_id=sid)
+        "random": RandomAgent(sensor_id=sid),
+        "simple_avg": NearbyAverage(sensor_id=sid),
+        "minmax_avg": MinMaxAgent(sensor_id=sid),
+        "nearest": NearestSensor(sensor_id=sid),
+        "wma": WmaAgent(sensor_id=sid),
+        "sma": CmaAgent(sensor_id=sid),
+        "arima": ARMIAX(sensor_id=sid),
+        "mvr": MultiVariate(sensor_id=sid)
     }
     a = agent_options.get(name)
     return a

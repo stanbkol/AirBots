@@ -328,6 +328,17 @@ def updateMeasures(m_list, sid):
     return m_list
 
 
+def getObservations(exclude=None):
+    attributes = [attr_name for attr_name in Measure.__dict__ if not str(attr_name).startswith("_")]
+    attributes.remove('dk')
+    attributes.remove('Sensor')
+    attributes.remove('date')
+    if exclude in attributes:
+        attributes.remove(exclude)
+
+    return attributes
+
+
 def populateTables():
     conn = createConnection()
     s_list, m_list = sensorMerge(r"C:\Users\mrusieck\PycharmProjects\AirBot\docs\Sensor_Merge")

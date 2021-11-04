@@ -12,7 +12,7 @@ from sqlalchemy.exc import NoResultFound
 from src.database.DbManager import Session
 from src.database.utils import drange
 import statsmodels.api as sm
-from src.database.Models import getMeasuresORM, getMeasureORM, getSensorORM, Measure
+from src.database.Models import getMeasuresORM, getMeasureORM, getSensorORM, Measure, getObservations
 from src.map.MapPoint import MapPoint, calcDistance
 
 
@@ -117,8 +117,8 @@ def prepareMeasures(dataset, col='*'):
     return columns, measure_data
 
 
-def createDataframe(cols, measures):
-    df = pd.DataFrame(data=measures, columns=cols)
+def createDataframe(measures, columns):
+    df = pd.DataFrame(data=measures, columns=columns)
     return df.sort_values(by="date", ascending=True)
 
 
@@ -282,7 +282,7 @@ class Agent(object):
 
         return measures
 
-    def _prepareData(self, target_sensor, time, day_interval=7, targetObs: [] = None):
+    def _prepareData(self, target_sensor, time, day_interval=7, hour_interval=0, targetObs: [] = None):
         """
 
         :param target_sensor: integer sensor id
@@ -291,7 +291,7 @@ class Agent(object):
         :return: list of tuples representing measurement objects with no time gaps.
         """
         hour = datetime.timedelta(hours=1)
-        days = datetime.timedelta(days=day_interval)
+        days = datetime.timedelta(days=day_interval, hours=hour_interval)
         new_end = (time - hour)
         new_start = new_end - days
         with Session as sesh:
@@ -321,6 +321,9 @@ class Agent(object):
 
 # predict value between 0 and maximum value of target sensor
 class RandomAgent(Agent):
+    def __init__(self, sensor_id, config=None):
+        super().__init__(sensor_id, config=config)
+
     def makePrediction(self, target_sensor, time, n=1, *values):
         vals = self.validate_measures(values)
         data, cols = self._prepareData(target_sensor, time, targetObs=vals)
@@ -335,6 +338,9 @@ class RandomAgent(Agent):
 
 # avg of nearby sensors to target sensor
 class NearbyAverage(Agent):
+    def __init__(self, sensor_id, config=None):
+        super().__init__(sensor_id, config=config)
+
     def makePrediction(self, target_sensor, time, n=1, *values):
         fields = self.validate_measures(values)
         sensors = findNearestSensors(target_sensor, self.sensor_list)
@@ -356,6 +362,9 @@ class NearbyAverage(Agent):
 
 # average from min/max of nearby sensors to target sensor
 class MinMaxAgent(Agent):
+    def __init__(self, sensor_id, config=None):
+        super().__init__(sensor_id, config=config)
+
     def makePrediction(self, target_sensor, time, n=1, *values):
         fields = self.validate_measures(values)
         sensor_dists = findNearestSensors(target_sensor, self.sensor_list)
@@ -384,6 +393,9 @@ class MinMaxAgent(Agent):
 
 # value of nearest station
 class NearestSensor(Agent):
+    def __init__(self, sensor_id, config=None):
+        super().__init__(sensor_id, config=config)
+
     def makePrediction(self, target_sensor, time, n=1, *values):
         sensors = findNearestSensors(target_sensor, self.sensor_list)
         fields = self.validate_measures(values)
@@ -407,26 +419,31 @@ class NearestSensor(Agent):
 
 # Weighted Moving Average
 class WmaAgent(Agent):
+    def __init__(self, sensor_id, config=None):
+        super().__init__(sensor_id, config=config)
+
     def makePrediction(self, target_sensor, time, n=1, *values):
         window = 10
         orm_data = getMeasuresORM(target_sensor)
+        # most recent gets higher weight.
         weights = np.array(exp_weights(window))
         cols, data = prepareMeasures(orm_data, "pm1")
         df = createDataframe(cols, data)
         df.sort_values(by='date')
         pred = df['pm1'].rolling(window).apply(lambda x: np.sum(weights * x))
-        plt.plot(df['date'], df['pm1'], label="PM1 Values")
-        plt.plot(df['date'], pred, label="Pred")
-        plt.xlabel('Dates')
-        plt.ylabel('Values')
-        plt.legend()
-        plt.show()
+        # plt.plot(df['date'], df['pm1'], label="PM1 Values")
+        # plt.plot(df['date'], pred, label="Pred")
+        # plt.xlabel('Dates')
+        # plt.ylabel('Values')
+        # plt.legend()
+        # plt.show()
+        return pred
 
 
 class CmaAgent(Agent):
-    def __init__(self, sensor_id, config=None, confidence=50):
-        super().__init__(sensor_id, config, confidence)
-        self._include_cma = False
+    def __init__(self, sensor_id, config=None, confidence=50, cma=False):
+        super().__init__(sensor_id, config, confidence=confidence)
+        self._include_cma = cma
 
     def makePrediction(self, target_sensor, time, n=1, *values):
         window = 10
@@ -435,16 +452,18 @@ class CmaAgent(Agent):
         results = createDataframe(col, data)
         results['Prediction'] = results.pm1.rolling(window, min_periods=1).mean()
         if self._include_cma:
-            results['Prediction_cma'] = results.pm1.expanding(20).mean()
-            plt.plot(results['date'], results['Prediction_cma'], label="Pred_cma")
+            results['Cma'] = results.pm1.expanding(20).mean()
+            return [('prediction', results['Prediction'][-1]), ('cma', results['Cma'][-1])]
+            # plt.plot(results['date'], results['Prediction_cma'], label="Pred_cma")
 
         results['Error'] = abs(((results['pm1'] - results['Prediction']) / results['pm1']) * 100)
-        plt.plot(results['date'], results['pm1'], label="PM1 Values")
-        plt.plot(results['date'], results['Prediction'], label="Pred_ma")
-        plt.xlabel('Dates')
-        plt.ylabel('Values')
-        plt.legend()
-        plt.show()
+        # plt.plot(results['date'], results['pm1'], label="PM1 Values")
+        # plt.plot(results['date'], results['Prediction'], label="Pred_ma")
+        # plt.xlabel('Dates')
+        # plt.ylabel('Values')
+        # plt.legend()
+        # plt.show()
+        return [('prediction', results['Prediction'][-1])]
 
 
 # To Do: AutoREgressiveIntegratedMovingAverage
@@ -487,19 +506,29 @@ class ARMIAX(Agent):
 
 # update to involve two sensorids; use the predicting sensors data to define the model, and plug in values from the
 # target sensor to make prediction
-class MultiDimensionV1(Agent):
-    def __init__(self, sensor_id, config=None, stationary=True):
+class MultiVariate(Agent):
+    def __init__(self, sensor_id, config=None):
         super().__init__(sensor_id, config=config)
-        self.seasonal = not stationary
 
-    def makePrediction(self, target_sensor, time, n=1, *values):
+    def makePrediction(self, target_sensor, target_time, n=1, *values):
+        variables = ['pm1', 'pm10']
         reg_model = linear_model.LinearRegression()
-        interval = findModelInterval(self.sensor.sid, time, 100)
-        model_data = getMeasuresORM(self.sensor.sid, interval[0], interval[1])
-        x = list(zip(getColumn(model_data, 'temp'), getColumn(model_data, 'pm10'), getColumn(model_data, 'pm25')))
-        y = getColumn(model_data, 'pm1')
+        target_obs = self.validate_measures(values)
+        data, columns = self._prepareData(target_sensor, target_time)
+        predictions = {}
+        for ob in target_obs:
+            # fetch list of the other dependent variables: temp, pmN, pmN
+            dependent_vars = getObservations(exclude=ob)
+            X = [row[dependent] for dependent in dependent_vars for row in data ]
+            Y = [row[ob] for row in data]
+            reg_model = linear_model.LinearRegression()
+            reg_model.fit(X, Y)
+            predictions[ob] = reg_model.predict()
+
+        # x = list(zip(getColumn(model_data, 'temp'), getColumn(model_data, 'pm10'), getColumn(model_data, 'pm25')))
+        # y = getColumn(model_data, 'pm1')
         reg_model.fit(x, y)
-        actual_value = getMeasureORM(target_sensor, time)
+        actual_value = getMeasureORM(target_sensor, target_time)
         prediction = reg_model.predict([[actual_value.temp, actual_value.pm10, actual_value.pm25]])
         return prediction
 
@@ -516,17 +545,10 @@ def findModelInterval(sid, time, interval_size):
 
 if __name__ == '__main__':
     m = Measure(12345, 1, datetime.datetime(2021,9, 25, 18), 1.2, 25.2, 10.2, 12)
-    # print(Measure.__dict__.keys())
-    # print(dir(Measure))
-    # print(Measure.attr_names())
-    # print([a for a in vars(Measure) if not(a.startswith('_') and a.endswith('_'))])
-    # print(vars(m))
-    # print(tuple(m))
 
-    a = [1,2,3,4]
-    b = [3,2,1]
-    c = ['_pm1', 'pm10']
+    randy = RandomAgent()
+    vals = self.validate_measures(values)
+    data, cols = self._prepareData(target_sensor, time, targetObs=vals)
 
     print([x for x in c if not str(x).startswith("_")])
-    # print(list(set(a)-set(list(c))))
-    # print(all(x in a for x in b))
+
