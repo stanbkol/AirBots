@@ -328,7 +328,7 @@ class RandomAgent(Agent):
     def __init__(self, sensor_id, config=None):
         super().__init__(sensor_id, config=config)
 
-    def makePrediction(self, target_sensor, time, n=1, *values):
+    def makePrediction(self, target_sensor, time, *values, n=1):
         vals = self.validate_measures(values)
         data, cols = self._prepareData(target_sensor, time, targetObs=vals)
         max_vals = []
@@ -345,22 +345,20 @@ class NearbyAverage(Agent):
     def __init__(self, sensor_id, config=None):
         super().__init__(sensor_id, config=config)
 
-    def makePrediction(self, target_sensor, time, n=1, *values):
-        fields = self.validate_measures(values)
+    def makePrediction(self, target_sensor, time, *values, n=1):
+        target_predictions = self.validate_measures(values)
         sensors = findNearestSensors(target_sensor, self.sensor_list)
         hour = datetime.timedelta(hours=1)
         measure_time = time - hour
-        totals = {field: 0 for field in fields}
-
+        totals = {field: 0 for field in target_predictions}
         n = self.configs["n"]
+
         for s in sensors[:n]:
-            print(s)
-            try:
-                measure = getMeasureORM(s[0].sid, measure_time)
-                for obs in fields:
-                    totals[obs] += getattr(measure, obs)
-            except NoResultFound:
-                print("No data for sensor")
+            data, cols = self._prepareData(s[0].sid, measure_time, targetObs=target_predictions)
+            latest_measure = data[-1]
+            for field in target_predictions:
+                totals[field] += latest_measure[cols.index(field)]
+
         return [(key, totals[key] / n) for key in totals.keys()]
 
 
@@ -369,22 +367,17 @@ class MinMaxAgent(Agent):
     def __init__(self, sensor_id, config=None):
         super().__init__(sensor_id, config=config)
 
-    def makePrediction(self, target_sensor, time, n=1, *values):
-        fields = self.validate_measures(values)
+    def makePrediction(self, target_sensor, time, n=1, **values):
+        target_predictions = self.validate_measures(values)
         sensor_dists = findNearestSensors(target_sensor, self.sensor_list)
-        hour = datetime.timedelta(hours=1)
-        measure_time = time - hour
-        sensor_vals = {val: [] for val in fields}
+        sensor_vals = {val: [] for val in target_predictions}
         n = self.configs["n"]
 
         for sd in sensor_dists[:n]:
-            try:
-                # measures, cols = self._prepareData()
-                measure = getMeasureORM(sd[0].sid, measure_time)
-                for field in fields:
-                    sensor_vals[field].append(getattr(measure, field))
-            except NoResultFound:
-                print("No data for sensor")
+            data, cols = self._prepareData(sd[0].sid, time, targetObs=target_predictions)
+            latest_measure = data[-1]
+            for field in target_predictions:
+                sensor_vals[field].append(latest_measure[cols.index(field)])
 
         results = []
         for k in sensor_vals.keys():
@@ -402,23 +395,22 @@ class NearestSensor(Agent):
 
     def makePrediction(self, target_sensor, time, n=1, *values):
         sensors = findNearestSensors(target_sensor, self.sensor_list)
-        fields = self.validate_measures(values)
+        target_predictions = self.validate_measures(values)
         hour = datetime.timedelta(hours=1)
         measure_time = time - hour
-        sensor_vals = {val: [] for val in fields}
-        for sd in sensors:
-            try:
-                measure = getMeasureORM(sd[0].sid, measure_time)
-                for field in fields:
-                    sensor_vals[field].append(getattr(measure, field))
-            except:
-                for field in fields:
-                    sensor_vals[field].append(None)
-        print(values)
-        try:
-            return next(item for item in values if item is not None)
-        except StopIteration:
-            return 0
+        sensor_vals = {val: 0 for val in target_predictions}
+        sensor_id = sensors[0][0].sid
+
+        data, cols = self._prepareData(sensor_id, time, targetObs=target_predictions)
+        latest_measure = data[-1]
+        for field in target_predictions:
+            sensor_vals[field] = latest_measure[cols.index(field)]
+
+        results = []
+        for k in sensor_vals.keys():
+            results.append((k, sensor_vals[k]))
+
+        return results
 
 
 # Weighted Moving Average
@@ -525,9 +517,10 @@ class MultiVariate(Agent):
             actual_value = getMeasureORM(target_sensor, target_time+time_increment)
             for row in data:
                 # fetch list of the other dependent variables: temp, pmN, pmN
-                dependent_vars = getObservations(exclude=ob)
                 X = []
+                dependent_vars = []
                 for ob in target_obs:
+                    dependent_vars = getObservations(exclude=ob)
                     dvs = list()
                     for dv in dependent_vars:
                         dvs.append(row[columns.index(dv)])
@@ -560,10 +553,16 @@ if __name__ == '__main__':
     pms = ['pm1']
     randy = RandomAgent(11594)
     target_time = datetime.datetime(year=2018, month=9, day=15, hour=15)
-    vals = randy.validate_measures(pms)
-    data, cols = randy._prepareData(randy.sensor.sid, target_time, targetObs=vals)
-    print(cols)
-    for d in data:
-        print(d)
+    # vals = randy.validate_measures(pms)
+    # data, cols = randy._prepareData(randy.sensor.sid, target_time, targetObs=vals)
+    # prediction = randy.makePrediction(11594, target_time)
+    # print(cols)
+    # for d in data:
+    #     print(d)
+
+    # print(prediction)
+
+    neary = NearbyAverage(11594)
+    pred = neary.makePrediction(11594, target_time, 'pm1', n=1)
 
     # print([x for x in c if not str(x).startswith("_")])

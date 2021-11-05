@@ -95,24 +95,25 @@ class Central:
         self.data = getJson(self.model_file)
         self.model_params = self.data["model_params"]
         self.extractData()
-        self.sensorSummary()
-        # self.trainModel()
+        # self.sensorSummary()
+        self.trainModel()
 
     def trainModel(self):
         start_interval = datetime.strptime(self.model_params["start_interval"], '%Y-%m-%d %H:%M')
         end_interval = datetime.strptime(self.model_params["end_interval"], '%Y-%m-%d %H:%M')
         target = self.model_params["target"]
         for i in range(1, self.model_params["num_iter"] + 1):
+            print(self.agents)
             for a in self.agents:
                 cursor = start_interval
-                print(type(a["agent"]))
+                print(a["sensor"])
                 predictions = []
                 values = []
                 while cursor != end_interval:
                     # try:
-                    pred = a["agent"].makePrediction(target, cursor)
+                    pred = a["agent"].makePrediction(target, cursor, 'pm1')
                     val = getMeasureORM(target, cursor).pm1
-                    predictions.append(pred)
+                    predictions.append(pred[0][1])
                     values.append(val)
                     # except:
                     #     print("Error, SID="+str(a["sensor"])+" at" + str(start_interval))
