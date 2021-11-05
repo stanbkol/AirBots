@@ -56,7 +56,7 @@ def insertMeasures(measures):
 
 
 def insertTiles(tilebins):
-    from  src.database.Models import Tile
+    from src.database.Models import Tile
 
     with Session as session:
         tiles = [
