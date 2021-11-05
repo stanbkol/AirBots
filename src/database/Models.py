@@ -36,11 +36,11 @@ class Measure(Base):
                str(self.pm1) + ", " + str(self.pm10) + ", " + str(self.pm25) + ")"
 
     def __iter__(self):
-        for attr in self.attr_names:
+        for attr in self._attr_names:
             yield getattr(self, attr)
 
     @classmethod
-    def attr_names(cls):
+    def _attr_names(cls):
         names = [attr_name for attr_name in cls.__dict__ if '_' not in attr_name]
         if 'Sensor' in names:
             names.remove('Sensor')
@@ -83,11 +83,11 @@ class Sensor(Base):
                str(self.lon) + ", " + str(self.elv) + ")"
 
     def __iter__(self):
-        for attr in self.attr_names:
+        for attr in self._attr_names:
             yield getattr(self, attr)
 
     @classmethod
-    def attr_names(cls):
+    def _attr_names(cls):
         return [attr_name for attr_name in cls.__dict__ if '_' not in attr_name]
 
     def nearestNeighbors(self, n):
@@ -174,11 +174,11 @@ class Tile(Base):
                                                                            self.tclass)
 
     def __iter__(self):
-        for attr in self.attr_names:
+        for attr in self._attr_names:
             yield getattr(self, attr)
 
     @property
-    def attr_names(self):
+    def _attr_names(self):
         return [attr_name for attr_name in self.__dict__ if '_' not in attr_name]
 
     def generate_vertices_coordinates(self):

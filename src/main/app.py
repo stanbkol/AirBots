@@ -5,7 +5,7 @@ from src.map.Central import *
 
 def main():
     # populateTables()
-    c = Central(r"C:\Users\mrusieck\PycharmProjects\AirBot\docs\SimpleAvg")
+    c = Central('..\\..\\..\\AirBots\\docs\\SimpleAvg')
     # c.sensorSummary()
 
 

@@ -95,8 +95,8 @@ class Central:
         self.data = getJson(self.model_file)
         self.model_params = self.data["model_params"]
         self.extractData()
-        # self.sensorSummary()
-        self.trainModel()
+        self.sensorSummary()
+        # self.trainModel()
 
     def trainModel(self):
         start_interval = datetime.strptime(self.model_params["start_interval"], '%Y-%m-%d %H:%M')
