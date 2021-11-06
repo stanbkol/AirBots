@@ -1,4 +1,5 @@
 import datetime
+# from datetime import datetime, timedelta
 from abc import abstractmethod
 import random as rand
 import pandas
@@ -35,9 +36,7 @@ def calc_weights(n):
     n += 1
     diff = 1 / n
     sample = [x for x in drange(0, 1, diff)][1::]
-    # print(sample)
     total = sum(sample)
-    # print(total)
     return [c / total for c in sample]
 
 
@@ -105,12 +104,12 @@ class Model(object):
                "confidence_error": 0.35,
                "completeness": 0.75}
 
-    def __init__(self, sensor_id, config=None):
+    def __init__(self, sensor_id, sensor_list=None, config=None):
         if config:
             self.configs = config
 
         self.sensor = getSensorORM(sensor_id)
-        self.sensor_list = []
+        self.sensor_list = sensor_list
         self._mse = 0
         # self.pred_tile = target_tile
         # self.target_time = target_time
@@ -124,7 +123,7 @@ class Model(object):
         return [attr_name for attr_name in self.__dict__ if '_' not in attr_name]
 
     @abstractmethod
-    def makePrediction(self, target_sensor, time, n=1, *values):
+    def makePrediction(self, time, values, n=1):
         pass
 
     def getConfigKeys(self):
@@ -256,29 +255,29 @@ class Model(object):
 
 # predict value between 0 and maximum value of target sensor
 class RandomModel(Model):
-    def __init__(self, sensor_id, config=None):
-        super().__init__(sensor_id, config=config)
+    def __init__(self, sensor_id, sensor_list, config=None):
+        super().__init__(sensor_id, sensor_list=sensor_list, config=config)
 
-    def makePrediction(self, target_sensor, time, *values, n=1):
+    def makePrediction(self, time, values, n=1):
         vals = self.validate_measures(values)
-        data, cols = self._prepareData(target_sensor, time, targetObs=vals)
+        data, cols = self._prepareData(self.sensor.sid, time, targetObs=vals, hour_interval=48)
         max_vals = {ob: 0 for ob in vals}
         for target_measure in vals:
-            max_vals[target_measure] = max(data, key=lambda measure: measure[measure.index(target_measure)])
+            max_vals[target_measure] = max(data, key=lambda measure: measure[cols.index(target_measure)])
 
-        return {ob: rand.randint(0, max_vals[0]) for ob in max_vals.keys()}
+        return {ob: rand.uniform(0, max_vals[ob][2]) for ob in max_vals.keys()}
 
 
 # avg of nearby sensors to target sensor
 class NearbyAverage(Model):
-    def __init__(self, sensor_id, config=None):
-        super().__init__(sensor_id, config=config)
+    def __init__(self, sensor_id, sensor_list, config=None):
+        super().__init__(sensor_id, sensor_list=sensor_list, config=config)
 
-    def makePrediction(self, target_sensor, target_time, *values, n=1):
+    def makePrediction(self, target_time, values, n=1):
         target_predictions = self.validate_measures(values)
         sensors = findNearestSensors(self.sensor.sid, self.sensor_list)
         totals = {field: 0 for field in target_predictions}
-        n = self.configs["n"]
+        n = 3
         for s in sensors[:n]:
             data, cols = self._prepareData(s[0].sid, target_time, targetObs=target_predictions)
             if not data:
@@ -295,15 +294,14 @@ class NearbyAverage(Model):
 
 # average from min/max of nearby sensors to target sensor
 class MinMaxModel(Model):
-    def __init__(self, sensor_id, config=None):
-        super().__init__(sensor_id, config=config)
+    def __init__(self, sensor_id, sensors, config=None):
+        super().__init__(sensor_id, sensor_list=sensors, config=config)
 
-    def makePrediction(self, target_sensor, time, *values, n=1):
+    def makePrediction(self, time, values, n=1):
         target_predictions = self.validate_measures(values)
-        sensor_dists = findNearestSensors(target_sensor, self.sensor_list)
+        sensor_dists = findNearestSensors(self.sensor.sid, self.sensor_list)
         sensor_vals = {val: [] for val in target_predictions}
-        n = self.configs["n"]
-
+        n = 3
         for sd in sensor_dists[:n]:
             data, cols = self._prepareData(sd[0].sid, time, targetObs=target_predictions)
             latest_measure = data[-1]
@@ -360,24 +358,25 @@ class WmaModel(Model):
 
 
 class CmaModel(Model):
-    def __init__(self, sensor_id, config=None, cma=False):
-        super().__init__(sensor_id, config)
+    def __init__(self, sensor_id, sensors, config=None, cma=False):
+        super().__init__(sensor_id, sensor_list=sensors, config=config)
         self._include_cma = cma
 
-    def makePrediction(self, time, *values, window=10):
+    def makePrediction(self, time, values, window=10):
         target_predictions = self.validate_measures(values)
-        data, cols = self._prepareData(self.sensor.sid, time, targetObs=target_predictions)
+        data, cols = self._prepareData(self.sensor.sid, time, targetObs=target_predictions, hour_interval=48)
         results = createDataframe(data, cols)
-        predictions = { ob: 0.0 for ob in target_predictions}
+        predictions = {ob: 0.0 for ob in target_predictions}
 
         for ob in target_predictions:
             results['ma_'+str(ob)] = results[ob].rolling(window, min_periods=1).mean()
-            predictions[ob] = results['ma_'+str(ob)][-1]
+            predictions[ob] = results['ma_'+str(ob)].iloc[-1]
 
         if self._include_cma:
-            for ob in target_predictions:
-                results['Cma'] = results.pm1.expanding(20).mean()
-                return [('prediction', results['Prediction'][-1]), ('cma', results['Cma'][-1])]
+            pass
+            # for ob in target_predictions:
+            #     results['Cma'] = results.pm1.expanding(20).mean()
+            #     return [('prediction', results['Prediction'][-1]), ('cma', results['Cma'][-1])]
             # plt.plot(results['date'], results['Prediction_cma'], label="Pred_cma")
 
         # results['Error_'] = abs(((results['pm1'] - results['Prediction']) / results['pm1']) * 100)
@@ -426,15 +425,15 @@ class ARMIAX(Model):
 # update to involve two sensorids; use the predicting sensors data to define the model, and plug in values from the
 # target sensor to make prediction
 class MultiVariate(Model):
-    def __init__(self, sensor_id, config=None):
-        super().__init__(sensor_id, config=config)
+    def __init__(self, sensor_id, sensors, config=None):
+        super().__init__(sensor_id, sensor_list=sensors, config=config)
 
-    def makePrediction(self, prediction_time, *values):
-        days = self.configs["interval"]["days"]
-        hours = self.configs["interval"]["hours"]
-        if not days:
-            days = 7
-            hours = 0
+    def makePrediction(self, prediction_time, values, target_sid):
+        # days = self.configs["interval"]["days"]
+        # hours = self.configs["interval"]["hours"]
+        # if not days:
+        days = 7
+        hours = 0
 
         target_obs = self.validate_measures(values)
         data, columns = self._prepareData(self.sensor.sid, prediction_time, day_interval=days, hour_interval=hours)
@@ -442,7 +441,7 @@ class MultiVariate(Model):
         # multi-step prediction
         # for hour in range(forward_hours):
         #     time_increment = datetime.timedelta(hours=hour)
-        actual_value = getMeasureORM(self.sensor.sid, prediction_time)
+        actual_value = getMeasureORM(target_sid, prediction_time)
 
         for ob in target_obs:
             # fetch list of the other dependent variables: temp, pmN, pmN

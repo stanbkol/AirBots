@@ -1,5 +1,8 @@
 from datetime import datetime, timedelta
 import json
+
+import numpy as np
+
 from src.database.Models import *
 from src.map.TileClassifier import *
 from src.agents.Agents import *
@@ -66,22 +69,7 @@ def classifyTiles(filename):
 
 def MSE(a, p):
     actual, pred = np.array(a), np.array(p)
-    return np.sqrt(mean_squared_error(actual, pred))
-
-
-def generateAgent(sid, name):
-    agent_options = {
-        "random": RandomAgent(sensor_id=sid),
-        "simple_avg": NearbyAverage(sensor_id=sid),
-        "minmax_avg": MinMaxAgent(sensor_id=sid),
-        "nearest": NearestSensor(sensor_id=sid),
-        "wma": WmaAgent(sensor_id=sid),
-        "cma": CmaAgent(sensor_id=sid),
-        "arima": ARMIAX(sensor_id=sid),
-        "mvr": MultiVariate(sensor_id=sid)
-    }
-    a = agent_options.get(name)
-    return a
+    return mean_squared_error(actual, pred)
 
 
 class Central:
@@ -96,36 +84,40 @@ class Central:
         self.model_params = self.data["model_params"]
         self.popSensors()
         self.extractData()
-        self.sensorSummary()
-        #self.trainModel()
+        # self.sensorSummary()
+        self.trainModel()
+
+    def evaluateAgents(self, values, predictions):
+        for a in self.agents:
+            a.error = MSE(values, predictions[a.sid])
 
     def popSensors(self):
         for s in self.data["sensors"]["on"]:
             self.sensors.append(s)
 
     def trainModel(self):
-        start_interval = datetime.datetime.strptime(self.model_params["start_interval"], '%Y-%m-%d %H:%M')
-        end_interval = datetime.datetime.strptime(self.model_params["end_interval"], '%Y-%m-%d %H:%M')
+        start_interval = datetime.strptime(self.model_params["start_interval"], '%Y-%m-%d %H:%M')
+        end_interval = datetime.strptime(self.model_params["end_interval"], '%Y-%m-%d %H:%M')
         target = self.model_params["target"]
         for i in range(1, self.model_params["num_iter"] + 1):
-            for a in self.agents:
-                cursor = start_interval
-                print(a["sensor"])
-                predictions = []
-                values = []
-                while cursor != end_interval:
-                    # try:
-                    pred = a["agent"].makePrediction(target, cursor, "pm1")
-                    val = getMeasureORM(target, cursor).pm1
-                    # print(pred)
-                    predictions.append(pred[0][1])
+            cursor = start_interval
+            predictions = {sid:[] for sid in self.sensors}
+            values = []
+            while cursor != end_interval:
+                val = getMeasureORM(target, cursor)
+                if val:
                     values.append(val)
-                    cursor += timedelta(hours=1)
-                a["MSE"] = MSE(a=values, p=predictions)
-                #updateAgent(a["agent"], a["type"])
-                # if a["MSE"] > self.thresholds["mse"]:
-                #     print("Updating-->", a["sensor"])
-                #     a["agent"] = updateAgent(a["agent"], a["type"])
+                    for a in self.agents:
+                        pred = a.makePredictions(target, cursor, ["pm1"], meas=val)
+                        # print(pred)
+                        predictions[a.sid].append(pred)
+                else:
+                    print("No target validation data for-->", cursor)
+                cursor += timedelta(hours=1)
+            # print(len(predictions))
+            # print(len(predictions[a[0].sid]))
+            # print(predictions)
+            self.evaluateAgents(values, predictions)
             self.saveModel(i)
 
     def sensorSummary(self):
@@ -136,14 +128,8 @@ class Central:
         self.thresholds = self.data["thresholds"]
         self.agent_configs = self.data["agent_configs"]
         for s in self.data["sensors"]["on"]:
-            a = generateAgent(s[0], s[1])
-            a.configs = self.agent_configs[s[1]]
-            a.sensor_list = self.sensors
-            agent_dict = {
-                "sensor": a.sensor.sid,
-                "agent": a,
-            }
-            self.agents.append(agent_dict)
+            a = Agent(s, self.thresholds, self.sensors, config=self.agent_configs)
+            self.agents.append(a)
 
     def makePrediction(self, target, time):
         predictions = []
@@ -155,11 +141,9 @@ class Central:
         return predictions
 
     def saveModel(self, i):
-        with open(self.model_file + "_results", 'w', encoding="utf-8") as f:
+        with open(self.model_file + "_results", 'w+', encoding="utf-8") as f:
             f.write("Iteration #" + str(i) + "\n")
             for a in self.agents:
-                f.write("SID:" + str(a["sensor"]) + "\n")
-                f.write("MSE=" + str(a["MSE"]) + "\n")
-                f.write("Agent Configs" + "\n")
-                f.write(json.dumps(a["configs"]) + "\n")
+                f.write("SID:" + str(a.sid) + "\n")
+                f.write("MSE=" + str(a.error) + "\n")
         f.close()
