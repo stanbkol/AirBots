@@ -74,8 +74,6 @@ def new_prepMeasures(measure_list, columns=None):
 
         return preped, attributes
     removed = list(set(obs) - set(columns))
-    print(attributes)
-    print(removed)
     wanted = [item for item in attributes if item not in removed]
     for measure in measure_list:
         m_tup = tuple(getAttributes(measure, wanted))
@@ -188,16 +186,19 @@ class Agent(object):
         # self.target_time = target_time
 
     def __iter__(self):
-        for attr in self.attr_names:
+        for attr in self._attr_names:
             yield getattr(self, attr)
 
     @property
-    def attr_names(self):
+    def _attr_names(self):
         return [attr_name for attr_name in self.__dict__ if '_' not in attr_name]
 
     @abstractmethod
     def makePrediction(self, target_sensor, time, n=1, *values):
         pass
+
+    def getConfigKeys(self):
+        return ["sensor","agent","trust","configs"]
 
     # initial confidence calculation
     # self.cf += updateConfidence(self.cf, actual_value=, predicted_value=) <---in each make prediction method
@@ -286,32 +287,32 @@ class Agent(object):
 
         return sorted(measures, key=lambda m: m[1])
 
-    def _prepareData(self, target_sensor, time, day_interval=7, hour_interval=0, targetObs: [] = None):
+    def _prepareData(self, target_sensor, prediction_time, day_interval=0, hour_interval=1, targetObs: [] = None):
         """
-
         :param target_sensor: integer sensor id
-        :param time: datetime object defining the time of prediction.
-        :param day_interval: amount of historical data to use from the time of prediction.
+        :param prediction_time: datetime object defining the time of prediction.
+        :param day_interval: amount of historical data to use from the time of prediction by day.
+        :param hour_interval: amount of historical data to use from the time of prediction by hour.
         :return: list of tuples representing measurement objects with no time gaps.
         """
-        hour = datetime.timedelta(hours=1)
-        days = datetime.timedelta(days=day_interval, hours=hour_interval)
-        new_end = (time - hour)
-        new_start = new_end - days
+        end_offset = datetime.timedelta(hours=1)
+        time_interval = datetime.timedelta(days=day_interval, hours=hour_interval)
+        new_end = (prediction_time - end_offset)
+        new_start = new_end - time_interval
         with Session as sesh:
             orm_data = sesh.query(Measure).filter(Measure.date >= new_start).filter(Measure.date <= new_end). \
                 filter(Measure.sid == target_sensor).all()
 
         orm_data = sorted(orm_data, key=lambda x: x.date)
 
-        total_hours = self._countInterval(new_end, time)
+        total_hours = self._countInterval(new_end, prediction_time)
         complete = len(orm_data) / total_hours
         if len(orm_data) == total_hours:
             # nothing to clean
             m_tuples, field_names = new_prepMeasures(orm_data, columns=targetObs)
             return m_tuples, field_names
 
-        if complete < self.configs["completeness"]:
+        if complete < 0.75:
             # too much data missing for interval
             return None, None
 
@@ -345,21 +346,23 @@ class NearbyAverage(Agent):
     def __init__(self, sensor_id, config=None):
         super().__init__(sensor_id, config=config)
 
-    def makePrediction(self, target_sensor, time, *values, n=1):
+    def makePrediction(self, target_sensor, target_time, *values, n=1):
         target_predictions = self.validate_measures(values)
-        sensors = findNearestSensors(target_sensor, self.sensor_list)
-        hour = datetime.timedelta(hours=1)
-        measure_time = time - hour
+        sensors = findNearestSensors(self.sensor.sid, self.sensor_list)
         totals = {field: 0 for field in target_predictions}
         n = self.configs["n"]
-
         for s in sensors[:n]:
-            data, cols = self._prepareData(s[0].sid, measure_time, targetObs=target_predictions)
+            data, cols = self._prepareData(s[0].sid, target_time, targetObs=target_predictions)
+            if not data:
+                return []
             latest_measure = data[-1]
             for field in target_predictions:
                 totals[field] += latest_measure[cols.index(field)]
 
         return [(key, totals[key] / n) for key in totals.keys()]
+
+    def getConfigKeys(self):
+        return []
 
 
 # average from min/max of nearby sensors to target sensor
@@ -367,7 +370,7 @@ class MinMaxAgent(Agent):
     def __init__(self, sensor_id, config=None):
         super().__init__(sensor_id, config=config)
 
-    def makePrediction(self, target_sensor, time, n=1, **values):
+    def makePrediction(self, target_sensor, time, *values, n=1):
         target_predictions = self.validate_measures(values)
         sensor_dists = findNearestSensors(target_sensor, self.sensor_list)
         sensor_vals = {val: [] for val in target_predictions}
@@ -393,7 +396,7 @@ class NearestSensor(Agent):
     def __init__(self, sensor_id, config=None):
         super().__init__(sensor_id, config=config)
 
-    def makePrediction(self, target_sensor, time, n=1, *values):
+    def makePrediction(self, target_sensor, time, *values, n=1):
         sensors = findNearestSensors(target_sensor, self.sensor_list)
         target_predictions = self.validate_measures(values)
         hour = datetime.timedelta(hours=1)
@@ -418,7 +421,7 @@ class WmaAgent(Agent):
     def __init__(self, sensor_id, config=None):
         super().__init__(sensor_id, config=config)
 
-    def makePrediction(self, target_sensor, time, n=1, *values):
+    def makePrediction(self, target_sensor, time, *values, n=1 ):
         window = 10
         orm_data = getMeasuresORM(target_sensor)
         # most recent gets higher weight.
@@ -441,7 +444,7 @@ class CmaAgent(Agent):
         super().__init__(sensor_id, config, confidence=confidence)
         self._include_cma = cma
 
-    def makePrediction(self, target_sensor, time, n=1, *values):
+    def makePrediction(self, target_sensor, time, *values, n=1):
         window = 10
         orm_data = getMeasuresORM(target_sensor)
         col, data = prepareMeasures(orm_data, "pm1")
@@ -468,7 +471,8 @@ class ARMIAX(Agent):
         super().__init__(sensor_id, config=config)
         self.seasonal = not stationary
 
-    def makePrediction(self, target_sensor, time, n=1, *values):
+    def makePrediction(self, target_sensor, time, *values, n=1):
+
         orm_data, cols = self._prepareData(target_sensor, time)
         cols, measures = prepareMeasures(orm_data)
         df = createDataframe(cols, measures)
@@ -506,36 +510,41 @@ class MultiVariate(Agent):
     def __init__(self, sensor_id, config=None):
         super().__init__(sensor_id, config=config)
 
-    def makePrediction(self, target_sensor, target_time, forward_hours=1, *values):
-        reg_model = linear_model.LinearRegression()
+    def makePrediction(self, target_sensor, prediction_time, *values):
+        days = self.configs["interval"]["days"]
+        hours = self.configs["interval"]["hours"]
+        if not days:
+            days = 7
+            hours = 0
+
         target_obs = self.validate_measures(values)
-        data, columns = self._prepareData(target_sensor, target_time)
-        predictions = { str(hour): {} for hour in range(forward_hours)}
+        data, columns = self._prepareData(target_sensor, prediction_time, day_interval=days, hour_interval=hours)
+        predictions = { ob: 0.0 for ob in target_obs}
         # multi-step prediction
-        for hour in range(forward_hours):
-            time_increment = datetime.timedelta(hours=hour)
-            actual_value = getMeasureORM(target_sensor, target_time+time_increment)
+        # for hour in range(forward_hours):
+        #     time_increment = datetime.timedelta(hours=hour)
+        actual_value = getMeasureORM(target_sensor, prediction_time)
+
+        for ob in target_obs:
+            # fetch list of the other dependent variables: temp, pmN, pmN
+            dependent_vars = getObservations(exclude=ob)
+            independent_i = columns.index(ob)
+            X = []
+            Y = []
             for row in data:
-                # fetch list of the other dependent variables: temp, pmN, pmN
-                X = []
-                dependent_vars = []
-                for ob in target_obs:
-                    dependent_vars = getObservations(exclude=ob)
-                    dvs = list()
-                    for dv in dependent_vars:
-                        dvs.append(row[columns.index(dv)])
-                    X.append(dvs)
+                dvs = list()
+                for dv in dependent_vars:
+                    dvs.append(row[columns.index(dv)])
+                X.append(dvs)
+                Y.append(row[independent_i])
 
-                # X = [row[dependent] for row in data for dependent in dependent_vars]
-                y_i = columns.index(ob)
-                Y = [row[y_i] for row in data]
-                reg_model = linear_model.LinearRegression()
-                reg_model.fit(X, Y)
-                # TODO: use MA to estimate dependent variables for future hours, if data is not available in database.
-                test_data = [getattr(actual_value, attr) for attr in dependent_vars]
-                predictions[str(hour)][ob] = reg_model.predict([test_data])
+            reg_model = linear_model.LinearRegression()
+            reg_model.fit(X, Y)
+            # TODO: use MA to estimate dependent variables for future hours, if data is not available in database.
+            test_data = [getattr(actual_value, attr) for attr in dependent_vars]
+            predictions[ob] = reg_model.predict([test_data])
 
-            return predictions
+        return predictions
 
 
 def findModelInterval(sid, time, interval_size):
@@ -551,18 +560,21 @@ def findModelInterval(sid, time, interval_size):
 if __name__ == '__main__':
     # m = Measure(12345, 1, datetime.datetime(2021,9, 25, 18), 1.2, 25.2, 10.2, 12)
     pms = ['pm1']
-    randy = RandomAgent(11594)
-    target_time = datetime.datetime(year=2018, month=9, day=15, hour=15)
-    # vals = randy.validate_measures(pms)
-    # data, cols = randy._prepareData(randy.sensor.sid, target_time, targetObs=vals)
+    randy = NearbyAverage(11571)
+    target_time = datetime.datetime(year=2018, month=12, day=30, hour=23)
+    vals = randy.validate_measures(pms)
+    # "start_interval": "2019-01-01 00:00",
+    # "end_interval": "2019-01-02 00:00",
+    data, cols = randy._prepareData(randy.sensor.sid, target_time, targetObs=vals)
     # prediction = randy.makePrediction(11594, target_time)
-    # print(cols)
-    # for d in data:
-    #     print(d)
+    print(cols)
+    for d in data:
+        print(d)
 
+    print(data[-1])
     # print(prediction)
 
-    neary = NearbyAverage(11594)
-    pred = neary.makePrediction(11594, target_time, 'pm1', n=1)
+    # neary = NearbyAverage(11594)
+    # pred = neary.makePrediction(11594, target_time, 'pm1', n=1)
 
     # print([x for x in c if not str(x).startswith("_")])
