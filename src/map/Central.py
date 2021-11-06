@@ -1,10 +1,11 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
 import json
 from src.database.Models import *
 from src.map.TileClassifier import *
 from src.agents.Agents import *
 from src.database.DataLoader import *
 from sklearn.metrics import mean_squared_error
+# from src.map.ModelHeuristic import *
 
 
 def fetchBB(data):
@@ -32,7 +33,7 @@ def examineSensor(sid, g="*"):
     observed = len(full_dataset)
     summary = {"sensor": sid, "first": earliest_date.strftime("%D %H"), "last": latest_date.strftime("%D %H"),
                "num_intervals": observed,
-               "completion_v2": observed / countInterval(datetime(2018, 9, 3, 0), datetime(2021, 5, 5, 0))}
+               "total": countInterval(datetime.datetime(2018, 9, 3, 0), datetime.datetime(2021, 5, 5, 0))}
     return summary
 
 
@@ -66,7 +67,7 @@ def classifyTiles(filename):
 
 def MSE(a, p):
     actual, pred = np.array(a), np.array(p)
-    return mean_squared_error(actual, pred)
+    return np.sqrt(mean_squared_error(actual, pred))
 
 
 def generateAgent(sid, name):
@@ -76,12 +77,28 @@ def generateAgent(sid, name):
         "minmax_avg": MinMaxAgent(sensor_id=sid),
         "nearest": NearestSensor(sensor_id=sid),
         "wma": WmaAgent(sensor_id=sid),
-        "sma": CmaAgent(sensor_id=sid),
+        "cma": CmaAgent(sensor_id=sid),
         "arima": ARMIAX(sensor_id=sid),
         "mvr": MultiVariate(sensor_id=sid)
     }
     a = agent_options.get(name)
     return a
+
+
+# def updateAgent(agent, type):
+#     print(type)
+#     agent_options = {
+#         "random": randomH(agent),
+#         "simple_avg": nearbyH(agent),
+#         "minmax_avg": minMaxH(agent),
+#         "nearest": nearestH(agent),
+#         "wma": wmaH(agent),
+#         "cma": cmaH(agent),
+#         "arima": arimaH(agent),
+#         "mvr": mvrH(agent)
+#     }
+#     a = agent_options.get(type)
+#     return a
 
 
 class Central:
@@ -94,16 +111,20 @@ class Central:
         self.model_file = model
         self.data = getJson(self.model_file)
         self.model_params = self.data["model_params"]
+        self.popSensors()
         self.extractData()
         # self.sensorSummary()
         self.trainModel()
+
+    def popSensors(self):
+        for s in self.data["sensors"]["on"]:
+            self.sensors.append(s[0])
 
     def trainModel(self):
         start_interval = datetime.strptime(self.model_params["start_interval"], '%Y-%m-%d %H:%M')
         end_interval = datetime.strptime(self.model_params["end_interval"], '%Y-%m-%d %H:%M')
         target = self.model_params["target"]
         for i in range(1, self.model_params["num_iter"] + 1):
-            print(self.agents)
             for a in self.agents:
                 cursor = start_interval
                 print(a["sensor"])
@@ -111,38 +132,37 @@ class Central:
                 values = []
                 while cursor != end_interval:
                     # try:
-                    pred = a["agent"].makePrediction(target, cursor, 'pm1')
+                    pred = a["agent"].makePrediction(target, cursor, "pm1")
                     val = getMeasureORM(target, cursor).pm1
+                    print(pred)
                     predictions.append(pred[0][1])
                     values.append(val)
-                    # except:
-                    #     print("Error, SID="+str(a["sensor"])+" at" + str(start_interval))
-                    # if MSE < 0.3:
-                    #     a["trust"] = a["trust"] + 1
-                    # else:
-                    #     a["trust"] = a["trust"] - 1
+
                     cursor += timedelta(hours=1)
-                a["trust"] = MSE(predictions, values)
+                a["MSE"] = MSE(a=values, p=predictions)
+                #updateAgent(a["agent"], a["type"])
+                # if a["MSE"] > self.thresholds["mse"]:
+                #     print("Updating-->", a["sensor"])
+                #     a["agent"] = updateAgent(a["agent"], a["type"])
             self.saveModel(i)
 
     def sensorSummary(self):
-        print(len(self.sensors))
         for s in self.sensors:
-            print(examineSensor(s[0]))
-        print(len(self.sensors))
+            print(examineSensor(s))
 
     def extractData(self):
         self.thresholds = self.data["thresholds"]
-        self.sensors = self.data["sensors"]["on"]
         self.agent_configs = self.data["agent_configs"]
-        for s in self.sensors:
+        for s in self.data["sensors"]["on"]:
             a = generateAgent(s[0], s[1])
             a.configs = self.agent_configs[s[1]]
+            a.sensor_list = self.sensors
             agent_dict = {
                 "sensor": a.sensor.sid,
                 "agent": a,
-                "trust": 0,
-                "configs": a.configs
+                "MSE": 0,
+                "configs": a.configs,
+                "type": s[1]
             }
             self.agents.append(agent_dict)
 
@@ -160,8 +180,8 @@ class Central:
             f.write("Iteration #" + str(i) + "\n")
             for a in self.agents:
                 f.write("SID:" + str(a["sensor"]) + "\n")
-                f.write("Agent:" + str(type(a)) + "\n")
-                f.write("TF=" + str(a["trust"]) + "\n")
+                f.write("Agent:" + type(a) + "\n")
+                f.write("MSE=" + str(a["trust"]) + "\n")
                 f.write("Agent Configs" + "\n")
                 f.write(json.dumps(a["configs"]) + "\n")
         f.close()

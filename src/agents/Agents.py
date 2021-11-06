@@ -74,8 +74,6 @@ def new_prepMeasures(measure_list, columns=None):
 
         return preped, attributes
     removed = list(set(obs) - set(columns))
-    print(attributes)
-    print(removed)
     wanted = [item for item in attributes if item not in removed]
     for measure in measure_list:
         m_tup = tuple(getAttributes(measure, wanted))
@@ -314,7 +312,7 @@ class Agent(object):
             m_tuples, field_names = new_prepMeasures(orm_data, columns=targetObs)
             return m_tuples, field_names
 
-        if complete < self.configs["completeness"]:
+        if complete < 0.75:
             # too much data missing for interval
             return None, None
 
@@ -350,7 +348,7 @@ class NearbyAverage(Agent):
 
     def makePrediction(self, target_sensor, target_time, *values, n=1):
         target_predictions = self.validate_measures(values)
-        sensors = findNearestSensors(target_sensor, self.sensor_list)
+        sensors = findNearestSensors(self.sensor.sid, self.sensor_list)
         totals = {field: 0 for field in target_predictions}
         n = self.configs["n"]
 
@@ -563,8 +561,8 @@ def findModelInterval(sid, time, interval_size):
 if __name__ == '__main__':
     # m = Measure(12345, 1, datetime.datetime(2021,9, 25, 18), 1.2, 25.2, 10.2, 12)
     pms = ['pm1']
-    randy = NearbyAverage(11571)
-    target_time = datetime.datetime(year=2018, month=12, day=30, hour=23)
+    randy = NearbyAverage(11583)
+    target_time = datetime.datetime(year=2019, month=1, day=7, hour=0)
     vals = randy.validate_measures(pms)
     # "start_interval": "2019-01-01 00:00",
     # "end_interval": "2019-01-02 00:00",
