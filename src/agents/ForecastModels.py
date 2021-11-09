@@ -6,6 +6,10 @@ import pandas
 import pandas as pd
 from sklearn import linear_model
 import numpy as np
+import math
+
+from sqlalchemy import extract, and_
+
 from src.database.DbManager import Session
 from src.database.utils import drange
 import statsmodels.api as sm
@@ -82,6 +86,7 @@ def new_prepMeasures(measure_list, columns=None):
     attributes = [attr_name for attr_name in Measure.__dict__ if not str(attr_name).startswith("_")]
     attributes.remove('dk')
     attributes.remove('Sensor')
+
     if not columns:
         for m in measure_list:
             preped.append(tuple(getAttributes(m, attributes)))
@@ -131,12 +136,6 @@ class Model(object):
 
     # initial confidence calculation
     # self.cf += updateConfidence(self.cf, actual_value=, predicted_value=) <---in each make prediction method
-    def _updateConfidence(self, predicted_value, actual_value):
-        delta = (predicted_value - actual_value) / actual_value
-        if delta < 0.1:
-            return self.cf + 1
-        else:
-            return self.cf - 1
 
     def validate_measures(self, observations):
         obs = ['pm1', 'pm10', 'pm25']
@@ -150,12 +149,12 @@ class Model(object):
         return total_intervals
 
     def _fillInterval(self, start_date, end_date, sid):
-        time_range = pandas.date_range(start_date, end_date, freq='H')
+        time_range = pandas.date_range(start_date, end_date, freq='H', ).to_pydatetime()
         estimated_data = []
         for hour in time_range:
             dk = int(hour.strftime('%Y%m%d%H'))
             estimated_data.append(
-                Measure(date_key=dk, sensor_id=sid, date=hour))
+                Measure(date_key=dk, sensor_id=sid, date=hour, pm1=None, pm10=None, pm25=None, temperature=None))
         return estimated_data
 
     def _cleanIntervals(self, data, start, end):
@@ -191,30 +190,76 @@ class Model(object):
     def _rateInterval(self, dataset, total):
         return (dataset - 1) / total
 
-    def _impute_missing(self, measures):
+    def _fetch_db_measure(self, target, month, day, hour, d_delta=1, h_delta=2):
+        with Session as sesh:
+            # if day < 3:
+            #     # get the next x days
+            #     orm_measures = sesh.query(Measure).filter(Measure.sid == self.sensor.sid). \
+            #         filter(extract('month', Measure.date) == month). \
+            #         filter(and_(day <= extract('day', Measure.date), extract('day', Measure.date) <= (day + d_delta))). \
+            #         filter(and_((hour-h_delta) <= extract('hour', Measure.date), extract('hour', Measure.date) <= (hour+h_delta))).all()
+            # elif day > 28:
+            #     # get the past x days
+            #     orm_measures = sesh.query(Measure).filter(Measure.sid == self.sensor.sid). \
+            #         filter(extract('month', Measure.date) == month). \
+            #         filter(and_((day - d_delta) <= extract('day', Measure.date), extract('day', Measure.date) <= day)). \
+            #         filter(and_((hour-h_delta) <= extract('hour', Measure.date), extract('hour', Measure.date) <= (hour+h_delta))).all()
+            # else:
+                # include days before and after date
+            orm_measures = sesh.query(Measure).filter(Measure.sid == self.sensor.sid). \
+                filter(extract('month', Measure.date) == month). \
+                filter(and_((day - d_delta) < extract('day', Measure.date), extract('day', Measure.date) < (day + d_delta))). \
+                filter(and_((hour-h_delta) <= extract('hour', Measure.date), extract('hour', Measure.date) <= (hour+h_delta))).all()
+
+        vals = [getattr(m, target) for m in orm_measures]
+
+        return vals
+
+    def _impute_missing(self, measures, fields):
         """
 
         :param measures: list of tuples containing Measure attributes
         :return: list of imputed values based of average of same values for each hour of dataset
         """
-        imputed_data = list()
         if not measures:
             return []
 
-        dk = 0
-        time = 2
+        time = fields.index('date')
+        measures = [list(m) for m in measures]
         for m in measures:
             empties = [i for i, v in enumerate(m) if v is None]
             if empties:
+                # print("cleaning hour..", end=" ")
+                # print(m[time])
+                # print(m)
                 # every None index
                 for i in empties:
                     all_rows = list()
-                    all_rows.append(
-                        [row[i] for row in measures if (row[dk] != m[dk] and m[time].hour == row[time].hour)])
-                    median = np.median([x for x in all_rows if x is not None])
+                    for row in measures:
+                        # print(row[time].hour, end="\t")
+                        # print(m[time].hour)
+                        if int(m[time].hour) == int(row[time].hour):
+                            # print("\t\tadding to median list: " + str(row[i]) + " from " + str(row[time]))
+                            if row[i]:
+                                all_rows.append(row[i])
+                    # all_rows = [row[i] for row in measures if int(m[time].hour) == int(row[time].hour)]
+                    vals_list = [x for x in all_rows if x is not None and not math.isnan(x)]
+                    # TODO: if vals_list is empty do a db query by month for 3 days of pm vals for median.
+                    if len(vals_list) < 1:
+                        # print("\t\tgot it from DB!")
+                        vals_list = self._fetch_db_measure(target=fields[i], month=m[time].month, day=m[time].day, hour=m[time].hour)
+                    # print("\t\tmedians from: "+ str(vals_list))
+                    median = np.median(vals_list)
+                    # print("\t\tmedian: " + str(median))
                     m[i] = median
 
-        return sorted(measures, key=lambda m: m[1])
+                    # print("\tfixed measure: " + str(m))
+
+            # print(m)
+
+        measures = [tuple(m) for m in measures]
+
+        return sorted(measures, key=lambda m: m[time])
 
     def _prepareData(self, target_sensor, prediction_time, day_interval=0, hour_interval=1, targetObs: [] = None):
         """
@@ -247,8 +292,9 @@ class Model(object):
 
         cleaned = self._cleanIntervals(orm_data, new_start, new_end)
         # df = measure_to_df(cleaned)
+        # sensor_id, datetime, temperature, pms
         measure_tuples, fields_order = new_prepMeasures(cleaned, columns=targetObs)
-        imputed = self._impute_missing(measure_tuples)
+        imputed = self._impute_missing(measure_tuples, fields_order)
 
         return imputed, fields_order
 
@@ -263,9 +309,9 @@ class RandomModel(Model):
         data, cols = self._prepareData(self.sensor.sid, time, targetObs=vals, hour_interval=48)
         max_vals = {ob: 0 for ob in vals}
         for target_measure in vals:
-            max_vals[target_measure] = max(data, key=lambda measure: measure[cols.index(target_measure)])
+            max_vals[target_measure] = max(data, key=lambda measure: measure[cols.index(target_measure)])[cols.index(target_measure)]
 
-        return {ob: rand.uniform(0, max_vals[ob][2]) for ob in max_vals.keys()}
+        return {ob: rand.uniform(0, max_vals[ob]) for ob in max_vals.keys()}
 
 
 # avg of nearby sensors to target sensor
@@ -428,7 +474,7 @@ class MultiVariate(Model):
     def __init__(self, sensor_id, sensors, config=None):
         super().__init__(sensor_id, sensor_list=sensors, config=config)
 
-    def makePrediction(self, prediction_time, values, target_sid):
+    def makePrediction(self, prediction_time, values, target_sid=None):
         # days = self.configs["interval"]["days"]
         # hours = self.configs["interval"]["hours"]
         # if not days:
@@ -457,9 +503,32 @@ class MultiVariate(Model):
                 Y.append(row[independent_i])
 
             reg_model = linear_model.LinearRegression()
+            # for d in X:
+            #     print(d)
             reg_model.fit(X, Y)
             # TODO: use MA to estimate dependent variables for future hours, if data is not available in database.
             test_data = [getattr(actual_value, attr) for attr in dependent_vars]
             predictions[ob] = reg_model.predict([test_data])
 
         return predictions
+
+
+if __name__ == '__main__':
+    sensors = [
+         11553,
+         11563,
+         11571,
+         11583,
+         11585,
+         11587,
+         11596,
+         11597,
+         11619,
+         11640
+            ]
+    thresholds = {}
+    marvin = MultiVariate(11563, sensors, thresholds)
+    date = datetime.datetime(year=2019, month=1, day=6, hour=0)
+    data, cols = marvin._prepareData(11563, date, day_interval=2, hour_interval=0, targetObs=['pm1'])
+    for d in data:
+        print(d)
