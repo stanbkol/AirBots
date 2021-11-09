@@ -1,12 +1,20 @@
 from src.agents.ForecastModels import RandomModel, NearbyAverage, MinMaxModel, CmaModel, MultiVariate
 
 
+def _calc_error(prediction, actual):
+    return (actual-prediction)/actual
+
+
+def _calc_squared_error(prediction, actual):
+    return (actual-prediction)**2
+
+
 class Agent(object):
     def __init__(self, sensor_id, thresholds, sensor_list, config=None, confidence=100):
         self.sid = sensor_id
         self._threshold = thresholds
         self._configs = config
-        self.confidence = confidence
+        self.cf = confidence
         self.sensors = sensor_list
         self.models = self._initializeModels()
         self.error = 0
@@ -29,24 +37,25 @@ class Agent(object):
         total_se = 0
         for model_name in self._getModelNames():
             model_prediction = predicts[model_name]
-            squared_error = self._calc_squared_error(model_prediction['pm1'], actual)
+            squared_error = _calc_squared_error(model_prediction['pm1'], actual)
             total_se += squared_error
             errors[model_name] = squared_error
 
         return {model_name: errors[model_name]/total_se for model_name in errors.keys()}
 
-    def _calc_error(self, prediction, actual):
-        return (actual-prediction)/actual
-
-    def _calc_squared_error(self, prediction, actual):
-        return (actual-prediction)**2
+    def _updateConfidence(self, predicted_value, actual_value):
+        delta = (predicted_value - actual_value) / actual_value
+        if delta < 0.1:
+            return self.cf + 1
+        else:
+            return self.cf - 1
 
     def makePredictions(self, target_sid, target_time, values, meas=None):
         measure = meas
         predicts = {}
         for model in self._getModelNames():
             if model == 'mvr':
-                predicts[model] = self.models[model].makePrediction(target_time, values, target_sid)
+                predicts[model] = self.models[model].makePrediction(target_time, values, target_sid=target_sid)
             else:
                 predicts[model] = self.models[model].makePrediction(target_time, values)
 
@@ -55,7 +64,7 @@ class Agent(object):
         for model in weights.keys():
             total_pm1 += weights[model] * predicts[model]['pm1']
 
-        print(f'Sensor %s, ')
+        print(f'Sensor %s, ' % self.sid)
         return total_pm1
 
 
