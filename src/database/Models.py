@@ -181,12 +181,17 @@ class Tile(Base):
     def _attr_names(self):
         return [attr_name for attr_name in self.__dict__ if '_' not in attr_name]
 
+    @property
+    def _centerPt(self):
+        lat_lon = self.center.split(",")
+        return MapPoint(latitude=float(lat_lon[0]), longitude=float(lat_lon[1]))
+
     def generate_vertices_coordinates(self):
         vertices = []
         radius = self.diameter / 2
         degs = list(drange(0, 360, 360 / self.numSides))
         for d in degs:
-            vertex_coor = calcCoordinate(self.centerPt, radius, d)
+            vertex_coor = calcCoordinate(self.center, radius, d)
             # vertices.append(vertex_coor)
             vertices.append(vertex_coor)
 

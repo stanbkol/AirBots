@@ -1,6 +1,7 @@
 import re
 from geopy import distance
-
+from numpy import arctan2, sin, cos
+import math
 from geopy.distance import Distance
 
 
@@ -58,6 +59,14 @@ class MapPoint:
 
     def setName(self, name):
         self.name = name
+
+    def bearing(self, destination):
+        dL = destination.longitude - self.longitude
+        X = cos(destination.latitude) * sin(dL)
+        Y = cos(self.latitude) * sin(destination.latitude) - sin(self.latitude) * cos(destination.latitude) * cos(dL)
+        # in radians
+        bearing = arctan2(X, Y)
+        return math.degrees(bearing)
 
 
 # degrees: 0 – North, 90 – East, 180 – South, 270 or -90 – West.
