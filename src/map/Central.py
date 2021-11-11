@@ -72,6 +72,15 @@ def MSE(a, p):
     return mean_squared_error(actual, pred)
 
 
+def aggregatePrediction(preds):
+    print(preds)
+    print(len(preds))
+    total = 0
+    for k in preds:
+        total += preds[k]
+    return round(total/(len(preds)), 2)
+
+
 class Central:
     agents = []
     sensors = []
@@ -82,13 +91,18 @@ class Central:
         self.model_file = model
         self.data = getJson(self.model_file)
         self.model_params = self.data["model_params"]
+        self.error = 0
         self.popSensors()
         self.extractData()
         # self.sensorSummary()
         self.trainModel()
 
     def evaluateAgents(self, values, predictions):
+        print("values:")
+        print(values)
         for a in self.agents:
+            print("predictions for:", a.sid)
+            print(predictions[a.sid])
             a.error = MSE(values, predictions[a.sid])
 
     def popSensors(self):
@@ -103,21 +117,28 @@ class Central:
             cursor = start_interval
             predictions = {sid:[] for sid in self.sensors}
             values = []
+            model_vals = []
             while cursor != end_interval:
+                print("Predictions for ",cursor)
                 val = getMeasureORM(target, cursor)
+                vals = {sid:[] for sid in self.sensors}
                 if val:
-                    values.append(val)
+                    values.append(val.pm1)
                     for a in self.agents:
                         pred = a.makePredictions(target, cursor, ["pm1"], meas=val)
+                        vals[a.sid] = (round(pred[0], 2))
                         # print(pred)
-                        predictions[a.sid].append(pred)
+                        predictions[a.sid].append(round(pred[0], 2))
                 else:
                     print("No target validation data for-->", cursor)
+                model_vals.append(aggregatePrediction(vals))
                 cursor += timedelta(hours=1)
             # print(len(predictions))
             # print(len(predictions[a[0].sid]))
             # print(predictions)
             self.evaluateAgents(values, predictions)
+            self.error = MSE(values, model_vals)
+            print("Model MSE=", self.error)
             self.saveModel(i)
 
     def sensorSummary(self):
@@ -146,4 +167,6 @@ class Central:
             for a in self.agents:
                 f.write("SID:" + str(a.sid) + "\n")
                 f.write("MSE=" + str(a.error) + "\n")
+            f.write("Model Aggregation" + "\n")
+            f.write("MSE=" + str(self.error) + "\n")
         f.close()
