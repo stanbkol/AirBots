@@ -108,6 +108,8 @@ def fetchSensorBounds():
         E = bounds.east_bound
         W = bounds.east_bound
 
+        # TODO: maybe increase the bounds by 100 meters to avoid sensors being on the edge?
+
         return {'n': N, 's': S, 'e': E, 'w': W}
 
 

@@ -11,6 +11,9 @@ from src.map.MapPoint import calcCoordinate, calcDistance, MapPoint
 
 
 class DwHex:
+    """
+    used in pathfinding between tiles. represents double-width coordinates (x+y)%2==0
+    """
     def __init__(self, x, y):
         self.x = x
         self.y = y
@@ -20,6 +23,9 @@ class DwHex:
 
 
 class Hex:
+    """
+    ysed in pathfinding between tiles. represents cube coordinates q,r,s
+    """
     def __init__(self, q, r, s):
         self.q = q
         self.r = r
@@ -111,6 +117,13 @@ def left_nudge(b: Hex):
 
 
 def hex_linedraw(a, b, right_edge=False):
+    """
+    finds and lists a direct Tile path between two Tiles.
+    :param a: starting tile
+    :param b: ending tile
+    :param right_edge: if start and end are on the far right of edge of map, set to True.
+    :return: list of tiles, start and end tiles included
+    """
     N = int(hex_distance(a, b))
     # if on the right edge flip +/-
     if right_edge:
@@ -146,17 +159,28 @@ def dw_distance(a, b):
     return dy + max(0, (dx-dy)/2)
 
 
-def genCityLayer():
-    map_nw = (50.76997429, 17.77959063)
-    map_ne = (50.76997429, 18.03269049)
-    map_se = (50.58761735, 18.03269049)
-    map_sw = (50.58761735, 17.77959063)
-    opole_bounds = [map_nw, map_ne, map_se, map_sw, map_nw]
+def genCityLayer(bounds):
+    """
+    creates a single rectangle representing the bounding box of a city. saves to geojson file.
+    :param bounds: the n,s,e,w geo-coordinate bounds in latitude and longitude decimal notation.
+    :return:
+    """
+    # lat, lon
+    ne = (bounds['n'], bounds['e'])
+    se = (bounds['s'], bounds['e'])
+    sw = (bounds['s'], bounds['w'])
+    nw = (bounds['n'], bounds['w'])
 
-    # Long Lat order
-    opole_bounds = [(t[1], t[0]) for t in opole_bounds]
+    # map_nw = (50.76997429, 17.77959063)
+    # map_ne = (50.76997429, 18.03269049)
+    # map_se = (50.58761735, 18.03269049)
+    # map_sw = (50.58761735, 17.77959063)
+    city_bounds = [nw, ne, se, sw, nw]
 
-    boxed_city = Polygon([opole_bounds])
+    # Lon Lat order
+    city_bounds = [(t[1], t[0]) for t in city_bounds]
+
+    boxed_city = Polygon([city_bounds])
     map_polys = [boxed_city]
 
     map_features = []
@@ -171,6 +195,12 @@ def genCityLayer():
 
 
 def getPolys(tiles, lonlat=False):
+    """
+    create a list of polygons, provided Tile models.
+    :param tiles: list of Tile models
+    :param lonlat: sets the order of Polygon coordinates. default is longitude, latitude
+    :return:
+    """
     polys = []
     for t in tiles:
         coords = t.getVertices()
@@ -185,6 +215,10 @@ def getPolys(tiles, lonlat=False):
 
 
 def geo_tiles_from_db():
+    """
+    fetches Tile models from the database and creates a geojson of hexagons
+    :return:
+    """
     tiles = getTilesORM()
     tile_polys = getPolys(tiles, lonlat=True)
     tile_features = []
@@ -198,6 +232,10 @@ def geo_tiles_from_db():
 
 
 def genSensorLayer():
+    """
+    create a geojson for Sensor point markers
+    :return:
+    """
     sensor_feats = []
     sensorsLonLat = [(s.lon, s.lat) for s in getSensorORM(1)]
     print(sensorsLonLat)
@@ -214,7 +252,7 @@ def genSensorLayer():
 
 
 def create_layers():
-    pass
+    return NotImplemented()
 
 
 def genHexGrid(bounds):
@@ -300,7 +338,7 @@ def genHexGrid(bounds):
         y_coord += 2
 
     print("# tiles: " + str(len(tiles)))
-    print("inserting tiles to table..")
+    print("done generating Tiles")
 
     return tiles
 
@@ -380,4 +418,5 @@ def genHexRect_Test():
 
 if __name__ == '__main__':
     # genHexRect()
-    run()
+    # run()
+    pass
