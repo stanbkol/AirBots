@@ -1,10 +1,10 @@
 from datetime import datetime
 
 from src.database.DataLoader import getMeasures, getSensors, createConnection, getTiles, getSensor
-from src.database.DbManager import Base, Session, addOpoleMap, insertTiles, insertSensors, insertMeasures
+from src.database.DbManager import Base, Session, addOpoleMap, insertTileBins, insertSensors, insertMeasures
 from src.map.MapPoint import calcCoordinate, calcDistance, MapPoint
 from src.database.utils import drange
-from sqlalchemy import Column, String, Integer, Float, ForeignKey, DateTime, update
+from sqlalchemy import Column, String, Integer, Float, ForeignKey, DateTime, update, and_, func
 from sqlalchemy.orm import relationship
 from sqlalchemy.future import select
 import re
@@ -130,7 +130,8 @@ class Tile(Base):
     tid = Column('tile_id', Integer, primary_key=True)
     mid = Column('map_id', Integer, ForeignKey("airbots.maps.map_id"), nullable=False)
     sides = Column('num_sides', Integer)
-    center = Column('center_latlon', String(50))
+    center_lat = Column('center_lat', Float)
+    center_lon = Column('center_lon', Float)
     v1 = Column('vertex1', String(50))
     v2 = Column('vertex2', String(50))
     v3 = Column('vertex3', String(50))
@@ -141,15 +142,12 @@ class Tile(Base):
     tclass = Column('class', String(50))
     max_elev = Column('max_elevation', Float)
     min_elev = Column('min_elevation', Float)
-    temp = Column('temperature_c', Float)
-    pm10 = Column('pm10_avg', Float)
-    pm1 = Column('pm1_avg', Float)
-    pm25 = Column('pm25_avg', Float)
+    x = Column('grid_x', Integer)
+    y = Column('grid_y', Integer)
     sensors = relationship('Sensor', backref='Tile', lazy='dynamic')
 
-    def __init__(self, tileID=None, mapID=None, numSides=None, coordinates=None, diameter=None, center=None,
-                 tileClass=None, max_elevation=None, min_elevation=None, temperature=None,
-                 pm10_avg=None, pm1_avg=None, pm25_avg=None):
+    def __init__(self, tileID=None, mapID=None, numSides=None, coordinates=None, diameter=None, center_lat=None,
+                 center_lon=None, tileClass=None, max_elevation=None, min_elevation=None, xaxis=None, yaxis=None):
         self.tid = tileID
         self.mid = mapID
         self.sides = numSides
@@ -160,18 +158,17 @@ class Tile(Base):
         self.v5 = coordinates[4].latlon_str
         self.v6 = coordinates[5].latlon_str
         self.dm = diameter
-        self.center = center
+        self.center_lat = center_lat
+        self.center_lon = center_lon
         self.tclass = tileClass
         self.max_elev = max_elevation
         self.min_elev = min_elevation
-        self.temp = temperature
-        self.pm10 = pm10_avg
-        self.pm1 = pm1_avg
-        self.pm25 = pm25_avg
+        self.x = xaxis
+        self.y = yaxis
 
     def __repr__(self):
-        return "<Tile(tileid='%s',mapid='%s', center='%s', type='%s')>" % (self.tid, self.mid, self.center,
-                                                                           self.tclass)
+        return "<Tile(tileid='%s',mapid='%s', grid=(%s,%s), type='%s')>" % (self.tid, self.mid, self.x, self.y,
+                                                                            self.tclass)
 
     def __iter__(self):
         for attr in self._attr_names:
@@ -181,12 +178,17 @@ class Tile(Base):
     def _attr_names(self):
         return [attr_name for attr_name in self.__dict__ if '_' not in attr_name]
 
+    @property
+    def _centerPt(self):
+        lat_lon = self.center.split(",")
+        return MapPoint(latitude=float(lat_lon[0]), longitude=float(lat_lon[1]))
+
     def generate_vertices_coordinates(self):
         vertices = []
         radius = self.diameter / 2
         degs = list(drange(0, 360, 360 / self.numSides))
         for d in degs:
-            vertex_coor = calcCoordinate(self.centerPt, radius, d)
+            vertex_coor = calcCoordinate(self.center, radius, d)
             # vertices.append(vertex_coor)
             vertices.append(vertex_coor)
 
@@ -222,6 +224,32 @@ class Tile(Base):
             start = MapPoint.createFromStr(self.center)
             end = MapPoint.createFromStr(other.center)
             return calcDistance(startLL=start, endLL=end)
+
+    def pathTo(self, other):
+        """
+        Generates a list of Tiles along the path from this tile to the parameter Tile.
+        :param other: the target Tile
+        :return: list of Tiles of direct path from this Tile to target, starting and ending tiles included
+        """
+        from src.map.HexGrid import DwHex, Hex, hex_linedraw, dw_to_hex, hex_to_dw
+        start = dw_to_hex(DwHex(self.x, self.y))
+        end = dw_to_hex(DwHex(other.x, other.y))
+        with Session as sesh:
+            query = sesh.query(func.max(Tile.x).label("max_x")).one()
+            far_right = query.max_x
+
+        path = hex_linedraw(start, end, right_edge=(self.x == far_right and other.x == far_right))
+        tile_path = list()
+        with Session as sesh:
+            for h in path:
+                dw = hex_to_dw(h)
+                tile = sesh.query(Tile).filter(and_(Tile.x == dw.x, Tile.y == dw.y))
+                tile_path.append(tile)
+
+        return tile_path
+
+
+
 
 
 class Map(Base):
