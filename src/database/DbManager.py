@@ -1,6 +1,9 @@
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, func
 from sqlalchemy.orm import sessionmaker, declarative_base
 from sqlalchemy.schema import CreateSchema
+
+from src.map.HexGrid import genHexGrid
+from src.map.TileBin import TileBin
 
 
 def createSession(engine):
@@ -55,18 +58,28 @@ def insertMeasures(measures):
     print("Measurement inserts completed")
 
 
-def insertTiles(tilebins):
+def insertTileBins(tilebins):
     from src.database.Models import Tile
-
+    tiles = list()
     with Session as session:
-        tiles = [
-            Tile(tileID=tb.tileid, mapID=tb.mapid, numSides=tb.numSides, coordinates=tb.coordinates,
-                 diameter=tb.diameter, center=tb.centerlatlon, tileClass=tb.tclass, max_elevation=tb.max_elevation,
-                 min_elevation=tb.min_elevation, temperature=tb.temperature,
-                 pm10_avg=tb.pm10_avg, pm1_avg=tb.pm1_avg, pm25_avg=tb.pm25_avg)
-            for tb in tilebins
-        ]
+        for tb in tilebins:
+            center_coors = str(tb.centerlatlon).split(",")
+            c_lat = float(center_coors[0])
+            c_lon = float(center_coors[1])
+            tiles.append(
+                Tile(tileID=tb.tileid, mapID=tb.mapid, numSides=tb.numSides, coordinates=tb.coordinates,
+                     diameter=tb.diameter, center_lat=c_lat, center_lon=c_lon, tileClass=tb.tclass,
+                     max_elevation=tb.max_elevation, min_elevation=tb.min_elevation)
+            )
+
         session.bulk_save_objects(tiles)
+        session.commit()
+    print("Tile inserts completed")
+
+
+def insertTiles(tile_list):
+    with Session as session:
+        session.bulk_save_objects(tile_list)
         session.commit()
     print("Tile inserts completed")
 
@@ -80,3 +93,25 @@ def addOpoleMap():
 
         sesh.add(opole)
         sesh.commit()
+
+
+def fetchSensorBounds():
+    from src.database.Models import Sensor
+    with Session as sesh:
+        bounds = sesh.query(func.max(Sensor.lat).label("north_bound"),
+                            func.min(Sensor.lat).label("south_bound"),
+                            func.max(Sensor.lon).label("east_bound"),
+                            func.min(Sensor.lon).label*"west_bound"
+                            ).one()
+        N = bounds.north_bound
+        S = bounds.south_bound
+        E = bounds.east_bound
+        W = bounds.east_bound
+
+        return {'n': N, 's': S, 'e': E, 'w': W}
+
+
+def sensorBoundGrid():
+    bounds = fetchSensorBounds()
+    bounded_t = genHexGrid(bounds)
+    insertTiles(bounded_t)
