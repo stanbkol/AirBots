@@ -5,7 +5,6 @@ from urllib.parse import urlencode
 import geojson
 import requests
 from geojson import Polygon, Feature, FeatureCollection, Point
-from src.database.Models import Tile, getTilesORM, Sensor, getSensorORM
 from src.database.utils import drange
 from src.map.MapPoint import calcCoordinate, calcDistance, MapPoint
 
@@ -209,7 +208,7 @@ def getPolys(tiles, lonlat=False):
         if lonlat:
             coords = [(c[1], c[0]) for c in coords]
 
-        polys.append(Polygon(coords))
+        polys.append(Polygon([coords]))
 
     return polys
 
@@ -219,15 +218,17 @@ def geo_tiles_from_db():
     fetches Tile models from the database and creates a geojson of hexagons
     :return:
     """
+    from src.database.Models import getTilesORM
     tiles = getTilesORM()
-    tile_polys = getPolys(tiles, lonlat=True)
+    print(f'num tiles: %s' % len(tiles))
+    tile_polys = getPolys(tiles, lonlat=False)
     tile_features = []
     for poly in tile_polys:
         f = Feature(geometry=poly)
         tile_features.append(f)
     print("saving..")
     tile_collection = FeatureCollection(tile_features)
-    with open('..\\..\\AirBots\\geojsons\\tiles_layer.geojson', "w") as out:
+    with open('..\\..\\..\\AirBots\\geojsons\\tiles_layer.geojson', "w") as out:
         geojson.dump(tile_collection, out)
 
 
@@ -236,9 +237,10 @@ def genSensorLayer():
     create a geojson for Sensor point markers
     :return:
     """
+    from src.database.Models import getSensorsORM
     sensor_feats = []
-    sensorsLonLat = [(s.lon, s.lat) for s in getSensorORM(1)]
-    print(sensorsLonLat)
+    sensorsLonLat = [(s.lon, s.lat) for s in getSensorsORM()]
+    print(len(sensorsLonLat))
     sensor_markers = [Point(s) for s in sensorsLonLat]
 
     for p in sensor_markers:
@@ -247,12 +249,27 @@ def genSensorLayer():
 
     sensor_featCollection = FeatureCollection(sensor_feats)
 
-    with open('..\\..\\AirBots\\geojsons\\sensor_layer.geojson', "w") as out:
+    with open('..\\..\\..\\AirBots\\geojsons\\sensor_layer.geojson', "w") as out:
         geojson.dump(sensor_featCollection, out)
 
 
 def create_layers():
     return NotImplemented()
+
+
+def geojson_from_tiles(tiles):
+    start_sid = tiles[0].tid
+    end_sid = tiles[-1].tid
+    tile_polys = getPolys(tiles, lonlat=True)
+    tile_features = []
+    for poly in tile_polys:
+        f = Feature(geometry=poly)
+        tile_features.append(f)
+    print("saving..")
+    tile_collection = FeatureCollection(tile_features)
+    fn = f'path_%s_to_%s.geojson' % (start_sid, end_sid)
+    with open('..\\..\\..\\AirBots\\geojsons\\'+fn, "w") as out:
+        geojson.dump(tile_collection, out)
 
 
 def genHexGrid(bounds):
@@ -262,6 +279,7 @@ def genHexGrid(bounds):
     :param bounds: dict of n,s,e,w geo-coordinate bounds of map
     :return: list of Tile objects
     """
+    from src.database.Models import Tile
     hex = 6
     tile_d = 100
     tile_r = tile_d / 2
@@ -274,6 +292,10 @@ def genHexGrid(bounds):
     # map_se = (50.58761735, 18.03269049)
     # map_sw = (50.58761735, 17.77959063)
 
+    # ne = MapPoint(latitude=bounds['n'], longitude=bounds['e'])
+    # se = MapPoint(latitude=bounds['s'], longitude=bounds['e'])
+    # sw = MapPoint(latitude=bounds['s'], longitude=bounds['w'])
+    # nw = MapPoint(latitude=bounds['n'], longitude=bounds['w'])
 
     ne = (bounds['n'], bounds['e'])
     se = (bounds['s'], bounds['e'])
@@ -282,11 +304,14 @@ def genHexGrid(bounds):
 
     # Long Lat order
     width_m = calcDistance(nw, ne)
+    print(f'width: %s' % width_m)
+
     height_m = calcDistance(nw, sw)
+    print(f'height: %s' % height_m)
 
     y_jump = hex_h_coef * tile_d
     x_jump = tile_r * hex_w_coef
-    startLL = MapPoint(nw[0], nw[1])
+    startLL = MapPoint(latitude=nw[0], longitude=nw[1])
 
     tiles = []
     tid = 0
@@ -301,14 +326,8 @@ def genHexGrid(bounds):
             tile = Tile(tileID=int(tid), mapID=1, center_lat=center.lat, center_lon=center.lon, numSides=hex,
                         diameter=tile_d, xaxis=x_coord, yaxis=y_coord)
             mapPoints = tile.generate_vertices_coordinates()
-            vertices = [mp.LonLatCoords for mp in mapPoints]
-
-            # add first vertex to close the polygon
-            vertices.append(vertices[0])
 
             # add remaining data to tile for postgresql insert
-            poly_str = create_poly_string(vertices)
-            tile.set_PolyString(poly_str)
             tiles.append(tile)
             x_coord += 2
 
@@ -325,13 +344,8 @@ def genHexGrid(bounds):
             tile = Tile(tileID=int(tid), mapID=1, center_lat=center.lat, center_lon=center.lon, numSides=hex,
                         diameter=tile_d, xaxis=x_coord, yaxis=y_coord)
             mapPoints = tile.generate_vertices_coordinates()
-            vertices = [mp.LonLatCoords for mp in mapPoints]
-
-            vertices.append(vertices[0])
 
             # add remaining data to tile for postgresql insert
-            poly_str = create_poly_string(vertices)
-            tile.set_PolyString(poly_str)
             tiles.append(tile)
             x_coord += 2
 

@@ -1,10 +1,12 @@
 from datetime import datetime
 
 from src.database.DataLoader import getMeasures, getSensors, createConnection, getTiles, getSensor
-from src.database.DbManager import Base, Session, addOpoleMap, insertTileBins, insertSensors, insertMeasures
+from src.database.DbManager import Base, Session, addOpoleMap, insertTileBins, insertSensors, insertMeasures, \
+    fetchSensorBounds, insertTiles, engine
+from src.map.HexGrid import genHexGrid
 from src.map.MapPoint import calcCoordinate, calcDistance, MapPoint
 from src.database.utils import drange
-from sqlalchemy import Column, String, Integer, Float, ForeignKey, DateTime, update, and_, func
+from sqlalchemy import Column, String, Integer, Float, ForeignKey, DateTime, update, and_, func, desc
 from sqlalchemy.orm import relationship
 from sqlalchemy.future import select
 import re
@@ -122,6 +124,11 @@ class Sensor(Base):
             return sesh.query(Measure).filter(Measure.date >= start_interval).filter(
                 Measure.date <= end_interval).where(Measure.sid == self.sid).all()
 
+    def updateTile(self, tid):
+        with Session as sesh:
+            sesh.execute(update(Sensor).where(Sensor.sid == self.sid).values(tid=tid))
+            sesh.commit()
+
 
 class Tile(Base):
     __tablename__ = 'tiles'
@@ -140,27 +147,29 @@ class Tile(Base):
     v6 = Column('vertex6', String(50))
     dm = Column('diameter_m', Float)
     tclass = Column('class', String(50))
+    road = Column('road_use', String(50))
     max_elev = Column('max_elevation', Float)
     min_elev = Column('min_elevation', Float)
     x = Column('grid_x', Integer)
     y = Column('grid_y', Integer)
     sensors = relationship('Sensor', backref='Tile', lazy='dynamic')
 
-    def __init__(self, tileID=None, mapID=None, numSides=None, coordinates=None, diameter=None, center_lat=None,
-                 center_lon=None, tileClass=None, max_elevation=None, min_elevation=None, xaxis=None, yaxis=None):
+    def __init__(self, tileID=None, mapID=None, numSides=None, diameter=None, center_lat=None,
+                 center_lon=None, tileClass=None, road_use=None, max_elevation=None, min_elevation=None, xaxis=None, yaxis=None):
         self.tid = tileID
         self.mid = mapID
         self.sides = numSides
-        self.v1 = coordinates[0].latlon_str
-        self.v2 = coordinates[1].latlon_str
-        self.v3 = coordinates[2].latlon_str
-        self.v4 = coordinates[3].latlon_str
-        self.v5 = coordinates[4].latlon_str
-        self.v6 = coordinates[5].latlon_str
+        self.v1 = None
+        self.v2 = None
+        self.v3 = None
+        self.v4 = None
+        self.v5 = None
+        self.v6 = None
         self.dm = diameter
         self.center_lat = center_lat
         self.center_lon = center_lon
         self.tclass = tileClass
+        self.road = road_use
         self.max_elev = max_elevation
         self.min_elev = min_elevation
         self.x = xaxis
@@ -185,19 +194,19 @@ class Tile(Base):
 
     def generate_vertices_coordinates(self):
         vertices = []
-        radius = self.diameter / 2
-        degs = list(drange(0, 360, 360 / self.numSides))
+        radius = self.dm / 2
+        degs = list(drange(0, 360, 360 / self.sides))
         for d in degs:
-            vertex_coor = calcCoordinate(self.center, radius, d)
+            vertex_coor = calcCoordinate(MapPoint(latitude=self.center_lat, longitude=self.center_lon), radius, d)
             # vertices.append(vertex_coor)
             vertices.append(vertex_coor)
 
-        self.v1 = vertices[0]
-        self.v2 = vertices[1]
-        self.v3 = vertices[2]
-        self.v4 = vertices[3]
-        self.v5 = vertices[4]
-        self.v6 = vertices[5]
+        self.v1 = vertices[0].latlon_str
+        self.v2 = vertices[1].latlon_str
+        self.v3 = vertices[2].latlon_str
+        self.v4 = vertices[3].latlon_str
+        self.v5 = vertices[4].latlon_str
+        self.v6 = vertices[5].latlon_str
 
         return vertices
 
@@ -215,8 +224,8 @@ class Tile(Base):
             sesh.commit()
 
     def set_vertices(self, vertex_list):
-        if len(vertex_list) == self.numSides:
-            for i in self.numSides:
+        if len(vertex_list) == self.sides:
+            for i in self.sides:
                 self.coordinates.append(vertex_list[i])
 
     def metersTo(self, other):
@@ -224,6 +233,14 @@ class Tile(Base):
             start = MapPoint.createFromStr(self.center)
             end = MapPoint.createFromStr(other.center)
             return calcDistance(startLL=start, endLL=end)
+
+    def getVertices(self):
+        latlons = []
+        vertices = [[attr, getattr(self, attr)] for attr in dir(self) if attr.startswith("v")]
+        for v in vertices:
+            v_str = v[1].split(",")
+            latlons.append((float(v_str[0]), float(v_str[1])))
+        return latlons
 
     def pathTo(self, other):
         """
@@ -235,21 +252,18 @@ class Tile(Base):
         start = dw_to_hex(DwHex(self.x, self.y))
         end = dw_to_hex(DwHex(other.x, other.y))
         with Session as sesh:
-            query = sesh.query(func.max(Tile.x).label("max_x")).one()
-            far_right = query.max_x
+            query = sesh.query(Tile.x).where(Tile.y % 2 == 1).order_by(desc(Tile.x)).first()
+            far_right = query[0]
 
         path = hex_linedraw(start, end, right_edge=(self.x == far_right and other.x == far_right))
         tile_path = list()
         with Session as sesh:
             for h in path:
                 dw = hex_to_dw(h)
-                tile = sesh.query(Tile).filter(and_(Tile.x == dw.x, Tile.y == dw.y))
+                tile = sesh.query(Tile).where(Tile.x == dw.x).where(Tile.y == dw.y).one()
                 tile_path.append(tile)
 
         return tile_path
-
-
-
 
 
 class Map(Base):
@@ -280,6 +294,11 @@ class Map(Base):
 def getSensorsORM():
     with Session as sesh:
         return sesh.query(Sensor).all()
+
+
+def getTileCellORM(x, y):
+    with Session as sesh:
+        return sesh.query(Tile).where(Tile.x == x).where(Tile.y == y).one()
 
 
 def getTilesORM(mapID=1):
@@ -316,6 +335,11 @@ def getOtherSensorsORM(sid):
 def createAllTables(eng):
     table_objects = [Map.__table__, Tile.__table__, Sensor.__table__, Measure.__table__]
     Base.metadata.create_all(eng, tables=table_objects)
+
+
+def createTilesTable(eng):
+    tiles_tab = [Tile.__table__]
+    Base.metadata.create_all(eng, tables=tiles_tab)
 
 
 def sensorMerge(fname):
@@ -368,18 +392,23 @@ def getObservations(exclude=None):
 
 
 def populateTables():
-    conn = createConnection()
-    s_list, m_list = sensorMerge(r"C:\Users\mrusieck\PycharmProjects\AirBot\docs\Sensor_Merge")
+    # conn = createConnection()
+    # s_list, m_list = sensorMerge(r"C:\Users\mrusieck\PycharmProjects\AirBot\docs\Sensor_Merge")
+    # createAllTables(eng=engine)
     print("sensor data fetched")
     print("measurement data fetched")
-    # tiles = getTiles(conn, '*')
+    # createTilesTable(engine)
     # print("tilebin data fetched")
-    conn.close()
+    # conn.close()
     # print("inserting maps..")
     # addOpoleMap()
-    # print("inserting tiles..")
-    # insertTiles(tiles)
-    print("inserting sensors..")
-    insertSensors(s_list)
-    print("inserting measures..")
-    insertMeasures(m_list)
+
+    # print("inserting sensors..")
+    # insertSensors(s_list)
+    # print("inserting measures..")
+    # insertMeasures(m_list)
+    print("generating tiles..")
+    bounds = fetchSensorBounds()
+    tiles = genHexGrid(bounds)
+    print("inserting tiles..")
+    insertTiles(tiles)
