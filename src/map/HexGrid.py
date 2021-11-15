@@ -139,6 +139,15 @@ def hex_linedraw(a, b, right_edge=False):
     return results
 
 
+def neighbors_in_range(center: Hex, N):
+    results = []
+    for q in range(-N, N+1, 1):
+        for r in range(max(-N, -q - N), min(+N, -q+N)+1, 1):
+            s = -q - r
+            results.append(hex_add(center, Hex(q, r, s)))
+
+    return results
+
 def dw_to_hex(dw):
     q = (dw.x - dw.y) / 2
     r = dw.y
@@ -195,10 +204,10 @@ def genCityLayer(bounds):
 
 def getPolys(tiles, lonlat=False):
     """
-    create a list of polygons, provided Tile models.
+    create a list of geojson polygons, provided Tile models.
     :param tiles: list of Tile models
-    :param lonlat: sets the order of Polygon coordinates. default is longitude, latitude
-    :return:
+    :param lonlat: sets the order of Polygon coordinates. default is latitude, longitude
+    :return: list of geojson polygons.
     """
     polys = []
     for t in tiles:
@@ -224,7 +233,8 @@ def geo_tiles_from_db():
     tile_polys = getPolys(tiles, lonlat=False)
     tile_features = []
     for poly in tile_polys:
-        f = Feature(geometry=poly)
+        properties = {}
+        f = Feature(geometry=poly, properties=properties)
         tile_features.append(f)
     print("saving..")
     tile_collection = FeatureCollection(tile_features)
@@ -257,9 +267,12 @@ def create_layers():
     return NotImplemented()
 
 
-def geojson_from_tiles(tiles):
-    start_sid = tiles[0].tid
-    end_sid = tiles[-1].tid
+def geojson_from_tiles(tiles, fn=None):
+    if not fn:
+        start_sid = tiles[0].tid
+        end_sid = tiles[-1].tid
+        fn = f'path_%s_to_%s.geojson' % (start_sid, end_sid)
+
     tile_polys = getPolys(tiles, lonlat=True)
     tile_features = []
     for poly in tile_polys:
@@ -267,7 +280,6 @@ def geojson_from_tiles(tiles):
         tile_features.append(f)
     print("saving..")
     tile_collection = FeatureCollection(tile_features)
-    fn = f'path_%s_to_%s.geojson' % (start_sid, end_sid)
     with open('..\\..\\..\\AirBots\\geojsons\\'+fn, "w") as out:
         geojson.dump(tile_collection, out)
 

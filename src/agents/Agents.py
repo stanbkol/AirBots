@@ -1,4 +1,6 @@
 from src.agents.ForecastModels import RandomModel, NearbyAverage, MinMaxModel, CmaModel, MultiVariate
+from src.database.DbManager import Session
+from src.database.Models import fetchTile_from_sid
 
 
 def _calc_error(prediction, actual):
@@ -18,6 +20,7 @@ class Agent(object):
         self.sensors = sensor_list
         self.models = self._initializeModels()
         self.error = 0
+        self.tile = fetchTile_from_sid(self.sid)
 
     def _initializeModels(self):
         models = {"rand": RandomModel(self.sid, self.sensors),
@@ -49,6 +52,14 @@ class Agent(object):
             return self.cf + 1
         else:
             return self.cf - 1
+
+    def tiles_change_factor(self, target_tile):
+        path = self.tile.pathTo(target_tile)
+        total = 0
+        for p_i in range(1, len(path)):
+            total += path[p_i].getCF() - path[p_i-1].getCF()
+
+        return total
 
     def makePredictions(self, target_sid, target_time, values, meas=None):
         measure = meas
