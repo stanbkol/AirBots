@@ -1,7 +1,8 @@
 from datetime import datetime
 
-from sqlalchemy import desc
+from sqlalchemy import desc, asc
 
+from src.database.DbManager import cutSensors, up_sensors_tids
 from src.database.Models import sensorMerge, populateTables
 from src.map.Central import *
 from src.map.HexGrid import geo_tiles_from_db, genSensorLayer, geojson_from_tiles
@@ -15,14 +16,17 @@ def main():
     # print(len(data))
     # c.sensorSummary()
 
-    # with Session as sesh:
-    #     item = sesh.query(Tile.x).where(Tile.y % 2 == 1).order_by(desc(Tile.x)).first()[0]
-    # print(item)
-    start = getTileCellORM(283, 1)
-    end = getTileCellORM(283, 5)
-    print(str(start), str(end))
-    path = start.pathTo(end)
-    geojson_from_tiles(path)
+    # up_sensors_tids()
+    # cutSensors()
+
+    start = getTileCellORM(10, 10)
+    n=3
+    bigHex = start.tiles_in_range(n)
+    # end = getTileCellORM(283, 5)
+    # print(str(start), str(end))
+    # path = start.pathTo(end)
+    fn = f'range_{n}_of_{start.tid}.geojson'
+    geojson_from_tiles(bigHex, fn=fn)
 
 
 

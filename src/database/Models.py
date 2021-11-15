@@ -125,9 +125,10 @@ class Sensor(Base):
                 Measure.date <= end_interval).where(Measure.sid == self.sid).all()
 
     def updateTile(self, tid):
-        with Session as sesh:
-            sesh.execute(update(Sensor).where(Sensor.sid == self.sid).values(tid=tid))
-            sesh.commit()
+        print(f'updating sensor %s with tile %s' % (self.sid, tid))
+        # with Session as sesh:
+        #     sesh.execute(update(Sensor).where(Sensor.sid == self.sid).values(tid=tid))
+        #     sesh.commit()
 
 
 class Tile(Base):
@@ -265,6 +266,19 @@ class Tile(Base):
 
         return tile_path
 
+    def tiles_in_range(self, n):
+        from src.map.HexGrid import DwHex, neighbors_in_range, dw_to_hex, hex_to_dw
+        center = dw_to_hex(DwHex(self.x, self.y))
+        neighbor_hex = neighbors_in_range(center, n)
+        tiles = list()
+        with Session as sesh:
+            for h in neighbor_hex:
+                dw = hex_to_dw(h)
+                tile = sesh.query(Tile).where(Tile.x == dw.x).where(Tile.y == dw.y).one()
+                tiles.append(tile)
+
+        return tiles
+
 
 class Map(Base):
     __tablename__ = 'maps'
@@ -299,6 +313,14 @@ def getSensorsORM():
 def getTileCellORM(x, y):
     with Session as sesh:
         return sesh.query(Tile).where(Tile.x == x).where(Tile.y == y).one()
+
+
+def fetchTile_from_sid(sid):
+    with Session as sesh:
+        tid = sesh.query(Sensor.tid).where(Sensor.sid == sid)
+        tile = sesh.query(Tile).where(Tile.tid == tid).one()
+
+    return tile
 
 
 def getTilesORM(mapID=1):

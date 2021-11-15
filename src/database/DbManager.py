@@ -1,8 +1,8 @@
-from sqlalchemy import create_engine, func
+from sqlalchemy import create_engine, func, asc, desc
 from sqlalchemy.orm import sessionmaker, declarative_base
 from sqlalchemy.schema import CreateSchema
 
-from src.map.HexGrid import genHexGrid
+from src.map.HexGrid import genHexGrid, getPolys
 from src.map.TileBin import TileBin
 
 
@@ -124,10 +124,30 @@ def up_sensors_tids():
     for s in sensors:
         sensor_marker = Point(s.lon, s.lat)
         for tile in tiles:
-            vertices = [(mp.longitude, mp.latitude) for mp in tile.coordinates]
+            vertices = getPolys(tile)
             tile_poly = Polygon(vertices)
             if tile_poly.contains(sensor_marker):
                 s.updateTile(tile.tid)
+
+
+def cutSensors():
+    from src.database.Models import Sensor
+    with Session as sesh:
+        south_sensors = sesh.query(Sensor).order_by(asc(Sensor.lat)).limit(2).all()
+        north_sensors = sesh.query(Sensor).order_by(desc(Sensor.lat)).limit(3).all()
+
+    drop_list = []
+    for s in south_sensors:
+        drop_list.append(s.sid)
+
+    for s in north_sensors:
+        drop_list.append(s.sid)
+
+    with Session as sesh:
+        for id in drop_list:
+            print(f'deleting sensor {id}')
+            # Sensor.query.filter_by(sid=id).delete()
+            # sesh.commit()
 
 
 def sensorBoundGrid():
