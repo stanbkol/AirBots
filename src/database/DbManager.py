@@ -101,16 +101,33 @@ def fetchSensorBounds():
         bounds = sesh.query(func.max(Sensor.lat).label("north_bound"),
                             func.min(Sensor.lat).label("south_bound"),
                             func.max(Sensor.lon).label("east_bound"),
-                            func.min(Sensor.lon).label*"west_bound"
+                            func.min(Sensor.lon).label("west_bound")
                             ).one()
         N = bounds.north_bound
         S = bounds.south_bound
         E = bounds.east_bound
-        W = bounds.east_bound
+        W = bounds.west_bound
+
+        print(f'N: %s, S: %s, E: %s, W: %s,' % (N,S,E,W))
 
         # TODO: maybe increase the bounds by 100 meters to avoid sensors being on the edge?
 
         return {'n': N, 's': S, 'e': E, 'w': W}
+
+
+def up_sensors_tids():
+    from src.database.Models import getSensorsORM, getTilesORM
+    from shapely.geometry import Polygon, Point
+
+    sensors = getSensorsORM()
+    tiles = getTilesORM()
+    for s in sensors:
+        sensor_marker = Point(s.lon, s.lat)
+        for tile in tiles:
+            vertices = [(mp.longitude, mp.latitude) for mp in tile.coordinates]
+            tile_poly = Polygon(vertices)
+            if tile_poly.contains(sensor_marker):
+                s.updateTile(tile.tid)
 
 
 def sensorBoundGrid():
