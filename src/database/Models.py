@@ -126,9 +126,9 @@ class Sensor(Base):
 
     def updateTile(self, tid):
         print(f'updating sensor %s with tile %s' % (self.sid, tid))
-        # with Session as sesh:
-        #     sesh.execute(update(Sensor).where(Sensor.sid == self.sid).values(tid=tid))
-        #     sesh.commit()
+        with Session as sesh:
+            sesh.execute(update(Sensor).where(Sensor.sid == self.sid).values(tid=tid))
+            sesh.commit()
 
 
 class Tile(Base):
@@ -235,13 +235,17 @@ class Tile(Base):
             end = MapPoint.createFromStr(other.center)
             return calcDistance(startLL=start, endLL=end)
 
-    def getVertices(self):
-        latlons = []
+    def getVertices(self, lonlat=False):
+        coords = []
         vertices = [[attr, getattr(self, attr)] for attr in dir(self) if attr.startswith("v")]
         for v in vertices:
             v_str = v[1].split(",")
-            latlons.append((float(v_str[0]), float(v_str[1])))
-        return latlons
+            coords.append((float(v_str[0]), float(v_str[1])))
+
+        if lonlat:
+            coords = [(c[1], c[0]) for c in coords]
+
+        return coords
 
     def pathTo(self, other):
         """
@@ -274,9 +278,9 @@ class Tile(Base):
         with Session as sesh:
             for h in neighbor_hex:
                 dw = hex_to_dw(h)
-                tile = sesh.query(Tile).where(Tile.x == dw.x).where(Tile.y == dw.y).one()
-                tiles.append(tile)
-
+                tile = sesh.query(Tile).where(Tile.x == dw.x).where(Tile.y == dw.y).first()
+                if tile:
+                    tiles.append(tile)
         return tiles
 
 

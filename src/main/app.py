@@ -2,10 +2,10 @@ from datetime import datetime
 
 from sqlalchemy import desc, asc
 
-from src.database.DbManager import cutSensors, up_sensors_tids
+from src.database.DbManager import cutSensors, up_sensors_tids, sensorBoundGrid
 from src.database.Models import sensorMerge, populateTables
 from src.map.Central import *
-from src.map.HexGrid import geo_tiles_from_db, genSensorLayer, geojson_from_tiles
+from src.map.HexGrid import geo_tiles_from_db, genSensorLayer_db, geojson_from_tiles
 
 
 def main():
@@ -15,19 +15,19 @@ def main():
     #     print(e)
     # print(len(data))
     # c.sensorSummary()
-
     # up_sensors_tids()
-    # cutSensors()
+    # sensorBoundGrid()
 
-    start = getTileCellORM(10, 10)
-    n=3
-    bigHex = start.tiles_in_range(n)
-    # end = getTileCellORM(283, 5)
-    # print(str(start), str(end))
-    # path = start.pathTo(end)
-    fn = f'range_{n}_of_{start.tid}.geojson'
-    geojson_from_tiles(bigHex, fn=fn)
-
+    id  = 20947
+    tile = getTileORM(id)
+    r = 3
+    circle = tile.tiles_in_range(r)
+    geojson_from_tiles(circle, f"{id}_{r}_range.geojson")
+    # genSensorLayer_db()
+    # print("finished making sensor geojson")
+    #
+    # geo_tiles_from_db()
+    # print("finished making tiles geojson")
 
 
 if __name__ == '__main__':
