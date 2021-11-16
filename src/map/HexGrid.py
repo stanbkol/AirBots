@@ -291,10 +291,18 @@ def geojson_from_tiles(tiles, fn=None):
         end_sid = tiles[-1].tid
         fn = f'path_%s_to_%s.geojson' % (start_sid, end_sid)
 
-    tile_polys = getPolys(tiles, lonlat=True)
     tile_features = []
-    for poly in tile_polys:
-        f = Feature(geometry=poly)
+    for t in tiles:
+        vertices = t.getVertices(lonlat=True)
+        vertices.append(vertices[0])
+        poly = Polygon([vertices])
+        tile_class = t.tclass if t.tclass else "N/A"
+        properties = {"id": t.tid,
+                      "coords": f'({t.center_lat}, {t.center_lon})',
+                      "grid_xy": f'({t.x}, {t.y})',
+                      "class": tile_class
+                      }
+        f = Feature(geometry=poly, properties=properties)
         tile_features.append(f)
     print("saving..")
     tile_collection = FeatureCollection(tile_features)

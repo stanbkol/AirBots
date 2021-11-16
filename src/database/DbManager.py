@@ -160,6 +160,6 @@ def cutSensors():
 
 
 def sensorBoundGrid():
-    bounds = fetchSensorBounds(extend=200)
+    bounds = fetchSensorBounds(extend=300)
     bounded_t = genHexGrid(bounds)
     insertTiles(bounded_t)

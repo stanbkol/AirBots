@@ -1,4 +1,5 @@
 from datetime import datetime
+from itertools import chain
 
 from src.database.DataLoader import getMeasures, getSensors, createConnection, getTiles, getSensor
 from src.database.DbManager import Base, Session, addOpoleMap, insertTileBins, insertSensors, insertMeasures, \
@@ -336,6 +337,20 @@ def getTileORM(id):
     with Session as sesh:
         return sesh.query(Tile).where(Tile.tid == id).one()
 
+
+def getSensorTiles(mapID=1):
+    tiles = list()
+    with Session as sesh:
+        tile_ids = sesh.query(Sensor.tid).all()
+        tile_ids = list(chain.from_iterable(tile_ids))
+        tile_ids = sorted(tile_ids)
+        for i in set(tile_ids):
+            #             print(f"grabbing tile: {i}")
+            tile = sesh.query(Tile).where(Tile.mid == mapID).where(Tile.tid == i).first()
+            if tile:
+                tiles.append(tile)
+
+    return tiles
 
 def getSensorORM(id):
     with Session as sesh:
