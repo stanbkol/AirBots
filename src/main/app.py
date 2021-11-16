@@ -18,11 +18,12 @@ def main():
     # up_sensors_tids()
     # sensorBoundGrid()
 
-    id  = 20947
+    id  = 10756
     tile = getTileORM(id)
-    r = 3
+    r = 5
     circle = tile.tiles_in_range(r)
-    geojson_from_tiles(circle, f"{id}_{r}_range.geojson")
+    print(len(circle))
+    # geojson_from_tiles(circle, f"{id}_{r}_range.geojson")
     # genSensorLayer_db()
     # print("finished making sensor geojson")
     #
