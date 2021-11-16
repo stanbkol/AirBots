@@ -95,8 +95,9 @@ def addOpoleMap():
         sesh.commit()
 
 
-def fetchSensorBounds():
+def fetchSensorBounds(extend=0):
     from src.database.Models import Sensor
+    from src.map.MapPoint import calcCoordinate, directions, MapPoint
     with Session as sesh:
         bounds = sesh.query(func.max(Sensor.lat).label("north_bound"),
                             func.min(Sensor.lat).label("south_bound"),
@@ -107,10 +108,18 @@ def fetchSensorBounds():
         S = bounds.south_bound
         E = bounds.east_bound
         W = bounds.west_bound
-
         print(f'N: %s, S: %s, E: %s, W: %s,' % (N,S,E,W))
 
-        # TODO: maybe increase the bounds by 100 meters to avoid sensors being on the edge?
+        # for expanding
+        if extend != 0:
+            ne_pt = MapPoint(latitude=N, longitude=E)
+            sw_pt = MapPoint(latitude=S, longitude=W)
+            N = calcCoordinate(ne_pt, extend, directions["north"]).lat
+            E = calcCoordinate(ne_pt, extend, directions["east"]).lon
+            S = calcCoordinate(sw_pt, extend, directions["south"]).lat
+            W = calcCoordinate(sw_pt, extend, directions["west"]).lon
+
+        print(f'N: %s, S: %s, E: %s, W: %s,' % (N,S,E,W))
 
         return {'n': N, 's': S, 'e': E, 'w': W}
 
@@ -124,7 +133,7 @@ def up_sensors_tids():
     for s in sensors:
         sensor_marker = Point(s.lon, s.lat)
         for tile in tiles:
-            vertices = getPolys(tile)
+            vertices = tile.getVertices(lonlat=True)
             tile_poly = Polygon(vertices)
             if tile_poly.contains(sensor_marker):
                 s.updateTile(tile.tid)
@@ -151,6 +160,6 @@ def cutSensors():
 
 
 def sensorBoundGrid():
-    bounds = fetchSensorBounds()
+    bounds = fetchSensorBounds(extend=200)
     bounded_t = genHexGrid(bounds)
     insertTiles(bounded_t)

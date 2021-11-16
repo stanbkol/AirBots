@@ -79,3 +79,6 @@ def calcDistance(startLL, endLL):
     if isinstance(startLL, MapPoint) and isinstance(endLL, MapPoint):
         return distance.distance(startLL.LatLonCoords, endLL.LatLonCoords).meters
     return distance.distance(startLL, endLL).meters
+
+
+directions = {"north": 0, "east": 90, "south": 180, "west": 270}

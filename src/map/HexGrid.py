@@ -230,19 +230,27 @@ def geo_tiles_from_db():
     from src.database.Models import getTilesORM
     tiles = getTilesORM()
     print(f'num tiles: %s' % len(tiles))
-    tile_polys = getPolys(tiles, lonlat=False)
+    # tile_polys = getPolys(tiles, lonlat=False)
     tile_features = []
-    for poly in tile_polys:
-        properties = {}
+    for t in tiles:
+        vertices = t.getVertices(lonlat=True)
+        vertices.append(vertices[0])
+        poly = Polygon([vertices])
+        tile_class = t.tclass if t.tclass else "N/A"
+        properties = {"id": t.tid,
+                      "lat_lon": f'({t.center_lat}, {t.center_lon})',
+                      "grid_xy": f'({t.x}, {t.y})',
+                      "class": tile_class
+                      }
         f = Feature(geometry=poly, properties=properties)
         tile_features.append(f)
     print("saving..")
     tile_collection = FeatureCollection(tile_features)
-    with open('..\\..\\..\\AirBots\\geojsons\\tiles_layer.geojson', "w") as out:
+    with open('..\\..\\..\\AirBots\\geojsons\\tiles_layer_props.geojson', "w") as out:
         geojson.dump(tile_collection, out)
 
 
-def genSensorLayer():
+def genSensorLayer_db():
     """
     create a geojson for Sensor point markers
     :return:
@@ -250,16 +258,26 @@ def genSensorLayer():
     from src.database.Models import getSensorsORM
     sensor_feats = []
     sensorsLonLat = [(s.lon, s.lat) for s in getSensorsORM()]
-    print(len(sensorsLonLat))
+    # print(len(sensorsLonLat))
     sensor_markers = [Point(s) for s in sensorsLonLat]
-
-    for p in sensor_markers:
-        f = Feature(geometry=p)
+    for sensor in getSensorsORM():
+        coords = (sensor.lon, sensor.lat)
+        tile_id = sensor.tid if sensor.tid else "None"
+        marker = Point(coords)
+        properties = {"id:": sensor.sid,
+                      "lat_lon": f'({sensor.lat},{sensor.lon})',
+                      "tile_id": tile_id
+                    }
+        f = Feature(geometry=marker, properties=properties)
         sensor_feats.append(f)
+
+    # for p in sensor_markers:
+    #     f = Feature(geometry=p)
+    #     sensor_feats.append(f)
 
     sensor_featCollection = FeatureCollection(sensor_feats)
 
-    with open('..\\..\\..\\AirBots\\geojsons\\sensor_layer.geojson', "w") as out:
+    with open('..\\..\\..\\AirBots\\geojsons\\sensor_layer_props.geojson', "w") as out:
         geojson.dump(sensor_featCollection, out)
 
 
