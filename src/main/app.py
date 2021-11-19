@@ -1,10 +1,9 @@
 from datetime import datetime
 
 from sqlalchemy import desc, asc
-
-from src.database.DbManager import cutSensors, up_sensors_tids, sensorBoundGrid
-from src.database.Models import sensorMerge, populateTables
+from src.map.TileClassifier import *
 from src.map.Central import *
+from src.database.Models import *
 from src.map.HexGrid import geo_tiles_from_db, genSensorLayer_db, geojson_from_tiles
 
 
@@ -32,25 +31,31 @@ def tile_ranges(sensor_tiles, r=5):
     return unique_tiles(tiles)
 
 
+def checkTiles():
+    data = getTilesORM()
+    tile_class = {}
+    for d in data:
+        print(d.tclass)
+        if d.tclass not in tile_class.keys():
+            tile_class[d.tclass] = 1
+        else:
+            tile_class[d.tclass] += 1
+    print(tile_class)
+
+
+def classifyTiles():
+    data = getJson(r'C:\Users\mrusieck\PycharmProjects\AirBot\docs\tile_scrape.txt')
+    for k in data:
+        print("Tile #", k)
+        l1, l2 = classifyT(data[k])
+        updateTileClass(k, l1, l2)
+
+
 def main():
     # c = Central('..\\..\\..\\AirBots\\docs\\Model1')
-    # data = getMeasuresORM(11571, datetime.datetime(2019, 1, 1, 0), datetime.datetime(2019, 1, 30, 0))
-    # for e in data:
-    #     print(e)
-    # print(len(data))
-    # c.sensorSummary()
+    data = getJson(r'C:\Users\mrusieck\PycharmProjects\AirBot\docs\Classifiers')
+    print(data)
 
-    tiles = getSensorTiles()
-    dist = 3
-    clusters = tile_ranges(tiles, r=dist)
-    print(len(clusters))
-    geojson_from_tiles(clusters, f"sensorTiles_{dist}_ranges.geojson")
-    # geojson_from_tiles(circle, f"{id}_{r}_range.geojson")
-    # genSensorLayer_db()
-    # print("finished making sensor geojson")
-    #
-    # geo_tiles_from_db()
-    # print("finished making tiles geojson")
 
 
 
