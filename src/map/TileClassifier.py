@@ -1,11 +1,18 @@
 
 def classifyT(tile_data):
-    if len(tile_data["buildings"]) == 0:
-        return "Empty Tile Error"
-    else:
-        L1 = classifyL1(tile_data["buildings"])
-        L2 = classifyL2(tile_data["roads"])
-        return L2+" "+L1
+    if tile_data:
+        if len(tile_data["buildings"]) > 0:
+            L1 = classifyL1(tile_data["buildings"])
+            L2 = classifyL2(tile_data["roads"])
+            if L1 in ['religious', 'school', 'cemetery']:
+                L1 = "residential"
+            if L1 in ['construction']:
+                L1 = "industrial"
+            if L1 in ['meadow', 'allotments', 'grass']:
+                L1 = "green"
+            return L1, L2
+        return None, None
+    return None, None
 
 
 def classifyL1(building_data):

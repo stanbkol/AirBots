@@ -1,0 +1,19 @@
+{
+	"land": {
+		"residential": 0.20,
+		"industrial": 0.30,
+		"railway": 0.10,
+		"retail": 0.10,
+		"commercial": 0.10,
+		"farmland": 0.10,
+		"quarry": 0.10,
+		"basin": 0.10,
+		"forest": -0.20,
+		"green": -0.15
+	},
+	"road": {
+		"T3": 0.05,
+		"T2": 0.10,
+		"T1": 0.15
+	}
+}

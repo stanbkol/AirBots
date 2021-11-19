@@ -421,6 +421,12 @@ def updateMeasures(m_list, sid):
     return m_list
 
 
+def updateTileClass(tid, l1, l2):
+    with Session as sesh:
+        sesh.execute(update(Tile).where(Tile.tid == tid).values(tclass=l1, road=l2))
+        sesh.commit()
+
+
 def getObservations(exclude=None):
     attributes = [attr_name for attr_name in Measure.__dict__ if not str(attr_name).startswith("_")]
     attributes.remove('dk')
