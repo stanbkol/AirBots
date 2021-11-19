@@ -53,12 +53,8 @@ def classifyTiles():
 
 def main():
     # c = Central('..\\..\\..\\AirBots\\docs\\Model1')
-    data = getJson(r'C:\Users\mrusieck\PycharmProjects\AirBot\docs\Classifiers')
-    print(data)
-
-
-
-
+    classifyTiles()
+    checkTiles()
 
 
 if __name__ == '__main__':
