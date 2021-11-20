@@ -333,6 +333,18 @@ def getTilesORM(mapID=1):
         return sesh.query(Tile).where(Tile.mid == mapID).all()
 
 
+def getTilesSubGrid(x1, y1, x2, y2, mapID=1):
+    tiles = list()
+    with Session as sesh:
+        tile_ids = sesh.query(Sensor.tid).all()
+        tile_ids = list(chain.from_iterable(tile_ids))
+        for i in set(tile_ids):
+            tile = sesh.query(Tile).where(Tile.mid == mapID).filter(and_(Tile.x >= x1, Tile.y >= y1)) \
+                        .filter(and_(Tile.x <= x2, Tile.y <= y2)).where(Tile.tid == i).first()
+            if tile:
+                tiles.append(tile)
+
+
 def getTileORM(id):
     with Session as sesh:
         return sesh.query(Tile).where(Tile.tid == id).one()
@@ -454,6 +466,14 @@ def getObservations(exclude=None):
         attributes.remove(exclude)
 
     return attributes
+
+
+def getClassTiles(t_class, exclude=None):
+    sensor_tiles = list()
+    with Session as sesh:
+        tids = list(chain.from_iterable(sesh.query(Sensor.tid).all()))
+        for t in tids:
+            sensor_tiles.append(sesh.query(Tile).where(Tile.tid == t).where(Tile.tclass == t_class).where(Tile.tid != exclude).first())
 
 
 def populateTables():
