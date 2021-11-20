@@ -348,6 +348,8 @@ def getTilesSubGrid(x1, y1, x2, y2, mapID=1):
             if tile:
                 tiles.append(tile)
 
+    return tiles
+
 
 def getTileORM(id):
     with Session as sesh:
@@ -402,7 +404,7 @@ def createTilesTable(eng):
 def getTC():
     from src.map.Central import getJson
 
-    return getJson('..\\..\\..\\AirBots\docs\Classifiers')
+    return getJson('..\\..\\..\\AirBots\\docs\\Classifiers')
 
 
 def getTCF(sid):
@@ -477,7 +479,12 @@ def getClassTiles(t_class, exclude=None):
     with Session as sesh:
         tids = list(chain.from_iterable(sesh.query(Sensor.tid).all()))
         for t in tids:
-            sensor_tiles.append(sesh.query(Tile).where(Tile.tid == t).where(Tile.tclass == t_class).where(Tile.tid != exclude).first())
+            tile = sesh.query(Tile).where(Tile.tid == t).where(Tile.tclass == t_class).where(Tile.tid != exclude).first()
+            if tile:
+                sensor_tiles.append(tile)
+
+    return sensor_tiles
+
 
 
 def populateTables():
