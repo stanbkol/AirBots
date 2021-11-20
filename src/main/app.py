@@ -53,8 +53,17 @@ def classifyTiles():
 
 def main():
     # c = Central('..\\..\\..\\AirBots\\docs\\Model1')
-    classifyTiles()
-    checkTiles()
+    # classifyTiles()
+    # checkTiles()
+    # target = getTileCellORM(202, 92)
+
+    ra = 3
+    agent_tiles_nn = tile_ranges(getSensorTiles(), r=ra)
+
+    fn = f"agentTiles_NR_{ra}.geojson"
+    geojson_from_tiles(agent_tiles_nn, fn)
+
+    no_class = []
 
 
 if __name__ == '__main__':

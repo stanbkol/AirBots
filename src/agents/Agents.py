@@ -1,6 +1,6 @@
 from src.agents.ForecastModels import RandomModel, NearbyAverage, MinMaxModel, CmaModel, MultiVariate
 from src.database.DbManager import Session
-from src.database.Models import fetchTile_from_sid
+from src.database.Models import fetchTile_from_sid, Tile, getClassTiles
 
 
 def _calc_error(prediction, actual):
@@ -12,7 +12,7 @@ def _calc_squared_error(prediction, actual):
 
 
 class Agent(object):
-    def __init__(self, sensor_id, thresholds, sensor_list, config=None, confidence=100):
+    def __init__(self, sensor_id, thresholds, sensor_list, target_tile: Tile, config=None, confidence=100):
         self.sid = sensor_id
         self._threshold = thresholds
         self._configs = config
@@ -20,6 +20,7 @@ class Agent(object):
         self.sensors = sensor_list
         self.models = self._initializeModels()
         self.error = 0
+        self.target_tile = target_tile
         self.tile = fetchTile_from_sid(self.sid)
 
     def _initializeModels(self):
@@ -46,12 +47,21 @@ class Agent(object):
 
         return {model_name: errors[model_name]/total_se for model_name in errors.keys()}
 
-    def _updateConfidence(self, predicted_value, actual_value):
-        delta = (predicted_value - actual_value) / actual_value
-        if delta < 0.1:
-            return self.cf + 1
-        else:
-            return self.cf - 1
+    def _updateConfidence(self):
+        path = self.tile.pathTo(self.target_tile)
+        t_tcf = 0
+        for ti in range(1, len(path)):
+            deltaCF = path[ti].getCF() - path[ti-1].getCF()
+            t_tcf += deltaCF
+
+        t_dist = self.kriging()
+
+
+    def kriging(self):
+        tclass = self.target_tile.tclass
+        tclass_tiles = getClassTiles(exclude=self.target_tile)
+
+
 
     def tiles_change_factor(self, target_tile):
         path = self.tile.pathTo(target_tile)
