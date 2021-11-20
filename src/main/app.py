@@ -4,7 +4,6 @@ from src.map.Central import *
 from src.database.Models import *
 
 
-
 def unique_tiles(tiles):
     unique_tiles = {}
 
@@ -47,9 +46,6 @@ def classifyTiles():
         print("Tile #", k)
         l1, l2 = classifyT(data[k])
         updateTileClass(k, l1, l2)
-
-
-
 
 
 def main():
