@@ -1,6 +1,6 @@
 from src.agents.ForecastModels import RandomModel, NearbyAverage, MinMaxModel, CmaModel, MultiVariate
 from src.database.DbManager import Session
-from src.database.Models import fetchTile_from_sid
+from src.database.Models import *
 
 
 def _calc_error(prediction, actual):
@@ -12,22 +12,22 @@ def _calc_squared_error(prediction, actual):
 
 
 class Agent(object):
-    def __init__(self, sensor_id, thresholds, sensor_list, config=None, confidence=100):
+    def __init__(self, sensor_id, thresholds, cluster_list, config=None, confidence=100):
         self.sid = sensor_id
         self._threshold = thresholds
         self._configs = config
         self.cf = confidence
-        self.sensors = sensor_list
+        self.cluster = cluster_list
         self.models = self._initializeModels()
         self.error = 0
         self.tile = fetchTile_from_sid(self.sid)
 
     def _initializeModels(self):
-        models = {"rand": RandomModel(self.sid, self.sensors),
-                  'nearby': NearbyAverage(self.sid, self.sensors),
-                  'minmax': MinMaxModel(self.sid, self.sensors),
-                  'sma': CmaModel(self.sid, self.sensors),
-                  'mvr': MultiVariate(self.sid, self.sensors)
+        models = {"rand": RandomModel(self.sid, self.cluster),
+                  'nearby': NearbyAverage(self.sid, self.cluster),
+                  'minmax': MinMaxModel(self.sid, self.cluster),
+                  'sma': CmaModel(self.sid, self.cluster),
+                  'mvr': MultiVariate(self.sid, self.cluster)
                   }
 
         return models
@@ -75,7 +75,6 @@ class Agent(object):
         for model in weights.keys():
             total_pm1 += weights[model] * predicts[model]['pm1']
 
-        print(f'Sensor %s, ' % self.sid)
         return total_pm1
 
 

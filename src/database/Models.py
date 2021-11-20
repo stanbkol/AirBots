@@ -383,6 +383,24 @@ def createTilesTable(eng):
     Base.metadata.create_all(eng, tables=tiles_tab)
 
 
+def getTC():
+    from src.map.Central import getJson
+
+    return getJson(r'C:\Users\User\PycharmProjects\AirBots\docs\Classifiers')
+
+
+def getTCF(sid):
+    sens = getSensorORM(sid)
+    tile = getTileORM(sens.tid)
+    tc = getTC()
+    total_tcf = 0
+    if tile.tclass:
+        total_tcf += tc['land'][tile.tclass]
+    if tile.road:
+        total_tcf += tc['road'][tile.road]
+    return round(total_tcf, 2)
+
+
 def sensorMerge(fname):
     f = open(fname).read().splitlines()
     merged_sensors = []
