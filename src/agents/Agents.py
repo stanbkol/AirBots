@@ -48,11 +48,13 @@ class Agent(object):
         return {model_name: errors[model_name]/total_se for model_name in errors.keys()}
 
     def _updateConfidence(self):
-        path = self.tile.pathTo(self.target_tile)
-        t_tcf = 0
-        for ti in range(1, len(path)):
-            deltaCF = path[ti].getCF() - path[ti-1].getCF()
-            t_tcf += deltaCF
+        # path = self.tile.pathTo(self.target_tile)
+        # t_tcf = 0
+        # for ti in range(1, len(path)):
+        #     deltaCF = path[ti].getCF() - path[ti-1].getCF()
+        #     t_tcf += deltaCF
+
+        change_fac = 100 - (self.tile.getTCF() - self.target_tile.getTCF())
 
         t_dist = self.kriging()
 
