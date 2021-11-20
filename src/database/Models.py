@@ -284,6 +284,10 @@ class Tile(Base):
                     tiles.append(tile)
         return tiles
 
+    def getTCF(self):
+        class_values = getTC()
+        return class_values['land'][self.tclass] + class_values['road'][self.road]
+
 
 class Map(Base):
     __tablename__ = 'maps'
@@ -398,7 +402,7 @@ def createTilesTable(eng):
 def getTC():
     from src.map.Central import getJson
 
-    return getJson(r'C:\Users\User\PycharmProjects\AirBots\docs\Classifiers')
+    return getJson('..\\..\\..\\AirBots\docs\Classifiers')
 
 
 def getTCF(sid):
