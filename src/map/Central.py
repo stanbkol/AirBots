@@ -10,6 +10,30 @@ from src.database.DataLoader import *
 from sklearn.metrics import mean_squared_error
 
 
+def findNearestSensors(sensorid, s_list, n):
+    """
+
+    :param sensorid: sensor for which to find nearest neighbors.
+    :param s_list: list of active sensors
+    :return: list of (Sensor object, meters distance) tuples
+    """
+    base_sensor = getSensorORM(sensorid)
+    sensors_orm = []
+
+    for s in s_list:
+        if s != sensorid:
+            sensors_orm.append(getSensorORM(s))
+
+    distances = []
+    startLL = MapPoint(base_sensor.lat, base_sensor.lon)
+    for sensor in sensors_orm:
+        meters_away = calcDistance(startLL, MapPoint(sensor.lat, sensor.lon))
+        distances.append((sensor, meters_away))
+
+    distances.sort(key=lambda x: x[1])
+    return distances[:n]
+
+
 def fetchBB(data):
     bounding_box = []
     for entry in data:
@@ -81,8 +105,16 @@ def aggregatePrediction(preds):
     return round(total/(len(preds)), 2)
 
 
+def makeCluster(sid, sensors, n):
+    data = findNearestSensors(sid, sensors, n)
+    cluster = []
+    for sens, dist in data:
+        cluster.append(sens.sid)
+    return cluster
+
+
 class Central:
-    agents = []
+    agents = {}
     sensors = []
     agent_configs = {}
     thresholds = {}
@@ -94,8 +126,6 @@ class Central:
         self.error = 0
         self.popSensors()
         self.extractData()
-        # self.sensorSummary()
-        self.trainModel()
 
     def evaluateAgents(self, values, predictions):
         print("values:")
@@ -109,6 +139,13 @@ class Central:
         for s in self.data["sensors"]["on"]:
             self.sensors.append(s)
 
+    def getAllPredictions(self, target, time, val):
+        predictions = {}
+        for a in self.agents:
+            agent = self.agents[a]
+            predictions[a] = agent.makePredictions(target, time, ["pm1"], meas=val)
+        return predictions
+
     def trainModel(self):
         start_interval = datetime.strptime(self.model_params["start_interval"], '%Y-%m-%d %H:%M')
         end_interval = datetime.strptime(self.model_params["end_interval"], '%Y-%m-%d %H:%M')
@@ -119,27 +156,35 @@ class Central:
             values = []
             model_vals = []
             while cursor != end_interval:
-                print("Predictions for ",cursor)
+                print("Predictions for ", cursor)
                 val = getMeasureORM(target, cursor)
                 vals = {sid:[] for sid in self.sensors}
                 if val:
                     values.append(val.pm1)
+
+                    interval_preds = self.getAllPredictions(target, cursor, val)
+                    print(interval_preds)
+                    #for each agent, call collabPrediction
                     for a in self.agents:
-                        pred = a.makePredictions(target, cursor, ["pm1"], meas=val)
-                        vals[a.sid] = (round(pred[0], 2))
-                        # print(pred)
-                        predictions[a.sid].append(round(pred[0], 2))
+                        self_pred = interval_preds[a]
+                        cluster_pred = {}
+                        agent = self.agents[a]
+                        for ca in agent.cluster:
+                            cluster_pred[ca] = interval_preds[ca]
+                        pred = (self_pred, cluster_pred)
+                        print("Agent: ", a)
+                        print("Prediction: ", pred)
+                        #pred = a.collabPrediction(self_pred, cluster_pred)
+                        # vals[a.sid] = (round(pred[0], 2))
+                        # predictions[a.sid].append(round(pred[0], 2))
                 else:
                     print("No target validation data for-->", cursor)
-                model_vals.append(aggregatePrediction(vals))
+                # model_vals.append(aggregatePrediction(vals))
                 cursor += timedelta(hours=1)
-            # print(len(predictions))
-            # print(len(predictions[a[0].sid]))
-            # print(predictions)
-            self.evaluateAgents(values, predictions)
-            self.error = MSE(values, model_vals)
-            print("Model MSE=", self.error)
-            self.saveModel(i)
+            # self.evaluateAgents(values, predictions)
+            # self.error = MSE(values, model_vals)
+            # print("Model MSE=", self.error)
+            # self.saveModel(i)
 
     def sensorSummary(self):
         for s in self.sensors:
@@ -148,9 +193,10 @@ class Central:
     def extractData(self):
         self.thresholds = self.data["thresholds"]
         self.agent_configs = self.data["agent_configs"]
-        for s in self.data["sensors"]["on"]:
-            a = Agent(s, self.thresholds, self.sensors, config=self.agent_configs)
-            self.agents.append(a)
+        for s in self.sensors:
+            cluster = makeCluster(s, self.sensors, self.model_params['cluster_size'])
+            a = Agent(s, self.thresholds, cluster, config=self.agent_configs)
+            self.agents[a.sid] = a
 
     def makePrediction(self, target, time):
         predictions = []

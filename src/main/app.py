@@ -1,10 +1,8 @@
 from datetime import datetime
 
-from sqlalchemy import desc, asc
-from src.map.TileClassifier import *
 from src.map.Central import *
 from src.database.Models import *
-from src.map.HexGrid import geo_tiles_from_db, genSensorLayer_db, geojson_from_tiles
+
 
 
 def unique_tiles(tiles):
@@ -51,10 +49,20 @@ def classifyTiles():
         updateTileClass(k, l1, l2)
 
 
+
+
+
 def main():
-    # c = Central('..\\..\\..\\AirBots\\docs\\Model1')
-    classifyTiles()
-    checkTiles()
+    c = Central('..\\..\\..\\AirBots\\docs\\Model1')
+    c.trainModel()
+    # c.trainModel()
+    # for s in c.sensors:
+    #     print(s)
+    #     print(getTCF(s))
+
+
+    # classifyTiles()
+    # checkTiles()
 
 
 if __name__ == '__main__':
