@@ -28,6 +28,13 @@ def tile_ranges(sensor_tiles, r=5):
     return unique_tiles(tiles)
 
 
+def checkSensorTiles():
+    data = getSensorsORM()
+    for d in data:
+        print(d.sid)
+        print(getTCF(d.tid))
+
+
 def checkTiles():
     data = getTilesORM()
     tile_class = {}
@@ -41,7 +48,7 @@ def checkTiles():
 
 
 def classifyTiles():
-    data = getJson(r'C:\Users\mrusieck\PycharmProjects\AirBot\docs\tile_scrape.txt')
+    data = getJson(r'C:\Users\User\PycharmProjects\AirBots\docs\tile_scrape.txt')
     for k in data:
         print("Tile #", k)
         l1, l2 = classifyT(data[k])
@@ -51,15 +58,7 @@ def classifyTiles():
 def main():
     c = Central('..\\..\\..\\AirBots\\docs\\Model1')
     c.trainModel()
-    # c.trainModel()
-    # for s in c.sensors:
-    #     print(s)
-    #     print(getTCF(s))
-
-
-    # classifyTiles()
-    # checkTiles()
-
+    # insert 5 sample predictions using c.makePrediction()
 
 if __name__ == '__main__':
     main()

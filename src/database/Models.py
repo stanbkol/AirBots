@@ -286,7 +286,7 @@ class Tile(Base):
 
     def getTCF(self):
         class_values = getTC()
-        return class_values['land'][self.tclass] + class_values['road'][self.road]
+        return round(class_values['land'][self.tclass] + class_values['road'][self.road], 2)
 
 
 class Map(Base):
@@ -325,11 +325,8 @@ def getTileCellORM(x, y):
 
 
 def fetchTile_from_sid(sid):
-    with Session as sesh:
-        tid = sesh.query(Sensor.tid).where(Sensor.sid == sid)
-        tile = sesh.query(Tile).where(Tile.tid == tid).one()
-
-    return tile
+    temp = getSensorORM(sid)
+    return getTileORM(temp.tid)
 
 
 def getTilesORM(mapID=1):
@@ -351,9 +348,9 @@ def getTilesSubGrid(x1, y1, x2, y2, mapID=1):
     return tiles
 
 
-def getTileORM(id):
+def getTileORM(tid):
     with Session as sesh:
-        return sesh.query(Tile).where(Tile.tid == id).one()
+        return sesh.query(Tile).where(Tile.tid == tid).one()
 
 
 def getSensorTiles(mapID=1):
@@ -407,9 +404,8 @@ def getTC():
     return getJson('..\\..\\..\\AirBots\\docs\\Classifiers')
 
 
-def getTCF(sid):
-    sens = getSensorORM(sid)
-    tile = getTileORM(sens.tid)
+def getTCF(tid):
+    tile = getTileORM(tid)
     tc = getTC()
     total_tcf = 0
     if tile.tclass:

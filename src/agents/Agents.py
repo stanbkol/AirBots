@@ -22,6 +22,7 @@ class Agent(object):
         self.cluster = cluster_list
         self.models = self._initializeModels()
         self.error = 0
+        self.n_error = 0
         self.target_tile = None
         self.tile = fetchTile_from_sid(self.sid)
         self.bias = 0.70
@@ -57,8 +58,7 @@ class Agent(object):
         # for ti in range(1, len(path)):
         #     deltaCF = path[ti].getCF() - path[ti-1].getCF()
         #     t_tcf += deltaCF
-
-        return 1 - abs(self.tile.getTCF() - self.target_tile.getTCF())
+        self.cf = 1 - abs(self.tile.getTCF() - self.target_tile.getTCF())
 
 
     # def kriging(self):
@@ -96,16 +96,16 @@ class Agent(object):
         cluster_bias = 1 - self.bias
         cluster_prediction = 0
         totalcf = 0
-        for a in self.cluster:
-            totalcf += a.cf
 
-        for a in self.cluster:
-            a_prediction = cluster_predictions[a.sid]
-            piece_of_bias = a.cf/totalcf
+        for a in cluster_predictions:
+            totalcf += cluster_predictions[a][1]
+
+        for a in cluster_predictions:
+            a_prediction = cluster_predictions[a][0][0]
+            piece_of_bias = cluster_predictions[a][1]/totalcf
             cluster_prediction += piece_of_bias * a_prediction
 
         self.prediction = (self.prediction * self.bias) + (cluster_bias * cluster_prediction)
-
         return self.prediction
 
     def improveHeuristic(self, error):
