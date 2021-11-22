@@ -130,23 +130,43 @@ def totalError(data):
     return total
 
 
-def distWeights(target, sensors):
-    weights = {}
-    dist_list = findNearestSensors(target, sensors)
-    total = totalDist(dist_list)
-    for s in dist_list:
-        weights[s[0].sid] = (s[1]/total)
-    print("Distance Weights", weights)
+# def distWeights(target, sensors):
+#     weights = {}
+#     dist_list = findNearestSensors(target, sensors)
+#     total = totalDist(dist_list)
+#     for s in dist_list:
+#         weights[s[0].sid] = (s[1]/total)
+#     print("Distance Weights", weights)
+#     return weights
+
+def kriegWeights(data, pow=2):
+    """
+    calculates Inverse Distance Weights for known sensors relative to an unmeasured target.
+    :param target: unmeasured target
+    :param sensors: known points for which weights are made
+    :param pow: determines the rate at which the weights decrease. Default is 2.
+    :return: dict of sid-->weight on scale between 0 and 1.
+    """
+    sumsup = [(x[0], 1 / np.power(x[1], pow)) for x in data]
+    suminf = sum(n for _, n in sumsup)
+    weights = {x[0].sid: x[1] / suminf for x in sumsup}
     return weights
 
 
-def errorWeights(agents):
-    weights = {}
-    total = totalError(agents)
+def mapAgentsToError(agents):
+    data = []
     for a in agents:
-        weights[a] = agents[a].error/total
-    print("Error Weights", weights)
-    return weights
+        data.append((agents[a], agents[a].error))
+    data.sort(key=lambda x: x[1])
+    return data
+
+
+def checkWeights(w):
+    total = 0
+    for x in w:
+        total += w[x]
+    return total
+
 # update to include other aggregation methods
 # calc distance and error weights in main body and pass the values into agg methods where needed
 
@@ -171,11 +191,11 @@ def makeCluster(sid, sensors, n):
     return cluster
 
 
-def getClusterError(cluster):
+def getClusterError(cluster, agents):
     total = 0
     count = 0
     for a in cluster:
-        total += cluster[a].error
+        total += agents[a].error
         count += 1
     return round(total/count, 2)
 
@@ -205,9 +225,14 @@ class Central:
             # print(predictions[a])
             agent.error = MSE(values, predictions[a])
             agent.n_error = MSE(values, naive_preds[a])
-            if agent.error > self.thresholds['error']:
-                agent.improveHeuristic(agent.error/getClusterError(agent.cluster))
 
+        for a in self.agents:
+            agent = self.agents[a]
+            if agent.error > self.thresholds['error']:
+                print("tweaking-->", a)
+                # print("before", agent.bias)
+                agent.improveHeuristic(agent.error/getClusterError(agent.cluster, self.agents))
+                # print("after", agent.bias)
 
     def popSensors(self):
         for s in self.data["sensors"]["on"]:
@@ -273,6 +298,10 @@ class Central:
             avg_list.append(e['average'])
             dist_list.append(e['distance'])
             err_list.append(e['error'])
+        # print("hard values", values)
+        # print("avg", avg_list)
+        # print("dist", dist_list)
+        # print("error", err_list)
         error['average'] = MSE(values, avg_list)
         error['dist_w'] = MSE(values, dist_list)
         error['error_w'] = MSE(values, err_list)
@@ -304,14 +333,15 @@ class Central:
                 f.write("CF=" + str(agent.cf) + "\n")
                 f.write("Naive MSE=" + str(agent.n_error) + "\n")
                 f.write("Collab MSE=" + str(agent.error) + "\n")
+                f.write("Agent Bias=" + str(agent.bias) + "\n")
             f.write("Model Aggregation" + "\n")
             f.write("Model Error-->" + str(self.error) + "\n")
         f.close()
 
     def aggregateModel(self, preds, num_preds):
         model_vals = []
-        dist_weights = distWeights(self.target, self.sensors)
-        err_weights = errorWeights(self.agents)
+        dist_weights = kriegWeights(findNearestSensors(self.target, self.sensors))
+        err_weights = kriegWeights(mapAgentsToError(self.agents))
         tru_weights = {}
         for i in range(0, num_preds):
             interval_preds = {}

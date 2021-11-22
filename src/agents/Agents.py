@@ -114,6 +114,11 @@ class Agent(object):
         :param error: severity of error
         :return:
         """
+        if error <= 1:
+            # increase agent bias
+            self.bias = round(min(1, self.bias + 0.05), 3)
+        elif error > 1:
+            self.bias = round(max(0.01, self.bias - 0.05), 3)
 
 
 if __name__ == '__main__':
