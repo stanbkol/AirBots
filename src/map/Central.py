@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 import json
 
 import numpy as np
+from openpyxl import load_workbook, Workbook
 
 from src.database.Models import *
 from src.map.TileClassifier import *
@@ -207,14 +208,15 @@ class Central:
     thresholds = {}
 
     def __init__(self, model):
-
         self.model_file = model
+        self.results_file = self.model_file + "_results.xlsx"
         self.data = getJson(self.model_file)
         self.model_params = self.data["model_params"]
         self.target = self.model_params["target"]
         self.error = 0
         self.popSensors()
         self.extractData()
+        self.initializeFile()
 
     def evaluateAgents(self, values, predictions, naive_preds):
         # print("values:")
@@ -323,20 +325,20 @@ class Central:
             predictions.append(p)
         return predictions
 
-    def saveModel(self, i):
-        print("Saving Data")
-        with open(self.model_file + "_results", 'w+', encoding="utf-8") as f:
-            f.write("Iteration #" + str(i) + "\n")
-            for a in self.agents:
-                agent = self.agents[a]
-                f.write("SID:" + str(a) + "\n")
-                f.write("CF=" + str(agent.cf) + "\n")
-                f.write("Naive MSE=" + str(agent.n_error) + "\n")
-                f.write("Collab MSE=" + str(agent.error) + "\n")
-                f.write("Agent Bias=" + str(agent.bias) + "\n")
-            f.write("Model Aggregation" + "\n")
-            f.write("Model Error-->" + str(self.error) + "\n")
-        f.close()
+    # def saveModel(self, i):
+    #     print("Saving Data")
+    #     with open(self.model_file + "_results", 'w+', encoding="utf-8") as f:
+    #         f.write("Iteration #" + str(i) + "\n")
+    #         for a in self.agents:
+    #             agent = self.agents[a]
+    #             f.write("SID:" + str(a) + "\n")
+    #             f.write("CF=" + str(agent.cf) + "\n")
+    #             f.write("Naive MSE=" + str(agent.n_error) + "\n")
+    #             f.write("Collab MSE=" + str(agent.error) + "\n")
+    #             f.write("Agent Bias=" + str(agent.bias) + "\n")
+    #         f.write("Model Aggregation" + "\n")
+    #         f.write("Model Error-->" + str(self.error) + "\n")
+    #     f.close()
 
     def aggregateModel(self, preds, num_preds):
         model_vals = []
@@ -349,3 +351,34 @@ class Central:
                 interval_preds[a] = preds[a][i]
             model_vals.append(aggregatePrediction(interval_preds, dist_weights, err_weights, tru_weights))
         return model_vals
+
+    def saveModel(self, i):
+        print("Saving Data-->Iter #", i)
+        wb = load_workbook(self.results_file)
+        ws = wb.active
+        col = i+1
+        row = 1
+        ws.cell(row, col, "Iter (MSE) #"+str(i))
+        row += 1
+        for a in self.agents:
+            agent = self.agents[a]
+            ws.cell(row, col, agent.error)
+            row += 1
+        ws.cell(row, col, self.error['error_w'])
+        wb.save(self.results_file)
+
+    # def saveCF(self):
+    #     wb = load_workbook(self.results_file)
+    #     ws = wb.active()
+
+    def initializeFile(self):
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Training_Results"
+        ws.cell(1, 1, "Agents")
+        row = 2
+        for s in self.agents:
+            ws.cell(row, 1, s)
+            row += 1
+        ws.cell(row, 1, "Model")
+        wb.save(filename=self.results_file)
