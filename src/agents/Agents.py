@@ -101,24 +101,25 @@ class Agent(object):
             totalcf += cluster_predictions[a][1]
 
         for a in cluster_predictions:
-            a_prediction = cluster_predictions[a][0][0]
+            a_prediction = cluster_predictions[a][0]
             piece_of_bias = cluster_predictions[a][1]/totalcf
             cluster_prediction += piece_of_bias * a_prediction
 
         self.prediction = (self.prediction * self.bias) + (cluster_bias * cluster_prediction)
         return self.prediction
 
-    def improveHeuristic(self, error):
+    def improveHeuristic(self, values, naive, collab, intervals):
         """
         improves bias distribution, model weights
         :param error: severity of error
         :return:
         """
-        if error <= 1:
-            # increase agent bias
-            self.bias = round(min(1, self.bias + 0.05), 3)
-        elif error > 1:
-            self.bias = round(max(0.01, self.bias - 0.05), 3)
+        pass
+        # if error <= 1:
+        #     # increase agent bias
+        #     self.bias = round(min(1, self.bias + 0.05), 3)
+        # elif error > 1:
+        #     self.bias = round(max(0.01, self.bias - 0.05), 3)
 
 
 if __name__ == '__main__':

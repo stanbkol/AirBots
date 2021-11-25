@@ -178,9 +178,9 @@ def aggregatePrediction(preds, dist_weights, error_weights, tru_weights):
     dist = WeightedAggregation(preds, dist_weights)
     err = WeightedAggregation(preds, error_weights)
     # trust = trustAgg(preds, tru_weights)
-    vals['average'] = avg
-    vals['distance'] = dist
-    vals['error'] = err
+    vals['average'] = round(avg, 2)
+    vals['distance'] = round(dist, 2)
+    vals['error'] = round(err, 2)
     return vals
 
 
@@ -228,13 +228,6 @@ class Central:
             agent.error = MSE(values, predictions[a])
             agent.n_error = MSE(values, naive_preds[a])
 
-        for a in self.agents:
-            agent = self.agents[a]
-            if agent.error > self.thresholds['error']:
-                print("tweaking-->", a)
-                # print("before", agent.bias)
-                agent.improveHeuristic(agent.error/getClusterError(agent.cluster, self.agents))
-                # print("after", agent.bias)
 
     def popSensors(self):
         for s in self.data["sensors"]["on"]:
@@ -245,7 +238,7 @@ class Central:
         for a in self.agents:
             agent = self.agents[a]
             pred = agent.makePredictions(target, time, ["pm1"], meas=val)
-            predictions[a] = (pred, agent.cf)
+            predictions[a] = (round(pred[0], 2), agent.cf)
         return predictions
 
     def trainModel(self):
@@ -256,11 +249,13 @@ class Central:
             collab_predictions = {sid: [] for sid in self.sensors}
             naive_predictions = {sid: [] for sid in self.sensors}
             values = []
+            intervals = []
 
             while cursor != end_interval:
                 print("Predictions for ", cursor)
                 val = getMeasureORM(self.target, cursor)
                 # print("Hard Value-->", val.pm1)
+                intervals.append(cursor)
                 vals = {sid: [] for sid in self.sensors}
                 if val:
                     values.append(val.pm1)
@@ -272,9 +267,10 @@ class Central:
                         for ca in agent.cluster:
                             cluster_pred[ca] = interval_preds[ca]
                         pred = round(agent.makeCollabPrediction(cluster_pred)[0], 2)
+                        naive = interval_preds[a][0]
                         vals[a] = pred
                         collab_predictions[a].append(pred)
-                        naive_predictions[a].append(interval_preds[a][0])
+                        naive_predictions[a].append(naive)
                         # print("Agent: ", a)
                         # print("Naive Prediction: ", interval_preds[a][0])
                         # print("Prediction Cluster: ", cluster_pred)
@@ -282,10 +278,23 @@ class Central:
                 else:
                     print("No target validation data for-->", cursor)
                 cursor += timedelta(hours=1)
+
             self.evaluateAgents(values, collab_predictions, naive_predictions)
             model_vals = self.aggregateModel(collab_predictions, countInterval(start_interval, end_interval))
             self.evaluateModel(values, model_vals)
+            self.saveIter(values, collab_predictions, naive_predictions, model_vals, i, intervals)
             self.saveModel(i)
+            for a in self.agents:
+                print("agent H:", a)
+                agent = self.agents[a]
+                key_list = [a]
+                key_list.extend(agent.cluster)
+                n_preds = {}
+                c_preds = {}
+                for k in key_list:
+                    n_preds[k] = naive_predictions[k]
+                    c_preds[k] = collab_predictions[k]
+                agent.improveHeuristic(values, n_preds, c_preds, intervals)
 
     def sensorSummary(self):
         for s in self.sensors:
@@ -355,10 +364,10 @@ class Central:
     def saveModel(self, i):
         print("Saving Data-->Iter #", i)
         wb = load_workbook(self.results_file)
-        ws = wb.active
+        ws = wb["Training_Results"]
         col = i+1
         row = 1
-        ws.cell(row, col, "Iter (MSE) #"+str(i))
+        ws.cell(row, col, "Iter #"+str(i))
         row += 1
         for a in self.agents:
             agent = self.agents[a]
@@ -382,3 +391,55 @@ class Central:
             row += 1
         ws.cell(row, 1, "Model")
         wb.save(filename=self.results_file)
+
+    def saveIter(self, values, collab_predictions, naive_predictions, model_vals, i, intervals):
+        wb = load_workbook(self.results_file)
+        ws = wb.create_sheet("Iteration #"+str(i))
+        # print("vals", values)
+        # print("naive", naive_predictions)
+        # print("collab", collab_predictions)
+        # print("model", model_vals)
+        col = 1
+        row = 1
+        ws.cell(row, col, "Values")
+        # write time interval col headings
+        for i in intervals:
+            col += 1
+            ws.cell(row, col, i)
+        col += 1
+        ws.cell(row, col, "Agent Bias")
+        # write actual values, and 3x model aggregation values
+        actual_ind = 2
+        modelavg_ind = 3
+        dist_ind = 4
+        error_ind = 5
+        num_i = len(intervals)
+        print(num_i)
+        ws.cell(actual_ind, 1, "Real Values")
+        ws.cell(modelavg_ind, 1, "Model AVG")
+        ws.cell(dist_ind, 1, "Model DIST")
+        ws.cell(error_ind, 1, "Model ERR")
+        for i in range(2, num_i+2):
+            ws.cell(actual_ind, i, values[i-2])
+            ws.cell(modelavg_ind, i, model_vals[i-2]['average'])
+            ws.cell(dist_ind, i, model_vals[i - 2]['distance'])
+            ws.cell(error_ind, i, model_vals[i - 2]['error'])
+
+        # write naive and collab values from each agent
+        agent_n_index = 6
+        agent_c_index = 7
+        for a in collab_predictions:
+            col = 1
+            ws.cell(agent_n_index, col, "Agent #"+str(a)+":Naive")
+            ws.cell(agent_c_index, col, "Agent #" + str(a) + ":Collab")
+            num = len(collab_predictions[a])
+            for p in range(0, num):
+                col += 1
+                ws.cell(agent_n_index, col, naive_predictions[a][p])
+                ws.cell(agent_c_index, col, collab_predictions[a][p])
+            col += 1
+            ws.cell(agent_c_index, col, self.agents[a].bias)
+            agent_n_index += 2
+            agent_c_index += 2
+        wb.save(self.results_file)
+
