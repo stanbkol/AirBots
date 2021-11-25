@@ -10,7 +10,7 @@
    "model_params":{
       "num_iter":3,
       "start_interval":"2019-01-10 00:00",
-      "end_interval":"2019-01-10 02:00",
+      "end_interval":"2019-01-10 03:00",
       "target": 6494,
       "cluster_size": 3
    },
