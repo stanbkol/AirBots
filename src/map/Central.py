@@ -146,16 +146,7 @@ def totalError(data):
     return total
 
 
-# def distWeights(target, sensors):
-#     weights = {}
-#     dist_list = findNearestSensors(target, sensors)
-#     total = totalDist(dist_list)
-#     for s in dist_list:
-#         weights[s[0].sid] = (s[1]/total)
-#     print("Distance Weights", weights)
-#     return weights
-
-def kriegWeights(data, pow=2):
+def inverseWeights(data, pow=2):
     """
     calculates Inverse Distance Weights for known sensors relative to an unmeasured target.
     :param target: unmeasured target
@@ -348,8 +339,9 @@ class Central:
 
     def aggregateModel(self, preds, num_preds, target):
         model_vals = []
-        dist_weights = kriegWeights(findNearestSensors(target, self.sensors))
-        err_weights = kriegWeights(mapAgentsToError(self.agents))
+        dist_weights = inverseWeights(findNearestSensors(target, self.sensors))
+        err_weights = inverseWeights(mapAgentsToError(self.agents))
+
         tru_weights = {}
         for i in range(0, num_preds):
             interval_preds = {}

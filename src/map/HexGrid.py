@@ -436,6 +436,13 @@ def create_poly_string(longlat_list):
     return "Polygon({coord_list})".format(coord_list=[longlat_list])
 
 
+def tile_dist_trust_factors():
+    max_range = 7
+    step = 0.98 / max(max_range, 1)
+    dist_factors = [round(s * step, 3) for s in range(1, max_range+1)]
+    dist_factors.reverse()
+    return dist_factors
+
 def run():
     dwa = DwHex(0, 0)
     dwb = DwHex(0, 4)
@@ -469,6 +476,10 @@ def genHexRect_Test():
 
 
 if __name__ == '__main__':
-    # genHexRect()
-    # run()
-    pass
+    tfs = tile_dist_trust_factors()
+    print(tfs)
+    print(f"len: {len(tfs)}")
+    dist = 800
+    closest = min(range(1, 7+1),key=lambda x:abs(x-dist))
+    print(closest)
+    print(f"dist factor at {dist}: {tfs[closest-1]}")

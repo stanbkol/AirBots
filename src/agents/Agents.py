@@ -1,4 +1,4 @@
-import math
+import numpy as np
 
 from src.agents.ForecastModels import RandomModel, NearbyAverage, MinMaxModel, CmaModel, MultiVariate
 from src.database.DbManager import Session
@@ -14,7 +14,7 @@ def _calc_squared_error(prediction, actual):
 
 
 class Agent(object):
-    def __init__(self, sensor_id, thresholds, cluster_list, config=None, confidence=100):
+    def __init__(self, sensor_id, thresholds, cluster_list, config=None, confidence=1):
         self.sid = sensor_id
         self._threshold = thresholds
         self._configs = config
@@ -59,18 +59,18 @@ class Agent(object):
         # for ti in range(1, len(path)):
         #     deltaCF = path[ti].getCF() - path[ti-1].getCF()
         #     t_tcf += deltaCF
-        self.cf = 1 - abs(self.tile.getTCF() - self.target_tile.getTCF())
 
-
-    # def kriging(self):
-    #     tclass = self.target_tile.tclass
-    #     tclass_tiles = getClassTiles(exclude=self.target_tile)
+        tcf_delta = 1 - abs(self.tile.getTCF() - self.target_tile.getTCF())
+        tile_dist_trust = self.getDistTrust()
+        self.cf = np.mean([tcf_delta, tile_dist_trust])
 
     def tiles_change_factor(self, target_tile):
         path = self.tile.pathTo(target_tile)
+        classified_path = [t for t in path if t.tclass is not None]
         total = 0
-        for p_i in range(1, len(path)):
-            total += path[p_i].getCF() - path[p_i-1].getCF()
+        for p_i in range(1, len(classified_path)):
+            percent_diff = path[p_i].getCF() - path[p_i-1].getCF()
+            total += percent_diff
 
         return total
 
@@ -111,17 +111,33 @@ class Agent(object):
 
     def improveHeuristic(self, values, naive, collab, intervals):
         """
-        improves bias distribution, model weights
-        :param error: severity of error
-        :return:
+        improves agent performance
+        :param error: ration of self, naive prediction to collaborated
+        :return: adjusts agent bias
         """
-        pass
         # if error <= 1:
         #     # increase agent bias
-        #     self.bias = round(min(1, self.bias + 0.05), 3)
+        #     self.bias = min(1, self.bias + 0.05)
         # elif error > 1:
-        #     self.bias = round(max(0.01, self.bias - 0.05), 3)
+        #     self.bias = max(0.01, self.bias-0.05)
+
+    def getDistTrust(self):
+        from src.map.HexGrid import DwHex, dw_distance, tile_dist_trust_factors
+        start = DwHex(self.tile.x, self.tile.y)
+        end = DwHex(self.target_tile.x, self.target_tile.y)
+        dist = dw_distance(start, end)
+        # print(f"dist {dist}")
+        dist_factors = tile_dist_trust_factors()
+        closest = min(range(1, len(dist_factors) + 1), key=lambda x: abs(x - dist))
+        return dist_factors[closest - 1]
+
+
+def test_dist_tiles():
+    from src.database.Models import getTileORM
+    smith = Agent(11559, {}, [])
+    smith.target_tile = getTileORM(29304)
+    print(smith.getDistTrust())
 
 
 if __name__ == '__main__':
-   pass
+    test_dist_tiles()
