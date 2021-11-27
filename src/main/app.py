@@ -57,8 +57,11 @@ def classifyTiles():
 
 def main():
     c = Central('..\\..\\..\\AirBots\\docs\\Model1')
-    c.trainModel()
-    # insert 5 sample predictions using c.makePrediction()
+    c.makePrediction(6494, datetime(2019, 1, 5, 0))
+
+    # data = getMeasuresORM(11571, datetime(2019, 1, 1, 0), datetime(2019, 1, 10, 0))
+    # for d in data:
+    #     print(d)
 
 if __name__ == '__main__':
     main()

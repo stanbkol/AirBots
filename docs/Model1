@@ -4,14 +4,11 @@
       "completeness":0.75,
       "trust":0.25,
       "confidence":0.60,
-      "interval":48,
+      "interval":2,
       "error":75
    },
    "model_params":{
-      "num_iter":3,
-      "start_interval":"2019-01-10 00:00",
-      "end_interval":"2019-01-10 03:00",
-      "target": 6494,
+      "num_iter":2,
       "cluster_size": 3
    },
    "map":{
@@ -25,9 +22,9 @@
    },
    "sensors":{
       "on":[
+
          11553,
          11563,
-         11571,
          11583,
          11585,
          11587,
@@ -37,7 +34,8 @@
          11640
             ],
       "off":[
-         2169,
+2169,
+         11571,
          5681,
          5694,
          5697,

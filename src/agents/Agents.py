@@ -23,6 +23,7 @@ class Agent(object):
         self.models = self._initializeModels()
         self.error = 0
         self.n_error = 0
+        self.p_error = 0
         self.target_tile = None
         self.tile = fetchTile_from_sid(self.sid)
         self.bias = 0.70
