@@ -307,6 +307,8 @@ class RandomModel(Model):
     def makePrediction(self, time, values, n=1):
         vals = self.validate_measures(values)
         data, cols = self._prepareData(self.sensor.sid, time, targetObs=vals, hour_interval=48)
+        if not data and not cols:
+            return None
         max_vals = {ob: 0 for ob in vals}
         for target_measure in vals:
             max_vals[target_measure] = max(data, key=lambda measure: measure[cols.index(target_measure)])[cols.index(target_measure)]
@@ -326,8 +328,8 @@ class NearbyAverage(Model):
         n = 3
         for s in sensors[:n]:
             data, cols = self._prepareData(s[0].sid, target_time, targetObs=target_predictions)
-            if not data:
-                return []
+            if not data and not cols:
+                return None
             latest_measure = data[-1]
             for field in target_predictions:
                 totals[field] += latest_measure[cols.index(field)]
@@ -350,6 +352,8 @@ class MinMaxModel(Model):
         n = 3
         for sd in sensor_dists[:n]:
             data, cols = self._prepareData(sd[0].sid, time, targetObs=target_predictions)
+            if not data and not cols:
+                return None
             latest_measure = data[-1]
             for field in target_predictions:
                 sensor_vals[field].append(latest_measure[cols.index(field)])
@@ -375,6 +379,8 @@ class NearestSensor(Model):
         sensor_id = sensors[0][0].sid
 
         data, cols = self._prepareData(sensor_id, time, targetObs=target_predictions)
+        if not data and not cols:
+            return None
         latest_measure = data[-1]
         for field in target_predictions:
             sensor_vals[field] = latest_measure[cols.index(field)]
@@ -397,6 +403,8 @@ class WmaModel(Model):
         # most recent gets higher weight.
         weights = np.array(exp_weights(window))
         data, cols = self._prepareData(target_sensor, time, targetObs=target_predictions)
+        if not data and not cols:
+            return None
         df = createDataframe(cols, data)
         df.sort_values(by='date')
         pred = df['pm1'].rolling(window).apply(lambda x: np.sum(weights * x))
@@ -411,6 +419,8 @@ class CmaModel(Model):
     def makePrediction(self, time, values, window=10):
         target_predictions = self.validate_measures(values)
         data, cols = self._prepareData(self.sensor.sid, time, targetObs=target_predictions, hour_interval=48)
+        if not data and not cols:
+            return None
         results = createDataframe(data, cols)
         predictions = {ob: 0.0 for ob in target_predictions}
 
@@ -483,6 +493,8 @@ class MultiVariate(Model):
 
         target_obs = self.validate_measures(values)
         data, columns = self._prepareData(self.sensor.sid, prediction_time, day_interval=days, hour_interval=hours)
+        if not data and not cols:
+            return None
         predictions = { ob: 0.0 for ob in target_obs}
         # multi-step prediction
         # for hour in range(forward_hours):

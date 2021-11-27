@@ -187,7 +187,7 @@ def getClusterError(cluster, agents):
     total = 0
     count = 0
     for a in cluster:
-        total += agents[a].error
+        total += agents[a].n_error
         count += 1
     return round(total/count, 2)
 
@@ -285,7 +285,7 @@ class Central:
                 for k in key_list:
                     n_preds[k] = naive_predictions[k]
                     c_preds[k] = collab_predictions[k]
-                agent.improveHeuristic(values, n_preds, c_preds, intervals)
+                agent.assessPerformance(values, n_preds, c_preds, intervals)
 
     def sensorSummary(self):
         for s in self.sensors:
