@@ -451,8 +451,8 @@ class Central:
             n_preds = {}
             for k in key_list:
                 n_preds[k] = naive_predictions[k]
-            print("performance review")
-            print(f"\tactual: {values}")
-            print(f"\tnaive: {naive_predictions}")
-            print(f"\tcollabs: {collab_predictions[a]}")
+            # print("performance review")
+            # print(f"\tactual: {values}")
+            # print(f"\tnaive: {naive_predictions}")
+            # print(f"\tcollabs: {collab_predictions[a]}")
             agent.assessPerformance(values, n_preds, collab_predictions[a], intervals)
