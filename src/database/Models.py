@@ -49,6 +49,14 @@ class Measure(Base):
             names.remove('Sensor')
         return names
 
+    @classmethod
+    def _get_obs(cls):
+        names = [attr_name for attr_name in cls.__dict__ if '_' not in attr_name]
+        if 'Sensor' in names:
+            names.remove('Sensor')
+        non_obs = ['dk', 'sid', 'date']
+        return [name for name in names if name not in non_obs]
+
 
 class Sensor(Base):
     __tablename__ = 'sensors'
