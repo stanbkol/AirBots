@@ -251,7 +251,8 @@ class Central:
         for a in self.agents:
             agent = self.agents[a]
             pred = agent.makePredictions(target, time, ["pm1"], meas=val)
-            predictions[a] = (round(pred[0], 2), agent.cf)
+            if pred:
+                predictions[a] = (round(pred[0], 2), agent.cf)
         return predictions
 
     def makePrediction(self, target, time):
@@ -307,6 +308,7 @@ class Central:
             self.evaluateModel(values, model_vals)
             self.saveIter(values, collab_predictions, naive_predictions, model_vals, i, intervals)
             self.saveModel(i)
+
             self.applyHeuristic(values, naive_predictions, collab_predictions, intervals)
 
     def sensorSummary(self):
@@ -449,4 +451,8 @@ class Central:
             n_preds = {}
             for k in key_list:
                 n_preds[k] = naive_predictions[k]
-            agent.improveHeuristic(values, n_preds, collab_predictions[a], intervals)
+            print("performance review")
+            print(f"\tactual: {values}")
+            print(f"\tnaive: {naive_predictions}")
+            print(f"\tcollabs: {collab_predictions[a]}")
+            agent.assessPerformance(values, n_preds, collab_predictions[a], intervals)

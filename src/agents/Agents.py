@@ -51,10 +51,12 @@ class Agent(object):
         errors = {}
         total_se = 0
         for model_name in self._getModelNames():
-            model_prediction = predicts[model_name]
-            squared_error = _calc_squared_error(model_prediction['pm1'], actual)
-            total_se += squared_error
-            errors[model_name] = squared_error
+            if model_name in predicts.keys():
+                model_prediction = predicts[model_name]
+                if model_prediction:
+                    squared_error = _calc_squared_error(model_prediction['pm1'], actual)
+                    total_se += squared_error
+                    errors[model_name] = squared_error
 
         return {model_name: errors[model_name]/total_se for model_name in errors.keys()}
 
@@ -86,14 +88,21 @@ class Agent(object):
         predicts = {}
         for model in self._getModelNames():
             if model == 'mvr':
-                predicts[model] = self.models[model].makePrediction(target_time, values, target_sid=target_sid)
+                prediction = self.models[model].makePrediction(target_time, values, target_sid=target_sid)
+                if prediction:
+                    predicts[model] = prediction
             else:
-                predicts[model] = self.models[model].makePrediction(target_time, values)
+                prediction = self.models[model].makePrediction(target_time, values)
+                if prediction:
+                    predicts[model] = prediction
 
         weights = self._weightModels(predicts, getattr(measure, 'pm1'))
         total_pm1 = 0
         for model in weights.keys():
             total_pm1 += weights[model] * predicts[model]['pm1']
+
+        if total_pm1 == 0:
+            return None
 
         self.prediction = total_pm1
         return total_pm1
@@ -115,7 +124,7 @@ class Agent(object):
         return self.prediction
 
     def getClusterPred(self, naive, collab):
-        return (collab-self.bias*naive) / (1-self.bias)
+        return round((collab - (self.bias * naive)) / (1-self.bias), 2)
 
     def assessPerformance(self, values, naive, collab, intervals=None):
         """
@@ -128,6 +137,8 @@ class Agent(object):
         """
         naive_preds = naive[self.sid]
         cluster_preds = [self.getClusterPred(v, collab[i]) for i,v in enumerate(naive_preds)]
+        print(naive_preds)
+        print(cluster_preds)
 
         cluster_mse = round(mean_squared_error(np.array(values), np.array(cluster_preds)), 2)
         naive_mse = round(mean_squared_error(np.array(values), np.array(naive_preds)), 2)
@@ -210,11 +221,12 @@ def test_bias():
     collab = [21.72,17.61,18.64,26.74,17.61,20.64,16.48,10.69,20.62,18.48,29.75,31.63,23.87,29.57,26.13,30.61,27.87,21.28,34.61,16.28,12.34,18.48,22.29,17.91]
     naive = [21.13,17.5,16.03,32.26,14.93,22.88,16.08,6.77,17.22,15.08,32.77,35.22,24.32,30.55,32.79,32.4,35.52,18.86,38.34,12.96,8.36,17.54,22.53,17.31]
 
-    mock_assPerformance(actual, naive, collab)
+    actual2 = [13.0, 9.56, 8.57, 6.93]
+    naive2 = [15.22, 16.13, 9.86, 13.87]
+    collab2 = [1.08, 7.3, 16.53, 26.0]
+    mock_assPerformance(actual2, naive2, collab2)
 
 
 if __name__ == '__main__':
     # test_dist_tiles()
-    # test_bias()
-    pass
-    # print(_rel_diff(90, 100))
+    test_bias()
