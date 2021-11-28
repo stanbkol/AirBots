@@ -15,7 +15,7 @@ def _rel_diff(val, ref):
 
 
 def _calc_squared_error(prediction, actual):
-    return (actual-prediction)**2
+    return (actual - prediction) ** 2
 
 
 class Agent(object):
@@ -33,6 +33,8 @@ class Agent(object):
         self.tile = fetchTile_from_sid(self.sid)
         self.bias = 0.70
         self.prediction = 0
+        self._integrity = 1
+        self._data_integrity = 1
 
     def _initializeModels(self):
         models = {"rand": RandomModel(self.sid, self.cluster),
@@ -58,7 +60,7 @@ class Agent(object):
                     total_se += squared_error
                     errors[model_name] = squared_error
 
-        return {model_name: errors[model_name]/total_se for model_name in errors.keys()}
+        return {model_name: errors[model_name] / total_se for model_name in errors.keys()}
 
     def _updateConfidence(self):
         # path = self.tile.pathTo(self.target_tile)
@@ -76,7 +78,7 @@ class Agent(object):
         classified_path = [t for t in path if t.tclass is not None]
         total = 0
         for p_i in range(1, len(classified_path)):
-            percent_diff = path[p_i].getCF() - path[p_i-1].getCF()
+            percent_diff = path[p_i].getCF() - path[p_i - 1].getCF()
             total += percent_diff
 
         return total
@@ -84,16 +86,19 @@ class Agent(object):
     def makePredictions(self, target_sid, target_time, values, meas=None):
         self.target_tile = fetchTile_from_sid(target_sid)
         self._updateConfidence()
+        data_integrity = list()
         measure = meas
         predicts = {}
         for model in self._getModelNames():
             if model == 'mvr':
                 prediction = self.models[model].makePrediction(target_time, values, target_sid=target_sid)
                 if prediction:
+                    data_integrity.append(float(self.models[model].db_imputed))
                     predicts[model] = prediction
             else:
                 prediction = self.models[model].makePrediction(target_time, values)
                 if prediction:
+                    data_integrity.append(float(self.models[model].db_imputed))
                     predicts[model] = prediction
 
         weights = self._weightModels(predicts, getattr(measure, 'pm1'))
@@ -103,6 +108,9 @@ class Agent(object):
 
         if total_pm1 == 0:
             return None
+
+        self._integrity = round(len(predicts.keys()) / len(self._getModelNames()), 2)
+        self._data_integrity = round(1-np.mean(data_integrity), 2)
 
         self.prediction = total_pm1
         return total_pm1
@@ -117,7 +125,7 @@ class Agent(object):
 
         for a in cluster_predictions:
             a_prediction = cluster_predictions[a][0]
-            piece_of_bias = cluster_predictions[a][1]/totalcf
+            piece_of_bias = cluster_predictions[a][1] / totalcf
             cluster_prediction += piece_of_bias * a_prediction
 
         self.prediction = (self.prediction * self.bias) + (cluster_bias * cluster_prediction)
@@ -127,7 +135,7 @@ class Agent(object):
         # print(f"\t\tn {naive}, type {type(naive)}")
         # print(f"\t\tc {collab}, type {type(collab)}")
 
-        wnp = round((collab - (self.bias * naive)) / (1-self.bias), 2)
+        wnp = round((collab - (self.bias * naive)) / (1 - self.bias), 2)
         # print(f"\t\twnp: {wnp}, type:{type(wnp)}")
         return wnp
 
@@ -141,9 +149,11 @@ class Agent(object):
         :return: adjusts agent bias by a percentage
         """
         naive_preds = naive[self.sid]
-        cluster_preds = [self.getClusterPred(float(v), float(collab[i])) for i,v in enumerate(naive_preds)]
+        cluster_preds = [self.getClusterPred(float(v), float(collab[i])) for i, v in enumerate(naive_preds)]
         # print(naive_preds)
         # print(cluster_preds)
+        print(f"\t\tintegrity: {self._integrity}")
+        print(f"\t\tdata integrity: {self._data_integrity}")
 
         cluster_mse = round(mean_squared_error(np.array(values), np.array(cluster_preds)), 2)
         naive_mse = round(mean_squared_error(np.array(values), np.array(naive_preds)), 2)
@@ -180,7 +190,7 @@ def mock_assPerformance(values, naive, collab):
     naive_preds = naive
 
     def getClusteredPred(naive, colab, bias):
-        wnp = round((colab - (bias * naive)) / (1 - bias),2)
+        wnp = round((colab - (bias * naive)) / (1 - bias), 2)
         print(f"\t\twnp: {wnp}")
         return wnp
 
@@ -209,24 +219,27 @@ def mock_assPerformance(values, naive, collab):
 
     print(f"cluster_ms/naive_mse: {fraction}")
     print(f"rel_change(collab, rel=naive): {rel_change}")
-    print(f"percent changed by: {1+rel_change}")
+    print(f"percent changed by: {1 + rel_change}")
     print(f"old bias: {bias}")
 
-    print(f"bias diff: {bias * (1+rel_change)}")
+    print(f"bias diff: {bias * (1 + rel_change)}")
     if fraction < 1:
         print("naive has more error, decrease bias!")
-        bias = round(bias - min([0.10, bias * (1+rel_change)]),2)
+        bias = round(bias - min([0.10, bias * (1 + rel_change)]), 2)
     elif fraction > 1:
         print("collab has more error increase bias!")
-        bias = round(bias + min([0.10, bias * (1+rel_change)]),2)
+        bias = round(bias + min([0.10, bias * (1 + rel_change)]), 2)
 
     print(f"new bias: {bias}")
 
 
 def test_bias():
-    actual = [19.74,20.88,21.42,22.21,22.07,24.02,25.04,25.01,24.92,24.2,23.65,23.63,20.53,19.84,21.76,20.86,20.94,20.75,21.62,22.44,24.07,28.97,28.89,25.82]
-    collab = [21.72,17.61,18.64,26.74,17.61,20.64,16.48,10.69,20.62,18.48,29.75,31.63,23.87,29.57,26.13,30.61,27.87,21.28,34.61,16.28,12.34,18.48,22.29,17.91]
-    naive = [21.13,17.5,16.03,32.26,14.93,22.88,16.08,6.77,17.22,15.08,32.77,35.22,24.32,30.55,32.79,32.4,35.52,18.86,38.34,12.96,8.36,17.54,22.53,17.31]
+    actual = [19.74, 20.88, 21.42, 22.21, 22.07, 24.02, 25.04, 25.01, 24.92, 24.2, 23.65, 23.63, 20.53, 19.84, 21.76,
+              20.86, 20.94, 20.75, 21.62, 22.44, 24.07, 28.97, 28.89, 25.82]
+    collab = [21.72, 17.61, 18.64, 26.74, 17.61, 20.64, 16.48, 10.69, 20.62, 18.48, 29.75, 31.63, 23.87, 29.57, 26.13,
+              30.61, 27.87, 21.28, 34.61, 16.28, 12.34, 18.48, 22.29, 17.91]
+    naive = [21.13, 17.5, 16.03, 32.26, 14.93, 22.88, 16.08, 6.77, 17.22, 15.08, 32.77, 35.22, 24.32, 30.55, 32.79,
+             32.4, 35.52, 18.86, 38.34, 12.96, 8.36, 17.54, 22.53, 17.31]
 
     actual2 = [13.0, 9.56, 8.57, 6.93]
     naive2 = [6.65, 16.33, 16.59, 14.41]

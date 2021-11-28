@@ -116,6 +116,7 @@ class Model(object):
         self.sensor = getSensorORM(sensor_id)
         self.sensor_list = sensor_list
         self._mse = 0
+        self._db_imputed = 0
         # self.pred_tile = target_tile
         # self.target_time = target_time
 
@@ -159,7 +160,6 @@ class Model(object):
 
     def _cleanIntervals(self, data, start, end):
         """
-
         :param data: list of Measurement objects.
         :return: list of Measurement objects with filled in missing hours, sorted by date field
         """
@@ -192,20 +192,6 @@ class Model(object):
 
     def _fetch_db_measure(self, target, month, day, hour, d_delta=1, h_delta=2):
         with Session as sesh:
-            # if day < 3:
-            #     # get the next x days
-            #     orm_measures = sesh.query(Measure).filter(Measure.sid == self.sensor.sid). \
-            #         filter(extract('month', Measure.date) == month). \
-            #         filter(and_(day <= extract('day', Measure.date), extract('day', Measure.date) <= (day + d_delta))). \
-            #         filter(and_((hour-h_delta) <= extract('hour', Measure.date), extract('hour', Measure.date) <= (hour+h_delta))).all()
-            # elif day > 28:
-            #     # get the past x days
-            #     orm_measures = sesh.query(Measure).filter(Measure.sid == self.sensor.sid). \
-            #         filter(extract('month', Measure.date) == month). \
-            #         filter(and_((day - d_delta) <= extract('day', Measure.date), extract('day', Measure.date) <= day)). \
-            #         filter(and_((hour-h_delta) <= extract('hour', Measure.date), extract('hour', Measure.date) <= (hour+h_delta))).all()
-            # else:
-                # include days before and after date
             orm_measures = sesh.query(Measure).filter(Measure.sid == self.sensor.sid). \
                 filter(extract('month', Measure.date) == month). \
                 filter(and_((day - d_delta) < extract('day', Measure.date), extract('day', Measure.date) < (day + d_delta))). \
@@ -217,7 +203,6 @@ class Model(object):
 
     def _impute_missing(self, measures, fields):
         """
-
         :param measures: list of tuples containing Measure attributes
         :return: list of imputed values based of average of same values for each hour of dataset
         """
@@ -226,13 +211,14 @@ class Model(object):
 
         time = fields.index('date')
         measures = [list(m) for m in measures]
+        possible_imputes = len(measures) * len(Measure._get_obs())
+        num_imputed = 0
+        db_imputed = 0
         for m in measures:
             empties = [i for i, v in enumerate(m) if v is None]
             if empties:
-                # print("cleaning hour..", end=" ")
-                # print(m[time])
-                # print(m)
-                # every None index
+                num_imputed += len(empties)
+
                 for i in empties:
                     all_rows = list()
                     for row in measures:
@@ -244,10 +230,10 @@ class Model(object):
                                 all_rows.append(row[i])
                     # all_rows = [row[i] for row in measures if int(m[time].hour) == int(row[time].hour)]
                     vals_list = [x for x in all_rows if x is not None and not math.isnan(x)]
-                    # TODO: if vals_list is empty do a db query by month for 3 days of pm vals for median.
                     if len(vals_list) < 1:
                         # print("\t\tgot it from DB!")
                         vals_list = self._fetch_db_measure(target=fields[i], month=m[time].month, day=m[time].day, hour=m[time].hour)
+                        db_imputed += 1
                     # print("\t\tmedians from: "+ str(vals_list))
                     median = np.median(vals_list)
                     # print("\t\tmedian: " + str(median))
@@ -256,7 +242,8 @@ class Model(object):
                     # print("\tfixed measure: " + str(m))
 
             # print(m)
-
+        if db_imputed > 0:
+            self._db_imputed = round(db_imputed/possible_imputes, 2)
         measures = [tuple(m) for m in measures]
 
         return sorted(measures, key=lambda m: m[time])
@@ -290,6 +277,7 @@ class Model(object):
             # too much data missing for interval
             return None, None
 
+        self.completed = complete
         cleaned = self._cleanIntervals(orm_data, new_start, new_end)
         # df = measure_to_df(cleaned)
         # sensor_id, datetime, temperature, pms
@@ -297,6 +285,14 @@ class Model(object):
         imputed = self._impute_missing(measure_tuples, fields_order)
 
         return imputed, fields_order
+
+    @property
+    def db_imputed(self):
+        return self._db_imputed
+
+    @db_imputed.setter
+    def db_imputed(self, value):
+        self._db_imputed = value
 
 
 # predict value between 0 and maximum value of target sensor
@@ -493,7 +489,7 @@ class MultiVariate(Model):
 
         target_obs = self.validate_measures(values)
         data, columns = self._prepareData(self.sensor.sid, prediction_time, day_interval=days, hour_interval=hours)
-        if not data and not cols:
+        if not data and not columns:
             return None
         predictions = { ob: 0.0 for ob in target_obs}
         # multi-step prediction
