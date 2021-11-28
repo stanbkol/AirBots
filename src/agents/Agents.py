@@ -124,7 +124,12 @@ class Agent(object):
         return self.prediction
 
     def getClusterPred(self, naive, collab):
-        return round((collab - (self.bias * naive)) / (1-self.bias), 2)
+        # print(f"\t\tn {naive}, type {type(naive)}")
+        # print(f"\t\tc {collab}, type {type(collab)}")
+
+        wnp = round((collab - (self.bias * naive)) / (1-self.bias), 2)
+        # print(f"\t\twnp: {wnp}, type:{type(wnp)}")
+        return wnp
 
     def assessPerformance(self, values, naive, collab, intervals=None):
         """
@@ -136,9 +141,9 @@ class Agent(object):
         :return: adjusts agent bias by a percentage
         """
         naive_preds = naive[self.sid]
-        cluster_preds = [self.getClusterPred(v, collab[i]) for i,v in enumerate(naive_preds)]
-        print(naive_preds)
-        print(cluster_preds)
+        cluster_preds = [self.getClusterPred(float(v), float(collab[i])) for i,v in enumerate(naive_preds)]
+        # print(naive_preds)
+        # print(cluster_preds)
 
         cluster_mse = round(mean_squared_error(np.array(values), np.array(cluster_preds)), 2)
         naive_mse = round(mean_squared_error(np.array(values), np.array(naive_preds)), 2)
@@ -147,10 +152,10 @@ class Agent(object):
 
         if fraction < 1:
             # print("naive has more error, decrease bias!")
-            self.bias = round(self.bias - min([0.30, self.bias * (1 + rel_change)]), 2)
+            self.bias = max(0.51, round(self.bias - min([0.05, self.bias * (1 + rel_change)]), 2))
         elif fraction > 1:
             # print("collab has more error increase bias!")
-            self.bias = round(self.bias + min([0.30, self.bias * (1 + rel_change)]), 2)
+            self.bias = min(0.90, round(self.bias + min([0.05, self.bias * (1 + rel_change)]), 2))
 
     def getDistTrust(self):
         from src.map.HexGrid import DwHex, dw_distance, tile_dist_trust_factors
@@ -175,7 +180,9 @@ def mock_assPerformance(values, naive, collab):
     naive_preds = naive
 
     def getClusteredPred(naive, colab, bias):
-        return round((colab - (bias * naive)) / (1 - bias),2)
+        wnp = round((colab - (bias * naive)) / (1 - bias),2)
+        print(f"\t\twnp: {wnp}")
+        return wnp
 
     cluster_preds = [getClusteredPred(v, collab[i], bias) for i, v in enumerate(naive_preds)]
 
@@ -222,8 +229,8 @@ def test_bias():
     naive = [21.13,17.5,16.03,32.26,14.93,22.88,16.08,6.77,17.22,15.08,32.77,35.22,24.32,30.55,32.79,32.4,35.52,18.86,38.34,12.96,8.36,17.54,22.53,17.31]
 
     actual2 = [13.0, 9.56, 8.57, 6.93]
-    naive2 = [15.22, 16.13, 9.86, 13.87]
-    collab2 = [1.08, 7.3, 16.53, 26.0]
+    naive2 = [6.65, 16.33, 16.59, 14.41]
+    collab2 = [10.3, 15.19, 7.82, 7.84]
     mock_assPerformance(actual2, naive2, collab2)
 
 
