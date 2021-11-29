@@ -1,5 +1,4 @@
 import datetime
-# from datetime import datetime, timedelta
 from abc import abstractmethod
 import random as rand
 import pandas
@@ -33,7 +32,6 @@ def exp_weights(n):
 
 def calc_weights(n):
     """
-
     :param n:
     :return:
     """
@@ -46,7 +44,7 @@ def calc_weights(n):
 
 def findNearestSensors(sensorid, s_list):
     """
-
+    grabs nearest sensors to passed sensor id from the database
     :param sensorid: sensor for which to find nearest neighbors.
     :param s_list: list of active sensors
     :return: list of (Sensor object, meters distance) tuples
@@ -80,7 +78,13 @@ def getAttributes(obj, attrs):
         yield getattr(obj, attr)
 
 
-def new_prepMeasures(measure_list, columns=None):
+def prepMeasures(measure_list, columns=None):
+    """
+    reformats Measure list into list of tuples with provided attributes
+    :param measure_list: list of Measure objects
+    :param columns: list of attributes names to include
+    :return: list of tuples and the column names.
+    """
     preped = []
     obs = ['temp', 'pm1', 'pm10', 'pm25']
     attributes = [attr_name for attr_name in Measure.__dict__ if not str(attr_name).startswith("_")]
@@ -103,7 +107,7 @@ def new_prepMeasures(measure_list, columns=None):
 
 class Model(object):
     """
-
+    base model for forecast models
     """
     configs = {"error": 0.75,
                "confidence_error": 0.35,
@@ -160,6 +164,7 @@ class Model(object):
 
     def _cleanIntervals(self, data, start, end):
         """
+        given a list of Measure objects, start time, and end time: fills missing hour intervals with empty Measure objects.
         :param data: list of Measurement objects.
         :return: list of Measurement objects with filled in missing hours, sorted by date field
         """
@@ -191,6 +196,17 @@ class Model(object):
         return (dataset - 1) / total
 
     def _fetch_db_measure(self, target, month, day, hour, d_delta=1, h_delta=2):
+        """
+        Fetches measure values of type 'target' in from a time interval defined by params across all years.
+        :param target: the values to extract from the Measure
+        :param month: month value 0-12
+        :param day: 1-31
+        :param hour: hour of Measure
+        :param d_delta: day range +/-
+        :param h_delta: hour range +/-
+        :return: list of target values across time interval
+        """
+
         with Session as sesh:
             orm_measures = sesh.query(Measure).filter(Measure.sid == self.sensor.sid). \
                 filter(extract('month', Measure.date) == month). \
@@ -203,6 +219,8 @@ class Model(object):
 
     def _impute_missing(self, measures, fields):
         """
+        imputes missing values based on median values from measure dataset, if not available expands search scope to
+        entire database.
         :param measures: list of tuples containing Measure attributes
         :return: list of imputed values based of average of same values for each hour of dataset
         """
@@ -250,6 +268,7 @@ class Model(object):
 
     def _prepareData(self, target_sensor, prediction_time, day_interval=0, hour_interval=1, targetObs: [] = None):
         """
+        prepares data for use in forecast model. returned time series has no gaps. If too much data is missing, returns None.
         :param target_sensor: integer sensor id
         :param prediction_time: datetime object defining the time of prediction.
         :param day_interval: amount of historical data to use from the time of prediction by day.
@@ -270,7 +289,7 @@ class Model(object):
         complete = len(orm_data) / total_hours
         if len(orm_data) == total_hours:
             # nothing to clean
-            m_tuples, field_names = new_prepMeasures(orm_data, columns=targetObs)
+            m_tuples, field_names = prepMeasures(orm_data, columns=targetObs)
             return m_tuples, field_names
 
         if complete < 0.75:
@@ -281,7 +300,7 @@ class Model(object):
         cleaned = self._cleanIntervals(orm_data, new_start, new_end)
         # df = measure_to_df(cleaned)
         # sensor_id, datetime, temperature, pms
-        measure_tuples, fields_order = new_prepMeasures(cleaned, columns=targetObs)
+        measure_tuples, fields_order = prepMeasures(cleaned, columns=targetObs)
         imputed = self._impute_missing(measure_tuples, fields_order)
 
         return imputed, fields_order
@@ -365,6 +384,9 @@ class MinMaxModel(Model):
 
 # value of nearest station
 class NearestSensor(Model):
+    """
+    grabs latest value from the n nearest sensors
+    """
     def __init__(self, sensor_id, config=None):
         super().__init__(sensor_id, config=config)
 
@@ -390,6 +412,9 @@ class NearestSensor(Model):
 
 # Weighted Moving Average
 class WmaModel(Model):
+    """
+    weighted moving average
+    """
     def __init__(self, sensor_id, config=None):
         super().__init__(sensor_id, config=config)
 
@@ -408,6 +433,10 @@ class WmaModel(Model):
 
 
 class CmaModel(Model):
+    """
+    cumulative moving average
+    """
+
     def __init__(self, sensor_id, sensors, config=None, cma=False):
         super().__init__(sensor_id, sensor_list=sensors, config=config)
         self._include_cma = cma
@@ -438,6 +467,9 @@ class CmaModel(Model):
 
 # To Do: AutoREgressiveIntegratedMovingAverage
 class ARMIAX(Model):
+    """
+    Non-seasonal Auto Regressive Integrated Moving Average. model determined on p,d,q values.
+    """
     def __init__(self, sensor_id, config=None, stationary=True):
         super().__init__(sensor_id, config=config)
         self.seasonal = not stationary
@@ -477,6 +509,9 @@ class ARMIAX(Model):
 # update to involve two sensorids; use the predicting sensors data to define the model, and plug in values from the
 # target sensor to make prediction
 class MultiVariate(Model):
+    """
+    Multivariate regression model
+    """
     def __init__(self, sensor_id, sensors, config=None):
         super().__init__(sensor_id, sensor_list=sensors, config=config)
 
@@ -492,9 +527,6 @@ class MultiVariate(Model):
         if not data and not columns:
             return None
         predictions = { ob: 0.0 for ob in target_obs}
-        # multi-step prediction
-        # for hour in range(forward_hours):
-        #     time_increment = datetime.timedelta(hours=hour)
         actual_value = getMeasureORM(target_sid, prediction_time)
 
         for ob in target_obs:
@@ -514,6 +546,7 @@ class MultiVariate(Model):
             # for d in X:
             #     print(d)
             reg_model.fit(X, Y)
+
             # TODO: use MA to estimate dependent variables for future hours, if data is not available in database.
             test_data = [getattr(actual_value, attr) for attr in dependent_vars]
             predictions[ob] = reg_model.predict([test_data])
@@ -522,21 +555,4 @@ class MultiVariate(Model):
 
 
 if __name__ == '__main__':
-    sensors = [
-         11553,
-         11563,
-         11571,
-         11583,
-         11585,
-         11587,
-         11596,
-         11597,
-         11619,
-         11640
-            ]
-    thresholds = {}
-    marvin = MultiVariate(11563, sensors, thresholds)
-    date = datetime.datetime(year=2019, month=1, day=6, hour=0)
-    data, cols = marvin._prepareData(11563, date, day_interval=2, hour_interval=0, targetObs=['pm1'])
-    for d in data:
-        print(d)
+    pass

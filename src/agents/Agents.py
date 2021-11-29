@@ -50,6 +50,12 @@ class Agent(object):
         return ['rand', 'nearby', 'minmax', 'sma', 'mvr']
 
     def _weightModels(self, predicts, actual):
+        """
+        assigns weights to forecast models. models with lower error receive higher weights.
+        :param predicts: dictionary of model_name: {pm: value}
+        :param actual: actual value of pm
+        :return: dictionary of model name: normalized weight
+        """
         errors = {}
         total_se = 0
         for model_name in self._getModelNames():
@@ -63,6 +69,10 @@ class Agent(object):
         return {model_name: errors[model_name] / total_se for model_name in errors.keys()}
 
     def _updateConfidence(self):
+        """
+        updates the agent's confidence rating based on distance to target tile and difference in tile classification
+        :return:
+        """
         # path = self.tile.pathTo(self.target_tile)
         # t_tcf = 0
         # for ti in range(1, len(path)):
@@ -74,6 +84,11 @@ class Agent(object):
         self.cf = np.mean([tcf_delta, tile_dist_trust])
 
     def tiles_change_factor(self, target_tile):
+        """
+        sums tile change factors in path from agent tile to prediction tile.
+        :param target_tile: the target of prediction for agent
+        :return: sum percent difference
+        """
         path = self.tile.pathTo(target_tile)
         classified_path = [t for t in path if t.tclass is not None]
         total = 0
@@ -84,6 +99,15 @@ class Agent(object):
         return total
 
     def makePredictions(self, target_sid, target_time, values, meas=None):
+        """
+        makes predictions from all forecast models, inverse weights them according to error, and calculates agent model
+        integrity and model data integrity average. returns a single predicted pm value.
+        :param target_sid: sensor id of sensor residing in target tile
+        :param target_time: datetime for which the prediction is made
+        :param values: the pm values you are predicting
+        :param meas: the measure object at target time (for validation)
+        :return:
+        """
         self.target_tile = fetchTile_from_sid(target_sid)
         self._updateConfidence()
         data_integrity = list()
@@ -101,6 +125,7 @@ class Agent(object):
                     data_integrity.append(float(self.models[model].db_imputed))
                     predicts[model] = prediction
 
+        # TODO: check for training flag to not reweight outside training, save weights on agent scope
         weights = self._weightModels(predicts, getattr(measure, 'pm1'))
         total_pm1 = 0
         for model in weights.keys():
@@ -116,6 +141,11 @@ class Agent(object):
         return total_pm1
 
     def makeCollabPrediction(self, cluster_predictions):
+        """
+        makes a collaborative prediction with other agents in cluster
+        :param cluster_predictions:
+        :return: a single value for predicted pm
+        """
         cluster_bias = 1 - self.bias
         cluster_prediction = 0
         totalcf = 0
@@ -168,6 +198,10 @@ class Agent(object):
             self.bias = min(0.90, round(self.bias + min([0.05, self.bias * (1 + rel_change)]), 2))
 
     def getDistTrust(self):
+        """
+        calculates the confidence factor based on tile distance (double-width coordinates) to target tile
+        :return:
+        """
         from src.map.HexGrid import DwHex, dw_distance, tile_dist_trust_factors
         start = DwHex(self.tile.x, self.tile.y)
         end = DwHex(self.target_tile.x, self.target_tile.y)
@@ -178,75 +212,3 @@ class Agent(object):
         return dist_factors[closest - 1]
 
 
-def test_dist_tiles():
-    from src.database.Models import getTileORM
-    smith = Agent(11559, {}, [])
-    smith.target_tile = getTileORM(29304)
-    print(smith.getDistTrust())
-
-
-def mock_assPerformance(values, naive, collab):
-    bias = 0.65
-    naive_preds = naive
-
-    def getClusteredPred(naive, colab, bias):
-        wnp = round((colab - (bias * naive)) / (1 - bias), 2)
-        print(f"\t\twnp: {wnp}")
-        return wnp
-
-    cluster_preds = [getClusteredPred(v, collab[i], bias) for i, v in enumerate(naive_preds)]
-
-    # for i,v in enumerate(naive_preds):
-    #     cp = getClusteredPred(v, collab[i], 0.7)
-    #     print(f"collab: {collab[i]}")
-    #     print(f"np:{v}")
-    #     print(f"cp: {cp}")
-    #     print(f"collabPrediction: {bias*v + 0.3*cp}")
-
-    cluster_mse = round(mean_squared_error(np.array(values), np.array(cluster_preds)), 2)
-    naive_mse = round(mean_squared_error(np.array(values), np.array(naive_preds)), 2)
-
-    print(f"naive_preds: {naive_preds}")
-    print(f"cluster_preds: {cluster_preds}")
-
-    print(f"naive_mse: {naive_mse}")
-    print(f"cluster_mse: {cluster_mse}")
-
-    # if c_mse > nmse shift bias to self, else give more weight to cluster.
-
-    fraction = cluster_mse / naive_mse
-    rel_change = _rel_diff(cluster_mse, naive_mse)
-
-    print(f"cluster_ms/naive_mse: {fraction}")
-    print(f"rel_change(collab, rel=naive): {rel_change}")
-    print(f"percent changed by: {1 + rel_change}")
-    print(f"old bias: {bias}")
-
-    print(f"bias diff: {bias * (1 + rel_change)}")
-    if fraction < 1:
-        print("naive has more error, decrease bias!")
-        bias = round(bias - min([0.10, bias * (1 + rel_change)]), 2)
-    elif fraction > 1:
-        print("collab has more error increase bias!")
-        bias = round(bias + min([0.10, bias * (1 + rel_change)]), 2)
-
-    print(f"new bias: {bias}")
-
-
-def test_bias():
-    actual = [19.74, 20.88, 21.42, 22.21, 22.07, 24.02, 25.04, 25.01, 24.92, 24.2, 23.65, 23.63, 20.53, 19.84, 21.76,
-              20.86, 20.94, 20.75, 21.62, 22.44, 24.07, 28.97, 28.89, 25.82]
-    collab = [21.72, 17.61, 18.64, 26.74, 17.61, 20.64, 16.48, 10.69, 20.62, 18.48, 29.75, 31.63, 23.87, 29.57, 26.13,
-              30.61, 27.87, 21.28, 34.61, 16.28, 12.34, 18.48, 22.29, 17.91]
-    naive = [21.13, 17.5, 16.03, 32.26, 14.93, 22.88, 16.08, 6.77, 17.22, 15.08, 32.77, 35.22, 24.32, 30.55, 32.79,
-             32.4, 35.52, 18.86, 38.34, 12.96, 8.36, 17.54, 22.53, 17.31]
-
-    actual2 = [13.0, 9.56, 8.57, 6.93]
-    naive2 = [6.65, 16.33, 16.59, 14.41]
-    collab2 = [10.3, 15.19, 7.82, 7.84]
-    mock_assPerformance(actual2, naive2, collab2)
-
-
-if __name__ == '__main__':
-    # test_dist_tiles()
-    test_bias()
