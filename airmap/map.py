@@ -1,15 +1,5 @@
-import json
-from urllib.parse import urlencode
-from math import sqrt
-import geojson
-import requests
 from flask import Flask
 import folium
-from geojson import Polygon, Feature, FeatureCollection, Point
-from src.map.MapPoint import calcDistance, MapPoint, calcCoordinate
-from src.map.TileBin import TileBin
-from src.database.utils import drange
-from src.database.Models import getTilesORM, Tile
 
 app = Flask(__name__)
 

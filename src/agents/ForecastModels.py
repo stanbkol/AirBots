@@ -11,7 +11,7 @@ import math
 from sqlalchemy import extract, and_
 
 from src.database.DbManager import Session
-from src.database.utils import drange
+from src.main.utils import drange
 import statsmodels.api as sm
 from src.database.Models import getMeasureORM, getSensorORM, Measure, getObservations
 from src.map.MapPoint import MapPoint, calcDistance

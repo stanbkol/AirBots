@@ -1,5 +1,5 @@
 from src.map.MapPoint import calcCoordinate, calcDistance, MapPoint
-from src.database.utils import drange, Field
+from src.main.utils import drange, Field
 
 
 class TileBin:

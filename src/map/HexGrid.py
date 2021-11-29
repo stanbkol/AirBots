@@ -5,7 +5,7 @@ from urllib.parse import urlencode
 import geojson
 import requests
 from geojson import Polygon, Feature, FeatureCollection, Point
-from src.database.utils import drange
+from src.main.utils import drange
 from src.map.MapPoint import calcCoordinate, calcDistance, MapPoint
 
 

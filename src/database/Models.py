@@ -1,13 +1,12 @@
 from datetime import datetime
 from itertools import chain
 
-from src.database.DataLoader import getMeasures, getSensors, createConnection, getTiles, getSensor
-from src.database.DbManager import Base, Session, addOpoleMap, insertTileBins, insertSensors, insertMeasures, \
-    fetchSensorBounds, insertTiles, engine
+from src.database.DataLoader import getMeasures, createConnection, getSensor
+from src.database.DbManager import Base, Session, fetchSensorBounds, insertTiles
 from src.map.HexGrid import genHexGrid
 from src.map.MapPoint import calcCoordinate, calcDistance, MapPoint
-from src.database.utils import drange
-from sqlalchemy import Column, String, Integer, Float, ForeignKey, DateTime, update, and_, func, desc
+from src.main.utils import drange
+from sqlalchemy import Column, String, Integer, Float, ForeignKey, DateTime, update, and_, desc
 from sqlalchemy.orm import relationship
 from sqlalchemy.future import select
 import re
@@ -262,7 +261,7 @@ class Tile(Base):
         :param other: the target Tile
         :return: list of Tiles of direct path from this Tile to target, starting and ending tiles included
         """
-        from src.map.HexGrid import DwHex, Hex, hex_linedraw, dw_to_hex, hex_to_dw
+        from src.map.HexGrid import DwHex, hex_linedraw, dw_to_hex, hex_to_dw
         start = dw_to_hex(DwHex(self.x, self.y))
         end = dw_to_hex(DwHex(other.x, other.y))
         with Session as sesh:
@@ -374,6 +373,7 @@ def getSensorTiles(mapID=1):
                 tiles.append(tile)
 
     return tiles
+
 
 def getSensorORM(id):
     with Session as sesh:
@@ -489,6 +489,33 @@ def getClassTiles(t_class, exclude=None):
 
     return sensor_tiles
 
+
+def findNearestSensors(sensorid, s_list, n=0):
+    """
+
+    :param n:
+    :param sensorid: sensor for which to find nearest neighbors.
+    :param s_list: list of active sensors
+    :return: list of (Sensor object, meters distance) tuples
+    """
+    base_sensor = getSensorORM(sensorid)
+    sensors_orm = []
+
+    for s in s_list:
+        if s != sensorid:
+            sensors_orm.append(getSensorORM(s))
+
+    distances = []
+    startLL = MapPoint(base_sensor.lat, base_sensor.lon)
+    for sensor in sensors_orm:
+        meters_away = calcDistance(startLL, MapPoint(sensor.lat, sensor.lon))
+        distances.append((sensor, meters_away))
+
+    distances.sort(key=lambda x: x[1])
+    if n == 0:
+        return distances
+    else:
+        return distances[:n]
 
 
 def populateTables():

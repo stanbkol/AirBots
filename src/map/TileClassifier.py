@@ -1,3 +1,24 @@
+from src.database.Models import updateTileClass, getTileORM
+from src.main.utils import getJson
+
+
+def classifyTiles(filename):
+    data = getJson(filename)
+    for tile in data:
+        print("Classifying Tile:", tile)
+        tile_class = classifyT(data[tile])
+        print("Class-->", tile_class)
+        tile_obj = getTileORM(tile)
+        tile_obj.setClass(tile_class)
+
+
+def classifyTiles():
+    data = getJson(r'C:\Users\User\PycharmProjects\AirBots\docs\tile_scrape.txt')
+    for k in data:
+        print("Tile #", k)
+        l1, l2 = classifyT(data[k])
+        updateTileClass(k, l1, l2)
+
 
 def classifyT(tile_data):
     if tile_data:
@@ -34,7 +55,7 @@ def classifyL2(road_data):
             road_dict[r[0]] += 1
         else:
             road_dict[r[0]] = 1
-    #print(road_dict)
+    # print(road_dict)
     if "motorway" in road_dict.keys() or "trunk" in road_dict.keys():
         return "T1"
     if "primary" in road_dict.keys() or "secondary" in road_dict.keys():
