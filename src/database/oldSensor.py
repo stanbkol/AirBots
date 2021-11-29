@@ -1,4 +1,4 @@
-from src.database.utils import Field
+from src.main.utils import Field
 from src.map.MapPoint import calcDistance, MapPoint
 
 
