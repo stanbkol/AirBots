@@ -490,9 +490,10 @@ def getClassTiles(t_class, exclude=None):
     return sensor_tiles
 
 
-def findNearestSensors(sensorid, s_list, n):
+def findNearestSensors(sensorid, s_list, n=0):
     """
 
+    :param n:
     :param sensorid: sensor for which to find nearest neighbors.
     :param s_list: list of active sensors
     :return: list of (Sensor object, meters distance) tuples

@@ -1,120 +1,12 @@
-from datetime import datetime, timedelta
-import json
-
-import numpy as np
-from openpyxl import load_workbook, Workbook
-from openpyxl.utils import get_column_letter
+from datetime import timedelta
 
 from src.database.Models import *
-from src.map.TileClassifier import *
 from src.agents.Agents import *
-from src.database.DataLoader import *
-from sklearn.metrics import mean_squared_error, mean_absolute_error
+from src.main.utils import *
+from src.main.ExcelWriter import *
 
 
-def findNearestSensors(sensorid, s_list, n=0):
-    """
-
-    :param sensorid: sensor for which to find nearest neighbors.
-    :param s_list: list of active sensors
-    :return: list of (Sensor object, meters distance) tuples
-    """
-    base_sensor = getSensorORM(sensorid)
-    sensors_orm = []
-
-    for s in s_list:
-        if s != sensorid:
-            sensors_orm.append(getSensorORM(s))
-
-    distances = []
-    startLL = MapPoint(base_sensor.lat, base_sensor.lon)
-    for sensor in sensors_orm:
-        meters_away = calcDistance(startLL, MapPoint(sensor.lat, sensor.lon))
-        distances.append((sensor, meters_away))
-
-    distances.sort(key=lambda x: x[1])
-    if n == 0:
-        return distances
-    else:
-        return distances[:n]
-
-
-def fetchBB(data):
-    bounding_box = []
-    for entry in data:
-        bounding_box.append(entry["boundingbox"])
-    return bounding_box[0]
-
-
-# returns a dictionary containing the json file
-def getJson(file):
-    f = open(file, encoding="utf8")
-    data = json.load(f)
-    return data
-
-
-# check database for all measurements data for given sensor, using different granularity (ie. for full dataset,
-# by year, by month, by week, by day); should it be done with multiple, specific queries? or taking the full dataset
-# for a sensor and breaking it down using additional algorithms
-def examineSensor(sid, g="*"):
-    full_dataset = getMeasuresORM(sid)
-    earliest_date = full_dataset[0].date
-    latest_date = full_dataset[-1].date
-    total = countInterval(earliest_date, latest_date)
-    observed = len(full_dataset)
-    summary = {"sensor": sid, "first": earliest_date.strftime("%D %H"), "last": latest_date.strftime("%D %H"),
-               "num_intervals": observed,
-               "total": countInterval(datetime.datetime(2018, 9, 3, 0), datetime.datetime(2021, 5, 5, 0))}
-    return summary
-
-
-def countInterval(start, end):
-    diff = end - start
-    days, seconds = diff.days, diff.seconds
-    total_intervals = days * 24 + seconds // 3600
-    return total_intervals
-
-
-def rateInterval(dataset, total):
-    return (dataset - 1) / total
-
-
-def fetchSensors(sensor_list):
-    sensors = []
-    for s in sensor_list:
-        sensors.append(getSensorORM(s))
-    return sensors
-
-
-def classifyTiles(filename):
-    data = getJson(filename)
-    for tile in data:
-        print("Classifying Tile:", tile)
-        tile_class = classifyT(data[tile])
-        print("Class-->", tile_class)
-        tile_obj = getTileORM(tile)
-        tile_obj.setClass(tile_class)
-
-
-def p_err(a, p):
-    num_preds = len(a)
-    total = 0
-    for i in range(0, num_preds):
-        temp = abs((p[i] - a[i]) / a[i])
-        total += temp
-    return round((total / num_preds) * 100, 2)
-
-
-def MSE(a, p):
-    actual, pred = np.array(a), np.array(p)
-    return round(mean_squared_error(actual, pred), 2)
-
-
-def MAE(a, p):
-    actual, pred = np.array(a), np.array(p)
-    return round(mean_absolute_error(actual, pred), 2)
-
-
+# Basic Average Model Aggregation
 def avgAgg(preds):
     total = 0
     for k in preds:
@@ -122,27 +14,18 @@ def avgAgg(preds):
     return round(total / (len(preds)), 2)
 
 
-# prediction weighted based on distance from each agent to the target
 def WeightedAggregation(preds, weights):
+    """
+    Method for aggregating dictionary of predictions based on dictionary of weights
+    Used for aggregating by distance, error, and trust
+    :param preds: dictionary of predictions, keys are agent.sid values
+    :param weights: dictionary of weights, keys are agent.sid values
+    :return: aggregated prediction
+    """
     total = 0
     for s in preds:
         temp = preds[s]
         total += temp * weights.get(s)
-    return total
-
-
-def totalDist(data):
-    total = 0
-    for e in data:
-        total += e[1]
-    return total
-
-
-def totalError(data):
-    total = 0
-    for a in data:
-        agent = data[a]
-        total += agent.error
     return total
 
 
@@ -161,6 +44,11 @@ def inverseWeights(data, pow=2):
 
 
 def mapAgentsToError(agents):
+    """
+    Helper function to prepare data for eventually use by inverseWeights function
+    :param agents: dictionary of agent.sid to agent objects
+    :return: returns list of tuples, (agent, agent.error)
+    """
     data = []
     for a in agents:
         data.append((agents[a], agents[a].error))
@@ -168,18 +56,14 @@ def mapAgentsToError(agents):
     return data
 
 
-def checkWeights(w):
-    total = 0
-    for x in w:
-        total += w[x]
-    return total
-
-
-# update to include other aggregation methods
-# calc distance and error weights in main body and pass the values into agg methods where needed
-
-
 def aggregatePrediction(preds, dist_weights, error_weights, tru_weights):
+    """
+    :param preds: dictionary of predictions mapped to agent.sid
+    :param dist_weights: dictionary of weights based on inverse distance
+    :param error_weights: dictionary of weights based on error
+    :param tru_weights: dictionary of weights based on trust factor
+    :return: dictionary of values, keys are the aggregation method, values are aggregated prediction
+    """
     vals = {}
     avg = avgAgg(preds)
     dist = WeightedAggregation(preds, dist_weights)
@@ -192,6 +76,13 @@ def aggregatePrediction(preds, dist_weights, error_weights, tru_weights):
 
 
 def makeCluster(sid, sensors, n):
+    """
+
+    :param sid: sid of agent
+    :param sensors: all active sensors in mesh
+    :param n: size of cluster
+    :return: list of agent.sids that represent the agents cluster
+    """
     data = findNearestSensors(sid, sensors, n)
     cluster = []
     for sens, dist in data:
@@ -200,6 +91,12 @@ def makeCluster(sid, sensors, n):
 
 
 def getClusterError(cluster, agents):
+    """
+
+    :param cluster: list of sids that represent agents in the cluster
+    :param agents: dictionary of agent objects mapped to agent.sid
+    :return: returns the average error for all agents in the cluster
+    """
     total = 0
     count = 0
     for a in cluster:
@@ -221,32 +118,41 @@ class Central:
     thresholds = {}
 
     def __init__(self, model):
-        self.model_file = model
-        self.results_file = self.model_file + "_results.xlsx"
-        self.data = getJson(self.model_file)
+        self.data = getJson(model)
+        self.writer = ExcelWriter(model + "_results.xlsx")
+        self.error = {}
         self.model_params = self.data["model_params"]
         self.thresholds = self.data["thresholds"]
-        self.error = 0
-        self.popSensors()
+        self.sensors = self.data["sensors"]["on"]
         self.extractData()
-        self.initializeFile()
+        self.writer.initializeFile(self.agents)
 
-    def evaluateAgents(self, values, predictions, naive_preds):
-        # print("values:")
-        # print(values)
-        for a in self.agents:
-            agent = self.agents[a]
-            # print("predictions for:", a)
-            # print(predictions[a])
-            agent.error = MAE(values, predictions[a])
-            agent.n_error = MAE(values, naive_preds[a])
-            agent.p_error = (p_err(values, naive_preds[a]), p_err(values, predictions[a]))
+    def extractData(self):
+        self.thresholds = self.data["thresholds"]
+        self.agent_configs = self.data["agent_configs"]
+        for s in self.sensors:
+            cluster = makeCluster(s, self.sensors, n=self.model_params['cluster_size'])
+            a = Agent(s, self.thresholds, cluster, config=self.agent_configs)
+            self.agents[a.sid] = a
 
-    def popSensors(self):
-        for s in self.data["sensors"]["on"]:
-            self.sensors.append(s)
+    def sensorSummary(self, start, end):
+        total = countInterval(start, end)
+        for s in self.sensors:
+            data = getMeasuresORM(s, start, end)
+            print("Sensor :", s)
+            if data:
+                print("Data_Completeness %", round(((len(data)-1)/total), 2)*100)
+            else:
+                print("No Data for Training Interval")
 
     def getAllPredictions(self, target, time, val):
+        """
+
+        :param target: target sensor
+        :param time: time for prediction
+        :param val: real value for validation; to be used in forecastmodels
+        :return: dictionary of predictions mapped to agent.sid
+        """
         predictions = {}
         for a in self.agents:
             agent = self.agents[a]
@@ -256,35 +162,47 @@ class Central:
         return predictions
 
     def makePrediction(self, target, time):
-        start, end = targetInterval(time, self.thresholds["interval"])
+        """
+        Main method that is responsible for making model predictions.
+        Instantiates the training phase, and validates with a final prediction
+        :param target: target for prediction
+        :param time: time for prediction
+        :return: N/A, displays/saves results to file
+        """
+        start, end = targetInterval(time, self.model_params["interval"])
+        self.sensorSummary(start, end)
+        # print("INITIAL PREDICTION")
+        # self.finalPrediction(target, time)
         print("Training the Model")
         print("Target Sensor:", target)
         print("Interval between " + str(start) + " and " + str(end))
         self.trainModel(start, end, target)
-        # predictions = []
-        # for a in self.agents:
-        #     agent = self.agents[a]
-        #     p = agent.makePrediction(target, time)
-        #     predictions.append(p)
-        # return predictions
+        print("FINAL PREDICTION")
+        self.finalPrediction(target, time)
 
     def trainModel(self, start_interval, end_interval, target):
+        """
+
+        :param start_interval: first interval for training
+        :param end_interval: last interval for training
+        :param target: target of prediction
+        :return: N/A, no returns needed. controls flow of training the model
+        """
         for i in range(1, self.model_params["num_iter"] + 1):
             cursor = start_interval
             collab_predictions = {sid: [] for sid in self.sensors}
             naive_predictions = {sid: [] for sid in self.sensors}
             values = []
             intervals = []
-            while cursor != end_interval:
+            end = end_interval + timedelta(hours=1)
+            while cursor != end:
                 print("Predictions for ", cursor)
                 val = getMeasureORM(target, cursor)
-                # print("Hard Value-->", val.pm1)
                 intervals.append(cursor)
                 vals = {sid: [] for sid in self.sensors}
                 if val:
                     values.append(val.pm1)
                     interval_preds = self.getAllPredictions(target, cursor, val)
-                    # print(interval_preds)
                     for a in self.agents:
                         cluster_pred = {}
                         agent = self.agents[a]
@@ -295,27 +213,64 @@ class Central:
                         vals[a] = pred
                         collab_predictions[a].append(pred)
                         naive_predictions[a].append(naive)
-                        # print("Agent: ", a)
-                        # print("Naive Prediction: ", interval_preds[a][0])
-                        # print("Prediction Cluster: ", cluster_pred)
-                        # print("Collab Prediction: ", pred)
                 else:
                     print("No target validation data for-->", cursor)
                 cursor += timedelta(hours=1)
-
             self.evaluateAgents(values, collab_predictions, naive_predictions)
-            model_vals = self.aggregateModel(collab_predictions, countInterval(start_interval, end_interval), target)
+            model_vals = self.aggregateModel(collab_predictions, countInterval(start_interval, end), target)
             self.evaluateModel(values, model_vals)
-            self.saveIter(values, collab_predictions, naive_predictions, model_vals, i, intervals)
-            self.saveModel(i)
-
+            self.writer.saveIter(values, collab_predictions, naive_predictions, model_vals, i, intervals, self.agents)
+            self.writer.saveModel(i, self.agents, self.error)
             self.applyHeuristic(values, naive_predictions, collab_predictions, intervals)
 
-    def sensorSummary(self):
-        for s in self.sensors:
-            print(examineSensor(s))
+    def evaluateAgents(self, values, predictions, naive_preds):
+        """
+
+        :param values: list of actual values for target sensor, for the training time interval
+        :param predictions: dictionary of collaborative predictions mapped to agent.sid
+        :param naive_preds: dictionary of naive predictions mapped to agent.sid
+        :return: N/A, updates the naive/collab errors values in MAE and %, stored in the agent object
+        """
+        # print("values:")
+        # print(values)
+        for a in self.agents:
+            agent = self.agents[a]
+            # print("predictions for:", a)
+            # print(predictions[a])
+            agent.error = MAE(values, predictions[a])
+            agent.n_error = MAE(values, naive_preds[a])
+            agent.p_error = (p_err(values, naive_preds[a]), p_err(values, predictions[a]))
+
+    def aggregateModel(self, preds, num_preds, target):
+        """
+
+        :param preds: dictionary of collab predictions mapped to each agent.sid, each value is list of predictions for training interval
+        :param num_preds: size of training interval, for ease of iteration
+        :param target: target sensor, to be used for distance weighting only
+        :return: returns list of model aggregation values, in which case each entry in list is a dictionary, mapped to each kind of aggregation
+        """
+        model_vals = []
+        dist_weights = inverseWeights(findNearestSensors(target, self.sensors))
+        err_weights = inverseWeights(mapAgentsToError(self.agents))
+
+        tru_weights = {}
+        if num_preds > 1:
+            for i in range(0, num_preds):
+                interval_preds = {}
+                for a in preds:
+                    interval_preds[a] = preds[a][i]
+                model_vals.append(aggregatePrediction(interval_preds, dist_weights, err_weights, tru_weights))
+        else:
+            model_vals.append(aggregatePrediction(preds, dist_weights, err_weights, tru_weights))
+        return model_vals
 
     def evaluateModel(self, values, model_preds):
+        """
+        This method goes through the list of values from aggregate model, and evaluates each aggregation strategy
+        :param values: real sensor values
+        :param model_preds: list of dictionaries that show each kind of model aggregated prediction, for each interval
+        :return: N/A, updates the model field to store the dictionary of error values, mapped to each aggregation method
+        """
         error = {}
         avg_list = []
         dist_list = []
@@ -331,118 +286,17 @@ class Central:
         print(error)
         self.error = error
 
-    def extractData(self):
-        self.thresholds = self.data["thresholds"]
-        self.agent_configs = self.data["agent_configs"]
-        for s in self.sensors:
-            cluster = makeCluster(s, self.sensors, self.model_params['cluster_size'])
-            a = Agent(s, self.thresholds, cluster, config=self.agent_configs)
-            self.agents[a.sid] = a
-
-    def aggregateModel(self, preds, num_preds, target):
-        model_vals = []
-        dist_weights = inverseWeights(findNearestSensors(target, self.sensors))
-        err_weights = inverseWeights(mapAgentsToError(self.agents))
-
-        tru_weights = {}
-        for i in range(0, num_preds):
-            interval_preds = {}
-            for a in preds:
-                interval_preds[a] = preds[a][i]
-            model_vals.append(aggregatePrediction(interval_preds, dist_weights, err_weights, tru_weights))
-        return model_vals
-
-    def saveModel(self, i):
-        print("Saving Data-->Iter #", i)
-        wb = load_workbook(self.results_file)
-        ws = wb["Training_Results"]
-        col = i * 2
-        row = 1
-        ws.cell(row, col, "I" + str(i) + " (MAE)")
-        ws.cell(row, col + 1, "I" + str(i) + " (%)")
-
-        row_n = 2
-        row_c = 3
-        for a in self.agents:
-            agent = self.agents[a]
-            print("Error for :", a)
-            print("Naive-->" + str(agent.n_error) + ":" + str(agent.p_error[0]))
-            print("Collab-->" + str(agent.error) + ":" + str(agent.p_error[1]))
-            ws.cell(row_n, col, agent.n_error)
-            ws.cell(row_n, col + 1, agent.p_error[0])
-            ws.cell(row_c, col, agent.error)
-            ws.cell(row_c, col + 1, agent.p_error[1])
-            row_n += 2
-            row_c += 2
-        ws.cell(row_n, col, self.error['MAE']['error_w'])
-        ws.cell(row_n, col + 1, self.error['p']['error_w'])
-        wb.save(self.results_file)
-
-    def initializeFile(self):
-        wb = Workbook()
-        ws = wb.active
-        ws.title = "Training_Results"
-        ws.cell(1, 1, "Agents")
-        row_n = 2
-        row_c = 3
-        for s in self.agents:
-            ws.cell(row_n, 1, "N" + str(s))
-            ws.cell(row_c, 1, s)
-            row_c += 2
-            row_n += 2
-        ws.cell(row_n, 1, "Model")
-        wb.save(filename=self.results_file)
-
-    def saveIter(self, values, collab_predictions, naive_predictions, model_vals, i, intervals):
-        wb = load_workbook(self.results_file)
-        ws = wb.create_sheet("Iteration #" + str(i))
-        col = 1
-        row = 1
-        ws.cell(row, col, "Values")
-        ws.column_dimensions[get_column_letter(col)].width = 20
-        # write time interval col headings
-        for i in intervals:
-            col += 1
-            ws.cell(row, col, i)
-            ws.column_dimensions[get_column_letter(col)].width = 20
-        col += 1
-        ws.cell(row, col, "Agent Bias")
-        # write actual values, and 3x model aggregation values
-        actual_ind = 2
-        modelavg_ind = 3
-        dist_ind = 4
-        error_ind = 5
-        num_i = len(intervals)
-        print(num_i)
-        ws.cell(actual_ind, 1, "Real Values")
-        ws.cell(modelavg_ind, 1, "Model AVG")
-        ws.cell(dist_ind, 1, "Model DIST")
-        ws.cell(error_ind, 1, "Model ERR")
-        for i in range(2, num_i + 2):
-            ws.cell(actual_ind, i, values[i - 2])
-            ws.cell(modelavg_ind, i, model_vals[i - 2]['average'])
-            ws.cell(dist_ind, i, model_vals[i - 2]['distance'])
-            ws.cell(error_ind, i, model_vals[i - 2]['error'])
-
-        # write naive and collab values from each agent
-        agent_n_index = 6
-        agent_c_index = 7
-        for a in collab_predictions:
-            col = 1
-            ws.cell(agent_n_index, col, "Agent #" + str(a) + ":Naive")
-            ws.cell(agent_c_index, col, "Agent #" + str(a) + ":Collab")
-            num = len(collab_predictions[a])
-            for p in range(0, num):
-                col += 1
-                ws.cell(agent_n_index, col, naive_predictions[a][p])
-                ws.cell(agent_c_index, col, collab_predictions[a][p])
-            col += 1
-            ws.cell(agent_c_index, col, self.agents[a].bias)
-            agent_n_index += 2
-            agent_c_index += 2
-        wb.save(self.results_file)
-
     def applyHeuristic(self, values, naive_predictions, collab_predictions, intervals):
+        """
+        This method takes all the predictions, and passes each agent only the necessary information they need to apply the heuristic
+        Each agent gets a list of all naive predictions for himself and his cluster
+        Each agent gets a list of all of his collaborative predictions for himself (used in forward checking)
+        :param values: actual sensor values
+        :param naive_predictions: full dictionary of all naive predictions for training interval
+        :param collab_predictions: full dictionary of all collab predictions for training interval
+        :param intervals: list of intervals
+        :return: N/A, simply calls assessPerformance for each agent with necessary data
+        """
         for a in self.agents:
             print("agent H:", a)
             agent = self.agents[a]
@@ -456,3 +310,32 @@ class Central:
             # print(f"\tnaive: {naive_predictions}")
             # print(f"\tcollabs: {collab_predictions[a]}")
             agent.assessPerformance(values, n_preds, collab_predictions[a], intervals)
+
+    # TODO: update to include multiple prediction aggregation, rather than singular prediction
+    # TODO: update to save results to excel file
+    def finalPrediction(self, target, time):
+        """
+        This method makes the final prediction, based on the trained model
+        :param target:
+        :param time:
+        :return: Will return the raw prediction+update results file
+        """
+        real_val = getMeasureORM(target, time)
+        collab_preds = {}
+        interval_preds = self.getAllPredictions(target, time, real_val)
+        for a in self.agents:
+            cluster_pred = {}
+            agent = self.agents[a]
+            for ca in agent.cluster:
+                cluster_pred[ca] = interval_preds[ca]
+            pred = round(agent.makeCollabPrediction(cluster_pred)[0], 2)
+            collab_preds[a] = pred
+        print("real val", real_val.pm1)
+        model_val = self.aggregateModel(collab_preds, 1, target)[0]
+        print("model pred", model_val)
+        print("AVG-->AE:", round((real_val.pm1 - model_val['average']), 2))
+        print("AVG-->%:", abs((model_val['average'] - real_val.pm1) / real_val.pm1))
+        print("DIST-->AE:", round((real_val.pm1 - model_val['distance']), 2))
+        print("DIST-->%:", abs((model_val['distance'] - real_val.pm1) / real_val.pm1))
+        print("ERR-->AE:", round((real_val.pm1 - model_val['error']), 2))
+        print("ERR-->%:", abs((model_val['error'] - real_val.pm1) / real_val.pm1))

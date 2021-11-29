@@ -6,7 +6,7 @@ class ExcelWriter:
     def __init__(self, file):
         self.results_file = file
 
-    def saveModel(self, i):
+    def saveModel(self, i, agents, model_error):
         print("Saving Data-->Iter #", i)
         wb = load_workbook(self.results_file)
         ws = wb["Training_Results"]
@@ -16,8 +16,8 @@ class ExcelWriter:
         ws.cell(row, col + 1, "I" + str(i) + " (%)")
         row_n = 2
         row_c = 3
-        for a in self.agents:
-            agent = self.agents[a]
+        for a in agents:
+            agent = agents[a]
             # print("Error for :", a)
             # print("Naive-->" + str(agent.n_error) + ":" + str(agent.p_error[0]))
             # print("Collab-->" + str(agent.error) + ":" + str(agent.p_error[1]))
@@ -27,8 +27,8 @@ class ExcelWriter:
             ws.cell(row_c, col + 1, agent.p_error[1])
             row_n += 2
             row_c += 2
-        ws.cell(row_n, col, self.error['MAE']['error_w'])
-        ws.cell(row_n, col + 1, self.error['p']['error_w'])
+        ws.cell(row_n, col, model_error['MAE']['error_w'])
+        ws.cell(row_n, col + 1, model_error['p']['error_w'])
         wb.save(self.results_file)
 
     def initializeFile(self, agents):
@@ -46,7 +46,7 @@ class ExcelWriter:
         ws.cell(row_n, 1, "Model")
         wb.save(filename=self.results_file)
 
-    def saveIter(self, values, collab_predictions, naive_predictions, model_vals, i, intervals):
+    def saveIter(self, values, collab_predictions, naive_predictions, model_vals, i, intervals, agents):
         wb = load_workbook(self.results_file)
         ws = wb.create_sheet("Iteration #" + str(i))
         col = 1
@@ -90,7 +90,7 @@ class ExcelWriter:
                 ws.cell(agent_n_index, col, naive_predictions[a][p])
                 ws.cell(agent_c_index, col, collab_predictions[a][p])
             col += 1
-            ws.cell(agent_c_index, col, self.agents[a].bias)
+            ws.cell(agent_c_index, col, agents[a].bias)
             agent_n_index += 2
             agent_c_index += 2
         wb.save(self.results_file)
