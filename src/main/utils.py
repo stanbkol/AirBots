@@ -41,7 +41,7 @@ def unique_tiles(tiles):
     return [unique_tiles[k] for k, v in unique_tiles.items()]
 
 
-def tile_ranges(sensor_tiles, r=5):
+def tile_ranges(sensor_tiles, r=3):
     """
     given list of tiles and range, returns a list of unique tiles that are in range of each
     tile provided.

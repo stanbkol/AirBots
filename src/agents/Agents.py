@@ -180,22 +180,18 @@ class Agent(object):
         """
         naive_preds = naive[self.sid]
         cluster_preds = [self.getClusterPred(float(v), float(collab[i])) for i, v in enumerate(naive_preds)]
-        # print(naive_preds)
-        # print(cluster_preds)
-        # print(f"\t\tintegrity: {self.integrity}")
-        # print(f"\t\tdata integrity: {self._dataintegrity}")
 
         cluster_mse = round(mean_squared_error(np.array(values), np.array(cluster_preds)), 2)
         naive_mse = round(mean_squared_error(np.array(values), np.array(naive_preds)), 2)
+
         fraction = cluster_mse / naive_mse
         rel_change = _rel_diff(cluster_mse, naive_mse)
-
         if fraction < 1:
             # print("naive has more error, decrease bias!")
             self.bias = max(0.51, round(self.bias - min([0.05, self.bias * (1 + rel_change)]), 2))
         elif fraction > 1:
             # print("collab has more error increase bias!")
-            self.bias = min(0.90, round(self.bias + min([0.05, self.bias * (1 + rel_change)]), 2))
+            self.bias = min(0.95, round(self.bias + min([0.05, self.bias * (1 + rel_change)]), 2))
 
     def getDistTrust(self):
         """
