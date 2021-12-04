@@ -1,7 +1,7 @@
 {
    "id":1,
    "thresholds":{
-      "completeness":0.75,
+      "completeness":0.30,
       "trust":0.25,
       "confidence":0.60,
       "error":75
@@ -72,6 +72,7 @@
          13128
       ]
    },
+   "agent_bias": 0.70,
    "agent_configs":{
       "random":{
          "interval":100

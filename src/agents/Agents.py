@@ -22,7 +22,7 @@ class Agent(object):
     def __init__(self, sensor_id, thresholds, cluster_list, config=None, confidence=1):
         self.sid = sensor_id
         self._threshold = thresholds
-        self._configs = config
+        self.configs = config
         self.cf = confidence
         self.cluster = cluster_list
         self.models = self._initializeModels()
@@ -31,10 +31,10 @@ class Agent(object):
         self.p_error = 0
         self.target_tile = None
         self.tile = fetchTile_from_sid(self.sid)
-        self.bias = 0.70
+        self.bias = 0
         self.prediction = 0
-        self._integrity = 1
-        self._data_integrity = 1
+        self.integrity = 1
+        self.data_integrity = 1
 
     def _initializeModels(self):
         models = {"rand": RandomModel(self.sid, self.cluster),
@@ -182,8 +182,8 @@ class Agent(object):
         cluster_preds = [self.getClusterPred(float(v), float(collab[i])) for i, v in enumerate(naive_preds)]
         # print(naive_preds)
         # print(cluster_preds)
-        print(f"\t\tintegrity: {self._integrity}")
-        print(f"\t\tdata integrity: {self._data_integrity}")
+        # print(f"\t\tintegrity: {self.integrity}")
+        # print(f"\t\tdata integrity: {self._dataintegrity}")
 
         cluster_mse = round(mean_squared_error(np.array(values), np.array(cluster_preds)), 2)
         naive_mse = round(mean_squared_error(np.array(values), np.array(naive_preds)), 2)

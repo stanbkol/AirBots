@@ -6,8 +6,8 @@ class ExcelWriter:
     def __init__(self, file):
         self.results_file = file
 
-    def saveModel(self, i, agents, model_error):
-        print("Saving Data-->Iter #", i)
+    def saveModel(self, i, sensors, agents, model_error):
+        print("Saving Data Iteration #", i)
         wb = load_workbook(self.results_file)
         ws = wb["Training_Results"]
         col = i * 2
@@ -16,7 +16,7 @@ class ExcelWriter:
         ws.cell(row, col + 1, "I" + str(i) + " (%)")
         row_n = 2
         row_c = 3
-        for a in agents:
+        for a in sensors:
             agent = agents[a]
             # print("Error for :", a)
             # print("Naive-->" + str(agent.n_error) + ":" + str(agent.p_error[0]))
@@ -27,8 +27,9 @@ class ExcelWriter:
             ws.cell(row_c, col + 1, agent.p_error[1])
             row_n += 2
             row_c += 2
-        ws.cell(row_n, col, model_error['MAE']['error_w'])
-        ws.cell(row_n, col + 1, model_error['p']['error_w'])
+        min_key = min(model_error['MAE'], key=model_error['MAE'].get)
+        ws.cell(row_n, col, model_error['MAE'][min_key])
+        ws.cell(row_n, col + 1, model_error['p'][min_key])
         wb.save(self.results_file)
 
     def initializeFile(self, agents):
@@ -48,7 +49,7 @@ class ExcelWriter:
 
     def saveIter(self, values, collab_predictions, naive_predictions, model_vals, i, intervals, agents):
         wb = load_workbook(self.results_file)
-        ws = wb.create_sheet("Iteration #" + str(i))
+        ws = wb.create_sheet("Iteration #"+str(i))
         col = 1
         row = 1
         ws.cell(row, col, "Values")
@@ -66,7 +67,6 @@ class ExcelWriter:
         dist_ind = 4
         error_ind = 5
         num_i = len(intervals)
-        print(num_i)
         ws.cell(actual_ind, 1, "Real Values")
         ws.cell(modelavg_ind, 1, "Model AVG")
         ws.cell(dist_ind, 1, "Model DIST")
