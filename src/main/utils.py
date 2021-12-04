@@ -28,7 +28,7 @@ def countInterval(start, end):
     diff = end - start
     days, seconds = diff.days, diff.seconds
     total_intervals = days * 24 + seconds // 3600
-    return total_intervals
+    return total_intervals+1
 
 
 def unique_tiles(tiles):

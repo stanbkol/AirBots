@@ -4,6 +4,19 @@ from src.database.Models import *
 from src.agents.Agents import *
 from src.main.utils import *
 from src.main.ExcelWriter import *
+import logging
+
+
+def tileSummary():
+    tiles = getTilesORM(1)
+    tc = {}
+    for t in tiles:
+        if t.tclass in tc.keys():
+            tc[t.tclass] += 1
+        else:
+            tc[t.tclass] = 1
+    print(len(tc))
+    print(tc)
 
 
 # Basic Average Model Aggregation
@@ -106,9 +119,7 @@ def getClusterError(cluster, agents):
 
 
 def targetInterval(time, interval):
-    end = time + timedelta(hours=interval)
-    start = time - timedelta(hours=interval)
-    return start, end
+    return time - timedelta(hours=interval), time
 
 
 class Central:
@@ -118,32 +129,39 @@ class Central:
     thresholds = {}
 
     def __init__(self, model):
+        logging.basicConfig(level=logging.INFO)
         self.data = getJson(model)
-        self.writer = ExcelWriter(model + "_results.xlsx")
+        self.model_file = model
         self.error = {}
+        self.results = {}
         self.model_params = self.data["model_params"]
         self.thresholds = self.data["thresholds"]
-        self.sensors = self.data["sensors"]["on"]
-        self.extractData()
-        self.writer.initializeFile(self.agents)
+        logging.info("Central System Created From "+str(self.model_file))
 
     def extractData(self):
-        self.thresholds = self.data["thresholds"]
+        self.sensors = self.data["sensors"]["on"]
         self.agent_configs = self.data["agent_configs"]
         for s in self.sensors:
             cluster = makeCluster(s, self.sensors, n=self.model_params['cluster_size'])
             a = Agent(s, self.thresholds, cluster, config=self.agent_configs)
+            a.bias = self.data["agent_bias"]
             self.agents[a.sid] = a
+            self.results[a.sid] = {'error': 100, 'config': {}}
+        logging.info("Agents Initialized:" + str(len(self.agents)))
 
     def sensorSummary(self, start, end):
         total = countInterval(start, end)
+        logging.info("Sensors Before Check:"+str(len(self.sensors)))
         for s in self.sensors:
             data = getMeasuresORM(s, start, end)
-            print("Sensor :", s)
             if data:
-                print("Data_Completeness %", round(((len(data)-1)/total), 2)*100)
+                data_completeness = round(((len(data)) / total), 2) * 100
+                if data_completeness < self.thresholds["completeness"]:
+                    print("Not Enough Data-->", s)
+                    self.sensors.remove(s)
             else:
-                print("No Data for Training Interval")
+                self.sensors.remove(s)
+        logging.info("Sensors After Check:"+str(len(self.sensors)))
 
     def getAllPredictions(self, target, time, val):
         """
@@ -169,16 +187,23 @@ class Central:
         :param time: time for prediction
         :return: N/A, displays/saves results to file
         """
+
         start, end = targetInterval(time, self.model_params["interval"])
+        results_string = self.model_file + "_" + str(target) + "_" + str(
+            int(time.strftime('%Y%m%d%H'))) + "_results.xlsx"
+        self.writer = ExcelWriter(results_string)
+        self.sensors = self.data["sensors"]["on"]
         self.sensorSummary(start, end)
-        # print("INITIAL PREDICTION")
-        # self.finalPrediction(target, time)
-        print("Training the Model")
-        print("Target Sensor:", target)
-        print("Interval between " + str(start) + " and " + str(end))
+        logging.info("Initializing Agents")
+        self.extractData()
+        self.writer.initializeFile(self.agents)
+        logging.info("Initialize Model Training")
+        logging.info("Target Sensor:"+str(target))
+        logging.info("Interval between " + str(start) + " and " + str(end))
         self.trainModel(start, end, target)
-        print("FINAL PREDICTION")
-        self.finalPrediction(target, time)
+        logging.info("Model Training Complete")
+        self.updateAgents()
+        self.finalPrediction(target, time, 5)
 
     def trainModel(self, start_interval, end_interval, target):
         """
@@ -189,38 +214,35 @@ class Central:
         :return: N/A, no returns needed. controls flow of training the model
         """
         for i in range(1, self.model_params["num_iter"] + 1):
-            cursor = start_interval
+            logging.info("Beginning Iteration #"+str(i))
             collab_predictions = {sid: [] for sid in self.sensors}
             naive_predictions = {sid: [] for sid in self.sensors}
+            orm_values = getMeasuresORM(target, start_interval, end_interval)
             values = []
             intervals = []
-            end = end_interval + timedelta(hours=1)
-            while cursor != end:
-                print("Predictions for ", cursor)
-                val = getMeasureORM(target, cursor)
-                intervals.append(cursor)
+            for interval in orm_values:
+                logging.info("Predictions for "+str(interval.date))
+                intervals.append(interval.date)
                 vals = {sid: [] for sid in self.sensors}
-                if val:
-                    values.append(val.pm1)
-                    interval_preds = self.getAllPredictions(target, cursor, val)
-                    for a in self.agents:
-                        cluster_pred = {}
-                        agent = self.agents[a]
-                        for ca in agent.cluster:
-                            cluster_pred[ca] = interval_preds[ca]
-                        pred = round(agent.makeCollabPrediction(cluster_pred)[0], 2)
-                        naive = interval_preds[a][0]
-                        vals[a] = pred
-                        collab_predictions[a].append(pred)
-                        naive_predictions[a].append(naive)
-                else:
-                    print("No target validation data for-->", cursor)
-                cursor += timedelta(hours=1)
+                values.append(interval.pm1)
+                interval_preds = self.getAllPredictions(target, interval.date, interval)
+                print(len(interval_preds))
+                print(interval_preds)
+                for a in self.agents:
+                    cluster_pred = {}
+                    agent = self.agents[a]
+                    for ca in agent.cluster:
+                        cluster_pred[ca] = interval_preds[ca]
+                    pred = round(agent.makeCollabPrediction(cluster_pred)[0], 2)
+                    naive = interval_preds[a][0]
+                    vals[a] = pred
+                    collab_predictions[a].append(pred)
+                    naive_predictions[a].append(naive)
             self.evaluateAgents(values, collab_predictions, naive_predictions)
-            model_vals = self.aggregateModel(collab_predictions, countInterval(start_interval, end), target)
+            model_vals = self.aggregateModel(collab_predictions, countInterval(start_interval, end_interval), target)
             self.evaluateModel(values, model_vals)
             self.writer.saveIter(values, collab_predictions, naive_predictions, model_vals, i, intervals, self.agents)
-            self.writer.saveModel(i, self.agents, self.error)
+            self.writer.saveModel(i, self.sensors, self.agents, self.error)
             self.applyHeuristic(values, naive_predictions, collab_predictions, intervals)
 
     def evaluateAgents(self, values, predictions, naive_preds):
@@ -240,6 +262,9 @@ class Central:
             agent.error = MAE(values, predictions[a])
             agent.n_error = MAE(values, naive_preds[a])
             agent.p_error = (p_err(values, naive_preds[a]), p_err(values, predictions[a]))
+            if agent.error < self.results[a]['error']:
+                self.results[a]['error'] = agent.error
+                self.results[a]['config'] = agent.bias
 
     def aggregateModel(self, preds, num_preds, target):
         """
@@ -283,7 +308,6 @@ class Central:
                         'error_w': MAE(values, err_list)}
         error['p'] = {'average': p_err(values, avg_list), 'dist_w': p_err(values, dist_list),
                       'error_w': p_err(values, err_list)}
-        print(error)
         self.error = error
 
     def applyHeuristic(self, values, naive_predictions, collab_predictions, intervals):
@@ -297,11 +321,13 @@ class Central:
         :param intervals: list of intervals
         :return: N/A, simply calls assessPerformance for each agent with necessary data
         """
-        for a in self.agents:
-            print("agent H:", a)
+        for a in self.sensors:
+
             agent = self.agents[a]
             key_list = [a]
             key_list.extend(agent.cluster)
+            # print("agent H:", a)
+            # print(key_list)
             n_preds = {}
             for k in key_list:
                 n_preds[k] = naive_predictions[k]
@@ -313,7 +339,7 @@ class Central:
 
     # TODO: update to include multiple prediction aggregation, rather than singular prediction
     # TODO: update to save results to excel file
-    def finalPrediction(self, target, time):
+    def finalPrediction(self, target, time, k):
         """
         This method makes the final prediction, based on the trained model
         :param target:
@@ -321,21 +347,43 @@ class Central:
         :return: Will return the raw prediction+update results file
         """
         real_val = getMeasureORM(target, time)
-        collab_preds = {}
-        interval_preds = self.getAllPredictions(target, time, real_val)
+        vals = []
+        collab_preds = {sid: [] for sid in self.sensors}
+        naive_preds = {sid: [] for sid in self.sensors}
+        for x in range(0, k):
+            vals.append(real_val.pm1)
+            interval_preds = self.getAllPredictions(target, time, real_val)
+            for a in self.sensors:
+                cluster_pred = {}
+                agent = self.agents[a]
+                for ca in agent.cluster:
+                    cluster_pred[ca] = interval_preds[ca]
+                pred = round(agent.makeCollabPrediction(cluster_pred)[0], 2)
+                naive = interval_preds[a][0]
+                collab_preds[a].append(pred)
+                naive_preds[a].append(naive)
+        self.evaluateAgents(vals, collab_preds, naive_preds)
+        model_vals = self.aggregateModel(collab_preds, 5, target)
+        self.evaluateModel(vals, model_vals)
+        self.writer.saveModel(self.model_params["num_iter"] + 1, self.sensors, self.agents, self.error)
+        print("FINAL PREDICTION")
+        print("Real Value:", real_val.pm1)
+        best_error = 100
+        best_pred = 0
+        print(model_vals)
+        for mv in model_vals:
+            for v in mv:
+                mae = abs(mv[v]-real_val.pm1)
+                if mae < best_error:
+                    best_error = mae
+                    best_pred = mv[v]
+        print("Best Solution-->", best_pred)
+        print("MAE-->", best_error)
+        print("Error %-->", ((best_pred-real_val.pm1)/real_val.pm1)*100)
+
+    def updateAgents(self):
+        logging.info("Updating Agent Configs")
         for a in self.agents:
-            cluster_pred = {}
             agent = self.agents[a]
-            for ca in agent.cluster:
-                cluster_pred[ca] = interval_preds[ca]
-            pred = round(agent.makeCollabPrediction(cluster_pred)[0], 2)
-            collab_preds[a] = pred
-        print("real val", real_val.pm1)
-        model_val = self.aggregateModel(collab_preds, 1, target)[0]
-        print("model pred", model_val)
-        print("AVG-->AE:", round((real_val.pm1 - model_val['average']), 2))
-        print("AVG-->%:", abs((model_val['average'] - real_val.pm1) / real_val.pm1))
-        print("DIST-->AE:", round((real_val.pm1 - model_val['distance']), 2))
-        print("DIST-->%:", abs((model_val['distance'] - real_val.pm1) / real_val.pm1))
-        print("ERR-->AE:", round((real_val.pm1 - model_val['error']), 2))
-        print("ERR-->%:", abs((model_val['error'] - real_val.pm1) / real_val.pm1))
+            agent.bias = self.results[a]['config']
+
