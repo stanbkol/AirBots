@@ -7,7 +7,7 @@
       "error":75
    },
    "model_params":{
-      "num_iter":3,
+      "num_iter":10,
       "interval":3,
       "cluster_size": 3
    },
