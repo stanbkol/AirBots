@@ -61,10 +61,10 @@ class Agent(object):
 
         models = {'rand': RandomModel(self.sid, self.cluster),
                     'nearby': NearbyAverage(self.sid, self.cluster, config=nearby),
-                  'minmax': MinMaxModel(self.sid, self.cluster, config=minmax),
-                  'sma': CmaModel(self.sid, self.cluster, config=sma),
-                  'mvr': MultiVariate(self.sid, self.cluster, config=mvr)
-                  }
+                    'minmax': MinMaxModel(self.sid, self.cluster, config=minmax),
+                    'sma': CmaModel(self.sid, self.cluster, config=sma),
+                    'mvr': MultiVariate(self.sid, self.cluster, config=mvr)
+                }
 
         return models
 
@@ -96,10 +96,10 @@ class Agent(object):
         tcf_delta = 1 - abs(self.tile.getTCF() - self.target_tile.getTCF())
         tile_dist_trust = self.getDistTrust()
         self.cf = round(np.mean([tcf_delta, tile_dist_trust]), 2)
-        # print("agent tcf:", self.tile.getTCF())
-        # print("tile dist trust:", tile_dist_trust)
-        # print("CF pre dist:", tcf_delta)
-        # print("CF post dist:", self.cf)
+
+        logging.debug(f"agent dist_trust: {tile_dist_trust}")
+        logging.debug(f"agent tcf_delta: {tcf_delta}")
+        logging.debug(f"agent cf: {self.cf}")
 
     def tiles_change_factor(self, target_tile):
         """
@@ -160,7 +160,7 @@ class Agent(object):
         logging.debug(f"prediction: {self.prediction}")
         return total_pm1
 
-    def makeCollabPrediction(self, cluster_predictions):
+    def makeCollabPrediction(self, cluster_predictions, configs_state=None):
         """
         makes a collaborative prediction with other agents in cluster
         :param cluster_predictions:
