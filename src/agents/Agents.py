@@ -18,7 +18,14 @@ def _calc_squared_error(prediction, actual):
     return (actual - prediction) ** 2
 
 
+def getModelNames():
+    return ['rand', 'nearby', 'minmax', 'sma', 'mvr']
+
+
 class Agent(object):
+    training = True
+    predictions = {model:None for model in getModelNames()}
+
     def __init__(self, sensor_id, thresholds, cluster_list, config=None, confidence=1):
         self.sid = sensor_id
         self._threshold = thresholds
@@ -33,8 +40,10 @@ class Agent(object):
         self.tile = fetchTile_from_sid(self.sid)
         self.bias = 0
         self.prediction = 0
-        self.integrity = 1
-        self.data_integrity = 1
+        self._integrity = 1
+        self._data_integrity = 1
+        # initially all models have equal weights
+        self.model_weights = {name: 1/len(getModelNames()) for name in getModelNames()}
 
     def _initializeModels(self):
         models = {"rand": RandomModel(self.sid, self.cluster),
@@ -46,9 +55,6 @@ class Agent(object):
 
         return models
 
-    def _getModelNames(self):
-        return ['rand', 'nearby', 'minmax', 'sma', 'mvr']
-
     def _weightModels(self, predicts, actual):
         """
         assigns weights to forecast models. models with lower error receive higher weights.
@@ -58,7 +64,7 @@ class Agent(object):
         """
         errors = {}
         total_se = 0
-        for model_name in self._getModelNames():
+        for model_name in getModelNames():
             if model_name in predicts.keys():
                 model_prediction = predicts[model_name]
                 if model_prediction:
@@ -113,7 +119,7 @@ class Agent(object):
         data_integrity = list()
         measure = meas
         predicts = {}
-        for model in self._getModelNames():
+        for model in getModelNames():
             if model == 'mvr':
                 prediction = self.models[model].makePrediction(target_time, values, target_sid=target_sid)
                 if prediction:
@@ -126,15 +132,16 @@ class Agent(object):
                     predicts[model] = prediction
 
         # TODO: check for training flag to not reweight outside training, save weights on agent scope
-        weights = self._weightModels(predicts, getattr(measure, 'pm1'))
+        if self.training:
+            self.model_weights = self._weightModels(predicts, getattr(measure, 'pm1'))
         total_pm1 = 0
-        for model in weights.keys():
-            total_pm1 += weights[model] * predicts[model]['pm1']
+        for model in self.model_weights.keys():
+            total_pm1 += self.model_weights[model] * predicts[model]['pm1']
 
         if total_pm1 == 0:
             return None
 
-        self._integrity = round(len(predicts.keys()) / len(self._getModelNames()), 2)
+        self._integrity = round(len(predicts.keys()) / len(getModelNames()), 2)
         self._data_integrity = round(1-np.mean(data_integrity), 2)
 
         self.prediction = total_pm1
