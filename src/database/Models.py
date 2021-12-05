@@ -490,7 +490,7 @@ def getClassTiles(t_class, exclude=None):
     return sensor_tiles
 
 
-def sameClassSensors(t_class, only=None):
+def sameTClassSids(t_class, only=None):
     sensors = getSensorsORM()
     sids = list()
     for s in sensors:
@@ -499,7 +499,7 @@ def sameClassSensors(t_class, only=None):
             sids.append(s.sid)
 
     if only:
-        sids = [sid for sid in sids for i in only if sid == i]
+        sids = [sid for sid in sids if sid in only]
 
     return sids
 
