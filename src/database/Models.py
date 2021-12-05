@@ -490,18 +490,16 @@ def getClassTiles(t_class, exclude=None):
     return sensor_tiles
 
 
-def sameClassSensors(t_class, exclude=None):
+def sameClassSensors(t_class, only=None):
     sensors = getSensorsORM()
-    tiles_with_sensors = getSensorTiles()
     sids = list()
     for s in sensors:
-        for ts in tiles_with_sensors:
-            if s.tid == ts.tid and ts.tclass == t_class:
-                sids.append(s.sid)
+        tile = getTileORM(s.tid)
+        if tile.tclass == t_class:
+            sids.append(s.sid)
 
-    if exclude:
-        for ex in exclude:
-            sids.remove(ex)
+    if only:
+        sids = [sid for sid in sids for i in only if sid == i]
 
     return sids
 
