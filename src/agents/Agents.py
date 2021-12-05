@@ -4,6 +4,7 @@ from sklearn.metrics import mean_squared_error
 from src.agents.ForecastModels import RandomModel, NearbyAverage, MinMaxModel, CmaModel, MultiVariate
 from src.database.DbManager import Session
 from src.database.Models import fetchTile_from_sid, Tile, getClassTiles
+import logging
 
 
 def _calc_error(x1, x2):
@@ -22,6 +23,9 @@ def getModelNames():
     return ['rand', 'nearby', 'minmax', 'sma', 'mvr']
 
 
+logging.basicConfig(level=logging.INFO)
+
+
 class Agent(object):
     training = True
     predictions = {model:None for model in getModelNames()}
@@ -38,7 +42,8 @@ class Agent(object):
         self.p_error = 0
         self.target_tile = None
         self.tile = fetchTile_from_sid(self.sid)
-        self.bias = 0
+        self.bias = config['bias']
+        self.bias_thresh = thresholds['bias']
         self.prediction = 0
         self._integrity = 1
         self._data_integrity = 1
@@ -46,11 +51,23 @@ class Agent(object):
         self.model_weights = {name: 1/len(getModelNames()) for name in getModelNames()}
 
     def _initializeModels(self):
-        models = {"rand": RandomModel(self.sid, self.cluster),
-                  'nearby': NearbyAverage(self.sid, self.cluster),
-                  'minmax': MinMaxModel(self.sid, self.cluster),
-                  'sma': CmaModel(self.sid, self.cluster),
-                  'mvr': MultiVariate(self.sid, self.cluster)
+        rand = self.configs['random']
+        nearby = self.configs['nearby']
+        minmax = self.configs['minmax']
+        sma = self.configs['sma']
+        mvr = self.configs['mvr']
+
+        rand.update({'completeness': self._threshold['completeness']})
+        nearby.update({'completeness': self._threshold['completeness']})
+        minmax.update({'completeness': self._threshold['completeness']})
+        sma.update({'completeness': self._threshold['completeness']})
+        mvr.update({'completeness': self._threshold['completeness']})
+
+        models = {"rand": RandomModel(self.sid, self.cluster, config=rand),
+                  'nearby': NearbyAverage(self.sid, self.cluster, config=nearby),
+                  'minmax': MinMaxModel(self.sid, self.cluster, config=minmax),
+                  'sma': CmaModel(self.sid, self.cluster, config=sma),
+                  'mvr': MultiVariate(self.sid, self.cluster, config=mvr)
                   }
 
         return models
@@ -143,8 +160,11 @@ class Agent(object):
 
         self._integrity = round(len(predicts.keys()) / len(getModelNames()), 2)
         self._data_integrity = round(1-np.mean(data_integrity), 2)
+        logging.debug(f"agent integrity: {self._integrity}")
+        logging.debug(f"agent data_integrity: {self._data_integrity}")
 
         self.prediction = total_pm1
+        logging.debug(f"prediction: {self.prediction}")
         return total_pm1
 
     def makeCollabPrediction(self, cluster_predictions):
@@ -176,6 +196,11 @@ class Agent(object):
         # print(f"\t\twnp: {wnp}, type:{type(wnp)}")
         return wnp
 
+    def _within_bias_threshold(self, value):
+        if -self.bias_thresh <= value <= self.bias_thresh and round(value, 2) == value:
+            return True
+        return False
+
     def assessPerformance(self, values, naive, collab, intervals=None):
         """
         sets bias based on naive and cluster prediction performance
@@ -185,6 +210,7 @@ class Agent(object):
         :param intervals: datetime hour intervals
         :return: adjusts agent bias by a percentage
         """
+
         naive_preds = naive[self.sid]
         cluster_preds = [self.getClusterPred(float(v), float(collab[i])) for i, v in enumerate(naive_preds)]
 
@@ -193,12 +219,18 @@ class Agent(object):
 
         fraction = cluster_mse / naive_mse
         rel_change = _rel_diff(cluster_mse, naive_mse)
-        if fraction < 1:
-            # print("naive has more error, decrease bias!")
-            self.bias = max(0.51, round(self.bias - min([0.05, self.bias * (1 + rel_change)]), 2))
-        elif fraction > 1:
-            # print("collab has more error increase bias!")
-            self.bias = min(0.95, round(self.bias + min([0.05, self.bias * (1 + rel_change)]), 2))
+        logging.debug(f"cmse/nmse: {fraction}")
+        logging.debug(f"rel_change: {rel_change}")
+
+        # if not between -0.1 and 0.1, then apply bias change.
+        if not self._within_bias_threshold(rel_change):
+            if fraction < 1:
+                # print("naive has more error, decrease bias!")
+                self.bias = max(0.51, round(self.bias - min([0.05, self.bias * (1 + rel_change)]), 2))
+            elif fraction > 1:
+                # print("collab has more error increase bias!")
+                self.bias = min(0.95, round(self.bias + min([0.05, self.bias * (1 + rel_change)]), 2))
+
 
     def getDistTrust(self):
         """

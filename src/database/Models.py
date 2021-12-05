@@ -504,7 +504,7 @@ def sameClassSensors(t_class, only=None):
     return sids
 
 
-def findNearestSensors(sensorid, s_list, n=1):
+def findNearestSensors(sensorid, s_list, n=100):
     """
 
     :param n:

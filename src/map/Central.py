@@ -144,7 +144,6 @@ class Central:
         for s in self.sensors:
             cluster = makeCluster(s, self.sensors, n=self.model_params['cluster_size'])
             a = Agent(s, self.thresholds, cluster, config=self.agent_configs)
-            a.bias = self.data["agent_bias"]
             self.agents[a.sid] = a
             self.results[a.sid] = {'error': 100, 'config': {}}
         logging.info("Agents Initialized:" + str(len(self.agents)))

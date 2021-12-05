@@ -1,7 +1,8 @@
 {
    "id":1,
    "thresholds":{
-      "completeness":0.30,
+      "bias":0.1,
+      "completeness":0.85,
       "trust":0.25,
       "confidence":0.60,
       "error":75
@@ -72,10 +73,10 @@
          13128
       ]
    },
-   "agent_bias": 0.70,
    "agent_configs":{
+      "bias":0.1,
       "random":{
-         "interval":100
+         "min":0
       },
       "nearby":{
          "n":3
@@ -84,11 +85,13 @@
          "n":3
       },
       "sma":{
-         "window":10,
-         "interval":100
+         "window":4,
+         "interval_hours":72,
+         "interval_days":0
       },
       "mvr":{
-         "interval":100
+         "interval_hours":72,
+         "interval_days":0
       }
    }
 }
