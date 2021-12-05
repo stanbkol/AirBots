@@ -12,7 +12,7 @@ from sqlalchemy import extract, and_
 from src.database.DbManager import Session
 from src.main.utils import drange
 import statsmodels.api as sm
-from src.database.Models import getMeasureORM, getSensorORM, Measure, getObservations
+from src.database.Models import getMeasureORM, getSensorORM, Measure, getObservations, findNearestSensors
 from src.map.MapPoint import MapPoint, calcDistance
 
 
@@ -40,31 +40,6 @@ def calc_weights(n):
     sample = [x for x in drange(0, 1, diff)][1::]
     total = sum(sample)
     return [c / total for c in sample]
-
-
-def findNearestSensors(sensorid, s_list):
-    """
-    grabs nearest sensors to passed sensor id from the database
-    :param sensorid: sensor for which to find nearest neighbors.
-    :param s_list: list of active sensors
-    :return: list of (Sensor object, meters distance) tuples
-    """
-    base_sensor = getSensorORM(sensorid)
-    sensors_orm = []
-
-    for s in s_list:
-        if s != sensorid:
-            sensors_orm.append(getSensorORM(s))
-
-    distances = []
-    startLL = MapPoint(base_sensor.lat, base_sensor.lon)
-    for sensor in sensors_orm:
-        meters_away = calcDistance(startLL, MapPoint(sensor.lat, sensor.lon))
-        distances.append((sensor, meters_away))
-
-    distances.sort(key=lambda x: x[1])
-
-    return distances
 
 
 def measure_to_df(measures_list, columns):
@@ -133,7 +108,7 @@ class Model(object):
         return [attr_name for attr_name in self.__dict__ if '_' not in attr_name]
 
     @abstractmethod
-    def makePrediction(self, time, values, n=1):
+    def makePrediction(self, time, values):
         pass
 
     def getConfigKeys(self):
@@ -292,7 +267,7 @@ class Model(object):
             m_tuples, field_names = prepMeasures(orm_data, columns=targetObs)
             return m_tuples, field_names
 
-        if complete < 0.75:
+        if complete < self.configs["completeness"]:
             # too much data missing for interval
             return None, None
 
@@ -336,11 +311,12 @@ class NearbyAverage(Model):
     def __init__(self, sensor_id, sensor_list, config=None):
         super().__init__(sensor_id, sensor_list=sensor_list, config=config)
 
-    def makePrediction(self, target_time, values, n=1):
+    def makePrediction(self, target_time, values):
+        n = self.configs['n']
         target_predictions = self.validate_measures(values)
-        sensors = findNearestSensors(self.sensor.sid, self.sensor_list)
+        sensors = findNearestSensors(self.sensor.sid, self.sensor_list, n=n)
         totals = {field: 0 for field in target_predictions}
-        n = 3
+
         for s in sensors[:n]:
             data, cols = self._prepareData(s[0].sid, target_time, targetObs=target_predictions)
             if not data and not cols:
@@ -360,11 +336,12 @@ class MinMaxModel(Model):
     def __init__(self, sensor_id, sensors, config=None):
         super().__init__(sensor_id, sensor_list=sensors, config=config)
 
-    def makePrediction(self, time, values, n=1):
+    def makePrediction(self, time, values):
+        n = self.configs['n']
         target_predictions = self.validate_measures(values)
-        sensor_dists = findNearestSensors(self.sensor.sid, self.sensor_list)
+        sensor_dists = findNearestSensors(self.sensor.sid, self.sensor_list, n=n)
         sensor_vals = {val: [] for val in target_predictions}
-        n = 3
+
         for sd in sensor_dists[:n]:
             data, cols = self._prepareData(sd[0].sid, time, targetObs=target_predictions)
             if not data and not cols:
@@ -383,31 +360,32 @@ class MinMaxModel(Model):
 
 
 # value of nearest station
-class NearestSensor(Model):
-    """
-    grabs latest value from the n nearest sensors
-    """
-    def __init__(self, sensor_id, config=None):
-        super().__init__(sensor_id, config=config)
-
-    def makePrediction(self, target_sensor, time, *values, n=1):
-        sensors = findNearestSensors(target_sensor, self.sensor_list)
-        target_predictions = self.validate_measures(values)
-        sensor_vals = {val: 0 for val in target_predictions}
-        sensor_id = sensors[0][0].sid
-
-        data, cols = self._prepareData(sensor_id, time, targetObs=target_predictions)
-        if not data and not cols:
-            return None
-        latest_measure = data[-1]
-        for field in target_predictions:
-            sensor_vals[field] = latest_measure[cols.index(field)]
-
-        results = []
-        for k in sensor_vals.keys():
-            results.append((k, sensor_vals[k]))
-
-        return results
+# class NearestSensor(Model):
+#     """
+#     grabs latest value from the n nearest sensors
+#     """
+#     def __init__(self, sensor_id, config=None):
+#         super().__init__(sensor_id, config=config)
+#
+#     def makePrediction(self, target_sensor, time, *values):
+#         n = self.configs['n']
+#         sensors = findNearestSensors(target_sensor, self.sensor_list, n=n)
+#         target_predictions = self.validate_measures(values)
+#         sensor_vals = {val: 0 for val in target_predictions}
+#         sensor_id = sensors[0][0].sid
+#
+#         data, cols = self._prepareData(sensor_id, time, targetObs=target_predictions)
+#         if not data and not cols:
+#             return None
+#         latest_measure = data[-1]
+#         for field in target_predictions:
+#             sensor_vals[field] = latest_measure[cols.index(field)]
+#
+#         results = []
+#         for k in sensor_vals.keys():
+#             results.append((k, sensor_vals[k]))
+#
+#         return results
 
 
 # Weighted Moving Average
@@ -418,8 +396,8 @@ class WmaModel(Model):
     def __init__(self, sensor_id, config=None):
         super().__init__(sensor_id, config=config)
 
-    def makePrediction(self, target_sensor, time, *values, n=1 ):
-        window = 10
+    def makePrediction(self, target_sensor, time, *values, n=1):
+        window = self.configs['window']
         target_predictions = self.validate_measures(values)
         # most recent gets higher weight.
         weights = np.array(exp_weights(window))
@@ -434,16 +412,19 @@ class WmaModel(Model):
 
 class CmaModel(Model):
     """
-    cumulative moving average
+    simple/cumulative moving average
     """
 
     def __init__(self, sensor_id, sensors, config=None, cma=False):
         super().__init__(sensor_id, sensor_list=sensors, config=config)
         self._include_cma = cma
 
-    def makePrediction(self, time, values, window=10):
+    def makePrediction(self, time, values):
+        window = self.configs['window']
         target_predictions = self.validate_measures(values)
-        data, cols = self._prepareData(self.sensor.sid, time, targetObs=target_predictions, hour_interval=48)
+        data, cols = self._prepareData(self.sensor.sid, time, targetObs=target_predictions,
+                                       hour_interval=self.configs['interval_hours'],
+                                       day_interval=self.configs['interval_days'])
         if not data and not cols:
             return None
         results = createDataframe(data, cols)
@@ -519,11 +500,11 @@ class MultiVariate(Model):
         # days = self.configs["interval"]["days"]
         # hours = self.configs["interval"]["hours"]
         # if not days:
-        days = 7
-        hours = 0
 
         target_obs = self.validate_measures(values)
-        data, columns = self._prepareData(self.sensor.sid, prediction_time, day_interval=days, hour_interval=hours)
+        data, columns = self._prepareData(self.sensor.sid, prediction_time,
+                                          hour_interval=self.configs['interval_hours'],
+                                          day_interval=self.configs['interval_days'])
         if not data and not columns:
             return None
         predictions = { ob: 0.0 for ob in target_obs}
