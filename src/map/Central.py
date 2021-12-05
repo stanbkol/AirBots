@@ -188,7 +188,7 @@ class Central:
         """
         Main method that is responsible for making model predictions.
         Instantiates the training phase, and validates with a final prediction
-        :param target: target for prediction
+        :param target: target sid for prediction
         :param time: time for prediction
         :return: N/A, displays/saves results to file
         """
