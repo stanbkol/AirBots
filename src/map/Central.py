@@ -97,7 +97,7 @@ def makeCluster(sid, sensors, target_sid, n):
     :return: list of agent.sids that represent the agents cluster
     """
     with Session as sesh:
-        tid = sesh.query(Sensor.tid).where(Sensor.sid == target_sid).first()
+        tid = sesh.query(Sensor.tid).where(Sensor.sid == target_sid).first()[0]
         if tid:
             tile = getTileORM(tid)
 
