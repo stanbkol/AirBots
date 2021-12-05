@@ -88,7 +88,7 @@ def aggregatePrediction(preds, dist_weights, error_weights, tru_weights):
     return vals
 
 
-def makeCluster(sid, sensors, n):
+def makeCluster(sid, sensors, target_sid, n):
     """
 
     :param sid: sid of agent
@@ -96,7 +96,13 @@ def makeCluster(sid, sensors, n):
     :param n: size of cluster
     :return: list of agent.sids that represent the agents cluster
     """
-    data = findNearestSensors(sid, sensors, n)
+    with Session as sesh:
+        tid = sesh.query(Sensor.tid).where(Sensor.sid == target_sid).first()
+        if tid:
+            tile = getTileORM(tid)
+
+    tclass_sensors = sameTClassSids(tile.tclass, sensors)
+    data = findNearestSensors(sid, tclass_sensors, n)
     cluster = []
     for sens, dist in data:
         cluster.append(sens.sid)
@@ -138,11 +144,11 @@ class Central:
         self.thresholds = self.data["thresholds"]
         logging.info("Central System Created From "+str(self.model_file))
 
-    def extractData(self):
+    def extractData(self, target):
         self.sensors = self.data["sensors"]["on"]
         self.agent_configs = self.data["agent_configs"]
         for s in self.sensors:
-            cluster = makeCluster(s, self.sensors, n=self.model_params['cluster_size'])
+            cluster = makeCluster(s, self.sensors, target, n=self.model_params['cluster_size'])
             a = Agent(s, self.thresholds, cluster, config=self.agent_configs)
             self.agents[a.sid] = a
             self.results[a.sid] = {'error': 100, 'config': {}}
@@ -194,7 +200,7 @@ class Central:
         self.sensors = self.data["sensors"]["on"]
         self.sensorSummary(start, end)
         logging.info("Initializing Agents")
-        self.extractData()
+        self.extractData(target)
         self.writer.initializeFile(self.agents)
         logging.info("Initialize Model Training")
         logging.info("Target Sensor:"+str(target))
