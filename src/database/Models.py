@@ -490,12 +490,28 @@ def getClassTiles(t_class, exclude=None):
     return sensor_tiles
 
 
-def findNearestSensors(sensorid, s_list, n=0):
+def sameClassSensors(t_class, exclude=None):
+    sensors = getSensorsORM()
+    tiles_with_sensors = getSensorTiles()
+    sids = list()
+    for s in sensors:
+        for ts in tiles_with_sensors:
+            if s.tid == ts.tid and ts.tclass == t_class:
+                sids.append(s.sid)
+
+    if exclude:
+        for ex in exclude:
+            sids.remove(ex)
+
+    return sids
+
+
+def findNearestSensors(sensorid, s_list, n=1):
     """
 
     :param n:
     :param sensorid: sensor for which to find nearest neighbors.
-    :param s_list: list of active sensors
+    :param s_list: list of active sensor ids
     :return: list of (Sensor object, meters distance) tuples
     """
     base_sensor = getSensorORM(sensorid)
