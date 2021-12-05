@@ -4,11 +4,12 @@
       "completeness":0.70,
       "trust":0.25,
       "confidence":0.60,
+      "bias":0.10,
       "error":75
    },
    "model_params":{
-      "num_iter":5,
-      "interval":6,
+      "num_iter":3,
+      "interval":3,
       "cluster_size": 3
    },
    "map":{
@@ -25,11 +26,11 @@
          2169,
          5681,
          5694,
-         5697,
          5698,
          5700,
          5702,
          5705,
+         6494,
          10408,
          11361,
          11521,
@@ -68,11 +69,11 @@
          13128
             ],
       "off":[
-         6494
+         5697
       ]
    },
-   "agent_bias": 0.70,
    "agent_configs":{
+      "bias": 0.70,
       "random":{
          "interval":100
       },

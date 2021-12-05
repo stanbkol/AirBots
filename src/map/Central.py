@@ -133,35 +133,40 @@ class Central:
         self.data = getJson(model)
         self.model_file = model
         self.error = {}
-        self.results = {}
+        self.agent_results = {}
+        self.model_results = {'error': 100, 'config': {}}
         self.model_params = self.data["model_params"]
         self.thresholds = self.data["thresholds"]
-        logging.info("Central System Created From "+str(self.model_file))
+        logging.info("Central System Created From " + str(self.model_file))
 
     def extractData(self):
-        self.sensors = self.data["sensors"]["on"]
         self.agent_configs = self.data["agent_configs"]
         for s in self.sensors:
             cluster = makeCluster(s, self.sensors, n=self.model_params['cluster_size'])
             a = Agent(s, self.thresholds, cluster, config=self.agent_configs)
-            a.bias = self.data["agent_bias"]
+            a.bias = self.agent_configs["bias"]
             self.agents[a.sid] = a
-            self.results[a.sid] = {'error': 100, 'config': {}}
+            self.agent_results[a.sid] = {'error': 100, 'config': {}}
         logging.info("Agents Initialized:" + str(len(self.agents)))
 
     def sensorSummary(self, start, end):
         total = countInterval(start, end)
-        logging.info("Sensors Before Check:"+str(len(self.sensors)))
+        logging.info("Sensors Before Check:" + str(len(self.sensors)))
+        sensors_pass = []
+        sensors_fail = []
         for s in self.sensors:
             data = getMeasuresORM(s, start, end)
             if data:
                 data_completeness = round(((len(data)) / total), 2) * 100
-                if data_completeness < self.thresholds["completeness"]:
-                    print("Not Enough Data-->", s)
-                    self.sensors.remove(s)
+                if data_completeness > self.thresholds["completeness"]:
+                    sensors_pass.append(s)
+                else:
+                    sensors_fail.append(s)
             else:
-                self.sensors.remove(s)
-        logging.info("Sensors After Check:"+str(len(self.sensors)))
+                sensors_fail.append(s)
+        logging.info("Sensors Passed:" + str(len(sensors_pass)))
+        logging.info("Sensors Failed:" + str(len(sensors_fail)))
+        self.sensors = sensors_pass
 
     def getAllPredictions(self, target, time, val):
         """
@@ -177,6 +182,8 @@ class Central:
             pred = agent.makePredictions(target, time, ["pm1"], meas=val)
             if pred:
                 predictions[a] = (round(pred[0], 2), agent.cf)
+            else:
+                predictions[a] = pred
         return predictions
 
     def makePrediction(self, target, time):
@@ -198,12 +205,27 @@ class Central:
         self.extractData()
         self.writer.initializeFile(self.agents)
         logging.info("Initialize Model Training")
-        logging.info("Target Sensor:"+str(target))
+        logging.info("Target Sensor:" + str(target))
         logging.info("Interval between " + str(start) + " and " + str(end))
         self.trainModel(start, end, target)
         logging.info("Model Training Complete")
+        real_val = getMeasureORM(target, time)
+        logging.info("Final Prediction for " + str(target) + ":" + str(
+            int(time.strftime('%Y%m%d%H'))))
+        logging.info("Real Value:" + str(real_val.pm1))
+        logging.info("Selfish Agent Mesh-->Final Prediction")
         self.updateAgents()
-        self.finalPrediction(target, time, 5)
+        print("selfish", self.getMeshConfig())
+        selfish_best = self.finalPrediction(target, time, 5, real_val, self.model_params["num_iter"] + 1, "S")
+        logging.info("Prediction:" + str(selfish_best[0]))
+        logging.info("Error:" + str(selfish_best[1]))
+
+        logging.info("Historical Agent Mesh-->Final Prediction")
+        self.updateModel()
+        print("historical", self.getMeshConfig())
+        historical_best = self.finalPrediction(target, time, 5, real_val, self.model_params["num_iter"] + 2, "H")
+        logging.info("Prediction:" + str(historical_best[0]))
+        logging.info("Error:" + str(historical_best[1]))
 
     def trainModel(self, start_interval, end_interval, target):
         """
@@ -214,20 +236,18 @@ class Central:
         :return: N/A, no returns needed. controls flow of training the model
         """
         for i in range(1, self.model_params["num_iter"] + 1):
-            logging.info("Beginning Iteration #"+str(i))
+            logging.info("Beginning Iteration #" + str(i))
             collab_predictions = {sid: [] for sid in self.sensors}
             naive_predictions = {sid: [] for sid in self.sensors}
             orm_values = getMeasuresORM(target, start_interval, end_interval)
             values = []
             intervals = []
             for interval in orm_values:
-                logging.info("Predictions for "+str(interval.date))
+                logging.info("Predictions for " + str(interval.date))
                 intervals.append(interval.date)
                 vals = {sid: [] for sid in self.sensors}
                 values.append(interval.pm1)
                 interval_preds = self.getAllPredictions(target, interval.date, interval)
-                print(len(interval_preds))
-                print(interval_preds)
                 for a in self.agents:
                     cluster_pred = {}
                     agent = self.agents[a]
@@ -242,7 +262,7 @@ class Central:
             model_vals = self.aggregateModel(collab_predictions, countInterval(start_interval, end_interval), target)
             self.evaluateModel(values, model_vals)
             self.writer.saveIter(values, collab_predictions, naive_predictions, model_vals, i, intervals, self.agents)
-            self.writer.saveModel(i, self.sensors, self.agents, self.error)
+            self.writer.saveModel(i, self.sensors, self.agents, self.error, "I")
             self.applyHeuristic(values, naive_predictions, collab_predictions, intervals)
 
     def evaluateAgents(self, values, predictions, naive_preds):
@@ -262,9 +282,9 @@ class Central:
             agent.error = MAE(values, predictions[a])
             agent.n_error = MAE(values, naive_preds[a])
             agent.p_error = (p_err(values, naive_preds[a]), p_err(values, predictions[a]))
-            if agent.error < self.results[a]['error']:
-                self.results[a]['error'] = agent.error
-                self.results[a]['config'] = agent.bias
+            if agent.error < self.agent_results[a]['error']:
+                self.agent_results[a]['error'] = agent.error
+                self.agent_results[a]['config'] = agent.bias
 
     def aggregateModel(self, preds, num_preds, target):
         """
@@ -308,6 +328,16 @@ class Central:
                         'error_w': MAE(values, err_list)}
         error['p'] = {'average': p_err(values, avg_list), 'dist_w': p_err(values, dist_list),
                       'error_w': p_err(values, err_list)}
+        lowest_error = 100
+        for m in error['MAE']:
+            current_error = error['MAE'][m]
+            if current_error < lowest_error:
+                lowest_error = current_error
+        if lowest_error < self.model_results['error']:
+            logging.info("new historical best mesh")
+            self.model_results['error'] = lowest_error
+            self.model_results['config'] = self.getMeshConfig()
+            print(self.model_results['config'])
         self.error = error
 
     def applyHeuristic(self, values, naive_predictions, collab_predictions, intervals):
@@ -339,20 +369,21 @@ class Central:
 
     # TODO: update to include multiple prediction aggregation, rather than singular prediction
     # TODO: update to save results to excel file
-    def finalPrediction(self, target, time, k):
+    def finalPrediction(self, target, time, k, real_val, i, title):
         """
         This method makes the final prediction, based on the trained model
         :param target:
         :param time:
         :return: Will return the raw prediction+update results file
         """
-        real_val = getMeasureORM(target, time)
+        logging.info("Start Final Prediction")
         vals = []
         collab_preds = {sid: [] for sid in self.sensors}
         naive_preds = {sid: [] for sid in self.sensors}
         for x in range(0, k):
             vals.append(real_val.pm1)
             interval_preds = self.getAllPredictions(target, time, real_val)
+            # print(interval_preds)
             for a in self.sensors:
                 cluster_pred = {}
                 agent = self.agents[a]
@@ -365,25 +396,34 @@ class Central:
         self.evaluateAgents(vals, collab_preds, naive_preds)
         model_vals = self.aggregateModel(collab_preds, 5, target)
         self.evaluateModel(vals, model_vals)
-        self.writer.saveModel(self.model_params["num_iter"] + 1, self.sensors, self.agents, self.error)
-        print("FINAL PREDICTION")
-        print("Real Value:", real_val.pm1)
+        self.writer.saveModel(i, self.sensors, self.agents, self.error, title)
         best_error = 100
         best_pred = 0
-        print(model_vals)
         for mv in model_vals:
             for v in mv:
-                mae = abs(mv[v]-real_val.pm1)
+                mae = abs(mv[v] - real_val.pm1)
                 if mae < best_error:
                     best_error = mae
                     best_pred = mv[v]
-        print("Best Solution-->", best_pred)
-        print("MAE-->", best_error)
-        print("Error %-->", ((best_pred-real_val.pm1)/real_val.pm1)*100)
+        return best_pred, best_error
 
     def updateAgents(self):
         logging.info("Updating Agent Configs")
         for a in self.agents:
             agent = self.agents[a]
-            agent.bias = self.results[a]['config']
+            agent.bias = self.agent_results[a]['config']
+        logging.info("Agent Update Complete.")
 
+    def updateModel(self):
+        logging.info("Updating Model Configs")
+        for a in self.agents:
+            agent = self.agents[a]
+            agent.bias = self.model_results['config'][a]
+        logging.info("Model Update Complete.")
+
+    def getMeshConfig(self):
+        mesh_config = {}
+        for a in self.agents:
+            agent = self.agents[a]
+            mesh_config[a] = agent.bias
+        return mesh_config

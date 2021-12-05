@@ -5,8 +5,8 @@ from src.database.Models import *
 
 
 def main():
-    c = Central('..\\..\\..\\AirBots\\docs\\Model1')
-    c.makePrediction(6494, datetime(2019, 1, 7, 0))
+    c = Central('..\\..\\..\\AirBots\\docs\\Model2')
+    c.makePrediction(5697, datetime(2019, 1, 7, 0))
 
 
 if __name__ == '__main__':
