@@ -1,5 +1,3 @@
-import logging
-
 from openpyxl import load_workbook, Workbook
 from openpyxl.utils import get_column_letter
 
@@ -9,7 +7,6 @@ class ExcelWriter:
         self.results_file = file
 
     def saveModel(self, i, sensors, agents, model_error, title):
-        logging.info("Saving Data Iteration #" + str(i))
         wb = load_workbook(self.results_file)
         ws = wb["Training_Results"]
         col = i * 2
