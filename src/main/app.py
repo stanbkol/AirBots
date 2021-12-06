@@ -11,6 +11,5 @@ def main():
     c.makePrediction(5697, datetime(2019, 1, 7, 0))
 
 
-
 if __name__ == '__main__':
     main()
