@@ -9,7 +9,7 @@
    },
    "model_params":{
       "num_iter":5,
-      "interval":6,
+      "interval":12,
       "cluster_size": 3,
       "training_ratio": 0.7
    },
@@ -31,6 +31,7 @@
          5700,
          5702,
          5705,
+         5697,
          6494,
          10408,
          11361,
@@ -70,7 +71,6 @@
          13128
             ],
       "off":[
-         5697
       ]
    },
    "agent_configs":{

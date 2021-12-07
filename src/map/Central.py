@@ -15,8 +15,7 @@ def tileSummary():
             tc[t.tclass] += 1
         else:
             tc[t.tclass] = 1
-    print(len(tc))
-    print(tc)
+    return tc
 
 
 # Basic Average Model Aggregation
@@ -145,7 +144,6 @@ class Central:
         self.thresholds = self.data["thresholds"]
         logging.info("Central System Created From " + str(self.model_file))
 
-
     def extractData(self, target):
         self.agent_configs = self.data["agent_configs"]
         for s in self.sensors:
@@ -206,6 +204,8 @@ class Central:
             int(time.strftime('%Y%m%d%H'))) + "_results.xlsx"
         self.writer = ExcelWriter(results_string)
         self.sensors = self.data["sensors"]["on"]
+        if target in self.sensors:
+            self.sensors.remove(target)
         self.sensorSummary(start, end)
         logging.info("Initializing Agents")
         self.extractData(target)
@@ -239,11 +239,16 @@ class Central:
         :param target: target of prediction
         :return: N/A, no returns needed. controls flow of training the model
         """
+        orm_values = getMeasuresORM(target, start_interval, end_interval)
+        total_intervals = len(orm_values)
+        training_intervals = round(self.model_params['training_ratio'] * total_intervals, 0)
+        validation_intervals = int(total_intervals-training_intervals)
+        logging.info("Interval Breakdown--> T:" + str(training_intervals) + " V:" + str(validation_intervals))
         for i in range(1, self.model_params["num_iter"] + 1):
             logging.info("Beginning Iteration #" + str(i))
+            current_interval = 0
             collab_predictions = {sid: [] for sid in self.sensors}
             naive_predictions = {sid: [] for sid in self.sensors}
-            orm_values = getMeasuresORM(target, start_interval, end_interval)
             values = []
             intervals = []
             for interval in orm_values:
@@ -262,12 +267,22 @@ class Central:
                     vals[a] = pred
                     collab_predictions[a].append(pred)
                     naive_predictions[a].append(naive)
+                current_interval += 1
+                if current_interval == training_intervals:
+                    logging.info("Applying Agent Heuristics")
+                    self.evaluateAgents(values, collab_predictions, naive_predictions)
+                    self.applyHeuristic(values, naive_predictions, collab_predictions, intervals)
+                    collab_predictions = {sid: [] for sid in self.sensors}
+                    naive_predictions = {sid: [] for sid in self.sensors}
+                    values = []
+                    intervals = []
             self.evaluateAgents(values, collab_predictions, naive_predictions)
-            model_vals = self.aggregateModel(collab_predictions, countInterval(start_interval, end_interval), target)
+            model_vals = self.aggregateModel(collab_predictions, validation_intervals, target)
             self.evaluateModel(values, model_vals)
             self.writer.saveIter(values, collab_predictions, naive_predictions, model_vals, i, intervals, self.agents)
             self.writer.saveModel(i, self.sensors, self.agents, self.error, "I")
-            self.applyHeuristic(values, naive_predictions, collab_predictions, intervals)
+            logging.info("Ending Validation Dataset:" + str(intervals[-1]))
+            logging.info("Number of Intervals-->" + str(len(intervals)))
 
     def evaluateAgents(self, values, predictions, naive_preds):
         """
@@ -277,12 +292,8 @@ class Central:
         :param naive_preds: dictionary of naive predictions mapped to agent.sid
         :return: N/A, updates the naive/collab errors values in MAE and %, stored in the agent object
         """
-        # print("values:")
-        # print(values)
         for a in self.agents:
             agent = self.agents[a]
-            # print("predictions for:", a)
-            # print(predictions[a])
             agent.error = MAE(values, predictions[a])
             agent.n_error = MAE(values, naive_preds[a])
             agent.p_error = (p_err(values, naive_preds[a]), p_err(values, predictions[a]))
@@ -360,15 +371,9 @@ class Central:
             agent = self.agents[a]
             key_list = [a]
             key_list.extend(agent.cluster)
-            # print("agent H:", a)
-            # print(key_list)
             n_preds = {}
             for k in key_list:
                 n_preds[k] = naive_predictions[k]
-            # print("performance review")
-            # print(f"\tactual: {values}")
-            # print(f"\tnaive: {naive_predictions}")
-            # print(f"\tcollabs: {collab_predictions[a]}")
             agent.assessPerformance(values, n_preds, collab_predictions[a], intervals)
 
     # TODO: update to include multiple prediction aggregation, rather than singular prediction
