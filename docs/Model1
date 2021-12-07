@@ -1,16 +1,17 @@
 {
-   "id":1,
+     "id":1,
    "thresholds":{
-      "bias":0.1,
-      "completeness":0.85,
+      "completeness":0.70,
       "trust":0.25,
       "confidence":0.60,
+      "bias":0.10,
       "error":75
    },
    "model_params":{
-      "num_iter":10,
-      "interval":3,
-      "cluster_size": 3
+      "num_iter":2,
+      "interval":12,
+      "cluster_size": 3,
+      "training_ratio": 0.7
    },
    "map":{
       "name":"Opole",
@@ -23,7 +24,6 @@
    },
    "sensors":{
       "on":[
-
          11553,
          11563,
          11583,
