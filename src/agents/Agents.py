@@ -36,6 +36,7 @@ class Agent(object):
         self.configs = config
         self.cf = confidence
         self.cluster = cluster_list
+        self.completeness = 0
         self.models = self._initializeModels()
         self.error = 0
         self.n_error = 0
@@ -49,6 +50,9 @@ class Agent(object):
         self._data_integrity = 1
         # initially all models have equal weights
         self.model_weights = {name: 1/len(getModelNames()) for name in getModelNames()}
+
+    def integrity(self):
+        return round(self._integrity * self._data_integrity, 2)
 
     def _initializeModels(self):
         rand = self.configs['random']
@@ -140,12 +144,12 @@ class Agent(object):
             if model == 'mvr':
                 prediction = self.models[model].makePrediction(target_time, values, target_sid=target_sid)
                 if prediction:
-                    data_integrity.append(float(self.models[model].db_imputed))
+                    data_integrity.append(float(self.models[model]._imputed))
                     predicts[model] = prediction
             else:
                 prediction = self.models[model].makePrediction(target_time, values)
                 if prediction:
-                    data_integrity.append(float(self.models[model].db_imputed))
+                    data_integrity.append(float(self.models[model]._imputed))
                     predicts[model] = prediction
 
         # TODO: check for training flag to not reweight outside training, save weights on agent scope
