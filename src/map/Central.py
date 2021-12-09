@@ -1,5 +1,6 @@
 from datetime import timedelta
-
+from os import walk
+import os
 from src.database.Models import *
 from src.agents.Agents import *
 from src.main.utils import *
@@ -152,6 +153,16 @@ def getTrustWeights(agents, sensors_completeness):
     # print("TF-->", trust_factors)
     # print("TW-->", trust_weights)
     return trust_weights
+
+
+def archiveResults(docs):
+    filenames = next(walk(docs), (None, None, []))[2]
+    for file in filenames:
+        temp = file.split('_')
+        if temp[-1] == 'results.xlsx':
+            old_file_path = docs+"\\"+file
+            new_file_path = docs+"\\results\\"+file
+            os.replace(old_file_path, new_file_path)
 
 
 class Central:
