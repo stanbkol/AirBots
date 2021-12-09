@@ -23,7 +23,7 @@ def getModelNames():
     return ['rand', 'nearby', 'minmax', 'sma', 'mvr']
 
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 
 class Agent(object):
@@ -49,6 +49,7 @@ class Agent(object):
         self._data_integrity = 1
         # initially all models have equal weights
         self.model_weights = {name: 1/len(getModelNames()) for name in getModelNames()}
+        logging.debug(f"Agent {self.sid}'s cluster: {cluster_list}")
 
     def integrity(self):
         return round(self._integrity * self._data_integrity, 2)
@@ -93,6 +94,7 @@ class Agent(object):
         :return:
         """
         self.target_tile = fetchTile_from_sid(target_sid)
+
         tcf_delta = 1 - abs(self.tile.getTCF() - self.target_tile.getTCF())
         tile_dist_trust = self.getDistTrust()
         self.cf = round(np.mean([tcf_delta, tile_dist_trust]), 2)
@@ -141,7 +143,6 @@ class Agent(object):
                     data_integrity.append(float(self.models[model]._imputed))
                     predicts[model] = prediction
 
-        # TODO: check for training flag to not reweight outside training, save weights on agent scope
         if self.training:
             self.model_weights = self._weightModels(predicts, getattr(measure, 'pm1'))
         total_pm1 = 0
@@ -193,6 +194,39 @@ class Agent(object):
         if -self.bias_thresh <= value <= self.bias_thresh and round(value, 2) == value:
             return True
         return False
+
+    def apply_forecast_heuristic(self):
+        """
+        conducts a forward check search to find optimal configs for prediction models
+        :return:
+        """
+        import collections
+        configs = collections.namedtuple('Configs', 'nearby_k minmax_k sma_win sma_hours mvr_hours')
+        config = configs(self.configs['nearby']['n'],
+                          self.configs['minmax']['n'],
+                          self.configs['sma']['window'],
+                          self.configs['sma']['interval_hours'],
+                          self.configs['mvr']['interval_hours'])
+
+        for cn in config._fields:
+            if 'hours' in cn:
+                delta = 6
+            else:
+                delta = 1
+
+        for k,v in self.configs.items():
+            for k,v in self.configs.items():
+                pass
+
+
+
+        best_configs = {}
+        for k,v in self.models.items():
+            for k,v in v.configs.items():
+                pass
+
+        return best_configs
+
 
     def assessPerformance(self, values, naive, collab, intervals=None):
         """
