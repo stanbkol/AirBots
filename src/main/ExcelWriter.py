@@ -64,8 +64,22 @@ class ExcelWriter:
             ws.cell(row, col, i)
             ws.column_dimensions[get_column_letter(col)].width = 20
         col += 1
-        ws.cell(row, col, "Agent Bias")
-        # write actual values, and 3x model aggregation values
+        bias_col = col
+        nearby_col = col + 1
+        minmax_col = col + 2
+        sma_col = col + 3
+        mvr_col = col + 4
+        ws.cell(row, bias_col, "Agent Bias")
+        ws.cell(row, nearby_col, "Nearby-->N")
+        ws.cell(row, minmax_col, "MinMax-->N")
+        ws.cell(row, sma_col, "SMA-->window")
+        ws.cell(row, mvr_col, "MVR-->interval_hours")
+        ws.column_dimensions[get_column_letter(bias_col)].width = 20
+        ws.column_dimensions[get_column_letter(nearby_col)].width = 20
+        ws.column_dimensions[get_column_letter(minmax_col)].width = 20
+        ws.column_dimensions[get_column_letter(sma_col)].width = 20
+        ws.column_dimensions[get_column_letter(mvr_col)].width = 20
+
         actual_ind = 2
         modelavg_ind = 3
         error_ind = 4
@@ -94,7 +108,68 @@ class ExcelWriter:
                 ws.cell(agent_n_index, col, naive_predictions[a][p])
                 ws.cell(agent_c_index, col, collab_predictions[a][p])
             col += 1
-            ws.cell(agent_c_index, col, agents[a].bias)
+            bias_col = col
+            nearby_col = col + 1
+            minmax_col = col + 2
+            sma_col = col + 3
+            mvr_col = col + 4
+            ws.cell(agent_n_index, bias_col, agents[a].configs['bias'])
+            ws.cell(agent_n_index, nearby_col, agents[a].configs['nearby']['n'])
+            ws.cell(agent_n_index, minmax_col, agents[a].configs['minmax']['n'])
+            ws.cell(agent_n_index, sma_col, agents[a].configs['sma']['window'])
+            ws.cell(agent_n_index, mvr_col, agents[a].configs['mvr']['interval_hours'])
             agent_n_index += 2
             agent_c_index += 2
+        wb.save(self.results_file)
+
+    def saveAgentConfigs(self, agent_results):
+        wb = load_workbook(self.results_file)
+        ws = wb.create_sheet("Selfish_Agent_Summary")
+        ws.cell(1, 1, "Selfish Configs")
+        bias_i = 2
+        nearby_i = 3
+        minmax_i = 4
+        sma_i = 5
+        mvr_i = 6
+        ws.column_dimensions[get_column_letter(1)].width = 20
+        ws.cell(bias_i, 1, "Bias")
+        ws.cell(nearby_i, 1, "Nearby-->n")
+        ws.cell(minmax_i, 1, "MinMax-->n")
+        ws.cell(sma_i, 1, "SMA-->window")
+        ws.cell(mvr_i, 1, "MVR-->interval_hours")
+        agent_c = 2
+        for a in agent_results:
+            ws.cell(1, agent_c, a)
+            ws.cell(bias_i, agent_c, agent_results[a]['config']['bias'])
+            ws.cell(nearby_i, agent_c, agent_results[a]['config']['nearby']['n'])
+            ws.cell(minmax_i, agent_c, agent_results[a]['config']['minmax']['n'])
+            ws.cell(sma_i, agent_c, agent_results[a]['config']['sma']['window'])
+            ws.cell(mvr_i, agent_c, agent_results[a]['config']['mvr']['interval_hours'])
+            agent_c += 1
+        wb.save(self.results_file)
+
+    def saveModelBest(self, model_results):
+        wb = load_workbook(self.results_file)
+        ws = wb.create_sheet("Historical_Agent_Summary")
+        ws.cell(1, 1, "Historical Configs")
+        ws.column_dimensions[get_column_letter(1)].width = 20
+        bias_i = 2
+        nearby_i = 3
+        minmax_i = 4
+        sma_i = 5
+        mvr_i = 6
+        ws.cell(bias_i, 1, "Bias")
+        ws.cell(nearby_i, 1, "Nearby-->n")
+        ws.cell(minmax_i, 1, "MinMax-->n")
+        ws.cell(sma_i, 1, "SMA-->window")
+        ws.cell(mvr_i, 1, "MVR-->interval_hours")
+        agent_c = 2
+        for a in model_results:
+            ws.cell(1, agent_c, a)
+            ws.cell(bias_i, agent_c, model_results[a]['bias'])
+            ws.cell(nearby_i, agent_c, model_results[a]['nearby']['n'])
+            ws.cell(minmax_i, agent_c, model_results[a]['minmax']['n'])
+            ws.cell(sma_i, agent_c, model_results[a]['sma']['window'])
+            ws.cell(mvr_i, agent_c, model_results[a]['mvr']['interval_hours'])
+            agent_c += 1
         wb.save(self.results_file)

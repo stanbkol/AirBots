@@ -98,13 +98,22 @@ def makeCluster(sid, sensors, target_sid, n):
         tid = sesh.query(Sensor.tid).where(Sensor.sid == target_sid).first()[0]
         if tid:
             tile = getTileORM(tid)
-
     tclass_sensors = sameTClassSids(tile.tclass, sensors)
     data = findNearestSensors(sid, tclass_sensors, n)
     cluster = []
     for sens, dist in data:
         cluster.append(sens.sid)
+    # checkCluster(target_sid, cluster, sid)
     return cluster
+
+
+def checkCluster(target, cluster, sid):
+    targ = fetchTile_from_sid(target)
+    print("Cluster For A:", sid)
+    print("Target Class:"+targ.road+targ.tclass)
+    for a in cluster:
+        temp = fetchTile_from_sid(a)
+        print("Agent #"+str(a)+"-->" + temp.road + temp.tclass)
 
 
 def getClusterError(cluster, agents):
@@ -134,14 +143,14 @@ def getTrustWeights(agents, sensors_completeness):
         dc = round(sensors_completeness[a], 2)
         trust_factors[a] = round(dc * agent.cf * agent.integrity(), 2)
         total_tf += trust_factors[a]
-        # print("Trust Summary for S:", a)
-        # print("CF:", agent.cf)
-        # print("Completeness:", dc)
-        # print("Agent Integrity:", agent.integrity())
-        # print("Calculated Trust Value-->", trust_factors[a])
+    #     print("Trust Summary for S:", a)
+    #     print("CF:", agent.cf)
+    #     print("Calculated Trust Value-->", trust_factors[a])
     trust_weights = {}
     for a in trust_factors:
         trust_weights[a] = round(trust_factors[a]/total_tf, 2)
+    # print("TF-->", trust_factors)
+    # print("TW-->", trust_weights)
     return trust_weights
 
 
@@ -157,7 +166,7 @@ class Central:
         self.model_file = model
         self.error = {}
         self.agent_results = {}
-        self.model_results = {'error': 100, 'config': {}}
+        self.model_results = {'error': 100, 'configs': {}}
         self.model_params = self.data["model_params"]
         self.thresholds = self.data["thresholds"]
         logging.info("Central System Created From " + str(self.model_file))
@@ -166,7 +175,8 @@ class Central:
         self.agent_configs = self.data["agent_configs"]
         for s in self.sensors:
             cluster = makeCluster(s, self.sensors, target, n=self.model_params['cluster_size'])
-            a = Agent(s, self.thresholds, cluster, config=self.agent_configs)
+            a = Agent(s, self.thresholds, cluster, config=self.agent_configs.copy())
+            a.updateConfidence(target)
             self.agents[a.sid] = a
             self.agent_results[a.sid] = {'error': 100, 'config': {}}
         logging.info("Agents Initialized:" + str(len(self.agents)))
@@ -228,6 +238,7 @@ class Central:
             self.sensors.remove(target)
         self.sensorSummary(start, end)
         logging.info("Initializing Agents")
+        target_tile = fetchTile_from_sid(target)
         self.extractData(target)
         self.writer.initializeFile(self.agents)
         logging.info("Initialize Model Training")
@@ -236,6 +247,7 @@ class Central:
         self.trainModel(start, end, target)
         logging.info("Model Training Complete")
         real_val = getMeasureORM(target, time)
+        # self.showResults()
         logging.info("Final Prediction for " + str(target) + ":" + str(
             int(time.strftime('%Y%m%d%H'))))
         logging.info("Real Value:" + str(real_val.pm1))
@@ -249,6 +261,8 @@ class Central:
         selfish_best = self.finalPrediction(target, time, 5, real_val, self.model_params["num_iter"] + 2, "S")
         logging.info("Prediction:" + str(selfish_best[0]))
         logging.info("Error:" + str(selfish_best[1]))
+        self.writer.saveAgentConfigs(self.agent_results)
+        self.writer.saveModelBest(self.model_results['configs'])
 
     def trainModel(self, start_interval, end_interval, target):
         """
@@ -316,7 +330,7 @@ class Central:
             agent.p_error = (p_err(values, naive_preds[a]), p_err(values, predictions[a]))
             if agent.error < self.agent_results[a]['error']:
                 self.agent_results[a]['error'] = agent.error
-                self.agent_results[a]['config'] = agent.bias
+                self.agent_results[a]['config'] = agent.configs.copy()
 
     def aggregateModel(self, preds, num_preds, target):
         """
@@ -339,7 +353,7 @@ class Central:
             model_vals.append(aggregatePrediction(preds, err_weights, tru_weights))
         return model_vals
 
-    def evaluateModel(self, values, model_preds):
+    def evaluateModel(self, values, model_preds, update_historical=True):
         """
         This method goes through the list of values from aggregate model, and evaluates each aggregation strategy
         :param values: real sensor values
@@ -363,11 +377,12 @@ class Central:
             current_error = error['MAE'][m]
             if current_error < lowest_error:
                 lowest_error = current_error
-        if lowest_error < self.model_results['error']:
-            logging.info("new historical best mesh")
-            self.model_results['error'] = lowest_error
-            self.model_results['config'] = self.getMeshConfig()
-            print(self.model_results['config'])
+
+        if update_historical:
+            if lowest_error < self.model_results['error']:
+                logging.info("new historical best mesh")
+                self.model_results['error'] = lowest_error
+                self.model_results['configs'] = self.getMeshConfig()
         self.error = error
 
     def applyHeuristic(self, values, naive_predictions, collab_predictions, intervals):
@@ -419,7 +434,7 @@ class Central:
                 naive_preds[a].append(naive)
         self.evaluateAgents(vals, collab_preds, naive_preds)
         model_vals = self.aggregateModel(collab_preds, 5, target)
-        self.evaluateModel(vals, model_vals)
+        self.evaluateModel(vals, model_vals, False)
         self.writer.saveModel(i, self.agents, self.error, title)
         best_error = 100
         best_pred = 0
@@ -435,19 +450,30 @@ class Central:
         logging.info("Updating Agent Configs")
         for a in self.agents:
             agent = self.agents[a]
-            agent.bias = self.agent_results[a]['config']
+            agent.configs = self.agent_results[a]['config']
         logging.info("Agent Update Complete.")
 
     def updateModel(self):
         logging.info("Updating Model Configs")
         for a in self.agents:
             agent = self.agents[a]
-            agent.bias = self.model_results['config'][a]
+            agent.configs = self.model_results['configs'][a]
         logging.info("Model Update Complete.")
 
     def getMeshConfig(self):
         mesh_config = {}
         for a in self.agents:
             agent = self.agents[a]
-            mesh_config[a] = agent.bias
+            mesh_config[a] = agent.configs.copy()
         return mesh_config
+
+    def showResults(self):
+        print("Best Agent Configs")
+        for a in self.agent_results:
+            print(self.agent_results[a]['config'])
+        print("Best Model Config")
+        for a in self.model_results['configs']:
+            print(self.model_results['configs'][a])
+
+
+
