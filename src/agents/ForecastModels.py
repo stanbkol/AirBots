@@ -96,6 +96,7 @@ class Model(object):
         self.sensor_list = sensor_list
         self._mse = 0
         self._db_imputed = 0
+        self._imputed = 0
         # self.pred_tile = target_tile
         # self.target_time = target_time
 
@@ -238,6 +239,7 @@ class Model(object):
         if db_imputed > 0:
             self._db_imputed = round(db_imputed/possible_imputes, 2)
         measures = [tuple(m) for m in measures]
+        self._imputed = round(num_imputed/possible_imputes, 2)
 
         return sorted(measures, key=lambda m: m[time])
 

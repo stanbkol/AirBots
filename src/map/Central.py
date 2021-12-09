@@ -68,7 +68,7 @@ def mapAgentsToError(agents):
     return data
 
 
-def aggregatePrediction(preds, dist_weights, error_weights, tru_weights):
+def aggregatePrediction(preds, error_weights, tru_weights):
     """
     :param preds: dictionary of predictions mapped to agent.sid
     :param dist_weights: dictionary of weights based on inverse distance
@@ -78,12 +78,11 @@ def aggregatePrediction(preds, dist_weights, error_weights, tru_weights):
     """
     vals = {}
     avg = avgAgg(preds)
-    dist = WeightedAggregation(preds, dist_weights)
     err = WeightedAggregation(preds, error_weights)
-    # trust = trustAgg(preds, tru_weights)
+    trust = WeightedAggregation(preds, tru_weights)
     vals['average'] = round(avg, 2)
-    vals['distance'] = round(dist, 2)
     vals['error'] = round(err, 2)
+    vals['trust'] = round(trust, 2)
     return vals
 
 
@@ -127,6 +126,25 @@ def targetInterval(time, interval):
     return time - timedelta(hours=interval), time
 
 
+def getTrustWeights(agents, sensors_completeness):
+    trust_factors = {}
+    total_tf = 0
+    for a in agents:
+        agent = agents[a]
+        dc = round(sensors_completeness[a], 2)
+        trust_factors[a] = round(dc * agent.cf * agent.integrity(), 2)
+        total_tf += trust_factors[a]
+        # print("Trust Summary for S:", a)
+        # print("CF:", agent.cf)
+        # print("Completeness:", dc)
+        # print("Agent Integrity:", agent.integrity())
+        # print("Calculated Trust Value-->", trust_factors[a])
+    trust_weights = {}
+    for a in trust_factors:
+        trust_weights[a] = round(trust_factors[a]/total_tf, 2)
+    return trust_weights
+
+
 class Central:
     agents = {}
     sensors = []
@@ -158,12 +176,14 @@ class Central:
         logging.info("Sensors Before Check:" + str(len(self.sensors)))
         sensors_pass = []
         sensors_fail = []
+        self.sensors_completeness = {}
         for s in self.sensors:
             data = getMeasuresORM(s, start, end)
             if data:
-                data_completeness = round(((len(data)) / total), 2) * 100
+                data_completeness = round(((len(data)) / total), 2)
                 if data_completeness > self.thresholds["completeness"]:
                     sensors_pass.append(s)
+                    self.sensors_completeness[s] = data_completeness
                 else:
                     sensors_fail.append(s)
             else:
@@ -219,17 +239,16 @@ class Central:
         logging.info("Final Prediction for " + str(target) + ":" + str(
             int(time.strftime('%Y%m%d%H'))))
         logging.info("Real Value:" + str(real_val.pm1))
-        logging.info("Selfish Agent Mesh-->Final Prediction")
-        self.updateAgents()
-        selfish_best = self.finalPrediction(target, time, 5, real_val, self.model_params["num_iter"] + 1, "S")
-        logging.info("Prediction:" + str(selfish_best[0]))
-        logging.info("Error:" + str(selfish_best[1]))
-
         logging.info("Historical Agent Mesh-->Final Prediction")
         self.updateModel()
-        historical_best = self.finalPrediction(target, time, 5, real_val, self.model_params["num_iter"] + 2, "H")
+        historical_best = self.finalPrediction(target, time, 5, real_val, self.model_params["num_iter"] + 1, "H")
         logging.info("Prediction:" + str(historical_best[0]))
         logging.info("Error:" + str(historical_best[1]))
+        logging.info("Selfish Agent Mesh-->Final Prediction")
+        self.updateAgents()
+        selfish_best = self.finalPrediction(target, time, 5, real_val, self.model_params["num_iter"] + 2, "S")
+        logging.info("Prediction:" + str(selfish_best[0]))
+        logging.info("Error:" + str(selfish_best[1]))
 
     def trainModel(self, start_interval, end_interval, target):
         """
@@ -280,9 +299,7 @@ class Central:
             model_vals = self.aggregateModel(collab_predictions, validation_intervals, target)
             self.evaluateModel(values, model_vals)
             self.writer.saveIter(values, collab_predictions, naive_predictions, model_vals, i, intervals, self.agents)
-            self.writer.saveModel(i, self.sensors, self.agents, self.error, "I")
-            logging.info("Ending Validation Dataset:" + str(intervals[-1]))
-            logging.info("Number of Intervals-->" + str(len(intervals)))
+            self.writer.saveModel(i, self.agents, self.error, "I")
 
     def evaluateAgents(self, values, predictions, naive_preds):
         """
@@ -310,18 +327,16 @@ class Central:
         :return: returns list of model aggregation values, in which case each entry in list is a dictionary, mapped to each kind of aggregation
         """
         model_vals = []
-        dist_weights = inverseWeights(findNearestSensors(target, self.sensors))
         err_weights = inverseWeights(mapAgentsToError(self.agents))
-
-        tru_weights = {}
+        tru_weights = getTrustWeights(self.agents, self.sensors_completeness)
         if num_preds > 1:
             for i in range(0, num_preds):
                 interval_preds = {}
                 for a in preds:
                     interval_preds[a] = preds[a][i]
-                model_vals.append(aggregatePrediction(interval_preds, dist_weights, err_weights, tru_weights))
+                model_vals.append(aggregatePrediction(interval_preds, err_weights, tru_weights))
         else:
-            model_vals.append(aggregatePrediction(preds, dist_weights, err_weights, tru_weights))
+            model_vals.append(aggregatePrediction(preds, err_weights, tru_weights))
         return model_vals
 
     def evaluateModel(self, values, model_preds):
@@ -333,15 +348,15 @@ class Central:
         """
         error = {}
         avg_list = []
-        dist_list = []
+        tf_list = []
         err_list = []
         for e in model_preds:
             avg_list.append(e['average'])
-            dist_list.append(e['distance'])
+            tf_list.append(e['trust'])
             err_list.append(e['error'])
-        error['MAE'] = {'average': MAE(values, avg_list), 'dist_w': MAE(values, dist_list),
+        error['MAE'] = {'average': MAE(values, avg_list), 'trust_w': MAE(values, tf_list),
                         'error_w': MAE(values, err_list)}
-        error['p'] = {'average': p_err(values, avg_list), 'dist_w': p_err(values, dist_list),
+        error['p'] = {'average': p_err(values, avg_list), 'trust_w': p_err(values, tf_list),
                       'error_w': p_err(values, err_list)}
         lowest_error = 100
         for m in error['MAE']:
@@ -366,7 +381,7 @@ class Central:
         :param intervals: list of intervals
         :return: N/A, simply calls assessPerformance for each agent with necessary data
         """
-        for a in self.sensors:
+        for a in self.agents:
 
             agent = self.agents[a]
             key_list = [a]
@@ -393,7 +408,7 @@ class Central:
             vals.append(real_val.pm1)
             interval_preds = self.getAllPredictions(target, time, real_val)
             # print(interval_preds)
-            for a in self.sensors:
+            for a in self.agents:
                 cluster_pred = {}
                 agent = self.agents[a]
                 for ca in agent.cluster:
@@ -405,7 +420,7 @@ class Central:
         self.evaluateAgents(vals, collab_preds, naive_preds)
         model_vals = self.aggregateModel(collab_preds, 5, target)
         self.evaluateModel(vals, model_vals)
-        self.writer.saveModel(i, self.sensors, self.agents, self.error, title)
+        self.writer.saveModel(i, self.agents, self.error, title)
         best_error = 100
         best_pred = 0
         for mv in model_vals:

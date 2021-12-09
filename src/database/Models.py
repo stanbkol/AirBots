@@ -323,7 +323,7 @@ class Map(Base):
 
 def getSensorsORM():
     with Session as sesh:
-        return sesh.query(Sensor).all()
+        return sorted(sesh.query(Sensor).all(), key=lambda x: x.sid)
 
 
 def getTileCellORM(x, y):
