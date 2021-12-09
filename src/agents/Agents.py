@@ -43,7 +43,6 @@ class Agent(object):
         self.p_error = 0
         self.target_tile = None
         self.tile = fetchTile_from_sid(self.sid)
-        self.bias = config['bias']
         self.bias_thresh = thresholds['bias']
         self.prediction = 0
         self._integrity = 1
@@ -55,20 +54,13 @@ class Agent(object):
         return round(self._integrity * self._data_integrity, 2)
 
     def _initializeModels(self):
-        rand = self.configs['random']
         nearby = self.configs['nearby']
         minmax = self.configs['minmax']
         sma = self.configs['sma']
         mvr = self.configs['mvr']
 
-        rand.update({'completeness': self._threshold['completeness']})
-        nearby.update({'completeness': self._threshold['completeness']})
-        minmax.update({'completeness': self._threshold['completeness']})
-        sma.update({'completeness': self._threshold['completeness']})
-        mvr.update({'completeness': self._threshold['completeness']})
-
-        models = {"rand": RandomModel(self.sid, self.cluster, config=rand),
-                  'nearby': NearbyAverage(self.sid, self.cluster, config=nearby),
+        models = {'rand': RandomModel(self.sid, self.cluster),
+                    'nearby': NearbyAverage(self.sid, self.cluster, config=nearby),
                   'minmax': MinMaxModel(self.sid, self.cluster, config=minmax),
                   'sma': CmaModel(self.sid, self.cluster, config=sma),
                   'mvr': MultiVariate(self.sid, self.cluster, config=mvr)
@@ -95,20 +87,19 @@ class Agent(object):
 
         return {model_name: errors[model_name] / total_se for model_name in errors.keys()}
 
-    def _updateConfidence(self):
+    def updateConfidence(self, target_sid):
         """
         updates the agent's confidence rating based on distance to target tile and difference in tile classification
         :return:
         """
-        # path = self.tile.pathTo(self.target_tile)
-        # t_tcf = 0
-        # for ti in range(1, len(path)):
-        #     deltaCF = path[ti].getCF() - path[ti-1].getCF()
-        #     t_tcf += deltaCF
-
+        self.target_tile = fetchTile_from_sid(target_sid)
         tcf_delta = 1 - abs(self.tile.getTCF() - self.target_tile.getTCF())
         tile_dist_trust = self.getDistTrust()
-        self.cf = np.mean([tcf_delta, tile_dist_trust])
+        self.cf = round(np.mean([tcf_delta, tile_dist_trust]), 2)
+        # print("agent tcf:", self.tile.getTCF())
+        # print("tile dist trust:", tile_dist_trust)
+        # print("CF pre dist:", tcf_delta)
+        # print("CF post dist:", self.cf)
 
     def tiles_change_factor(self, target_tile):
         """
@@ -135,8 +126,6 @@ class Agent(object):
         :param meas: the measure object at target time (for validation)
         :return:
         """
-        self.target_tile = fetchTile_from_sid(target_sid)
-        self._updateConfidence()
         data_integrity = list()
         measure = meas
         predicts = {}
@@ -177,7 +166,7 @@ class Agent(object):
         :param cluster_predictions:
         :return: a single value for predicted pm
         """
-        cluster_bias = 1 - self.bias
+        cluster_bias = 1 - self.configs['bias']
         cluster_prediction = 0
         totalcf = 0
 
@@ -189,14 +178,14 @@ class Agent(object):
             piece_of_bias = cluster_predictions[a][1] / totalcf
             cluster_prediction += piece_of_bias * a_prediction
 
-        self.prediction = (self.prediction * self.bias) + (cluster_bias * cluster_prediction)
+        self.prediction = (self.prediction * self.configs['bias']) + (cluster_bias * cluster_prediction)
         return self.prediction
 
     def getClusterPred(self, naive, collab):
         # print(f"\t\tn {naive}, type {type(naive)}")
         # print(f"\t\tc {collab}, type {type(collab)}")
 
-        wnp = round((collab - (self.bias * naive)) / (1 - self.bias), 2)
+        wnp = round((collab - (self.configs['bias'] * naive)) / (1 - self.configs['bias']), 2)
         # print(f"\t\twnp: {wnp}, type:{type(wnp)}")
         return wnp
 
@@ -226,15 +215,17 @@ class Agent(object):
         logging.debug(f"cmse/nmse: {fraction}")
         logging.debug(f"rel_change: {rel_change}")
 
+        # print("Asessing for S:", self.sid)
+        # print("pre bias 2:", self.configs['bias'])
         # if not between -0.1 and 0.1, then apply bias change.
         if not self._within_bias_threshold(rel_change):
             if fraction < 1:
                 # print("naive has more error, decrease bias!")
-                self.bias = max(0.51, round(self.bias - min([0.05, self.bias * (1 + rel_change)]), 2))
+                self.configs['bias'] = max(0.51, round(self.configs['bias'] - min([0.05, self.configs['bias'] * (1 + rel_change)]), 2))
             elif fraction > 1:
                 # print("collab has more error increase bias!")
-                self.bias = min(0.95, round(self.bias + min([0.05, self.bias * (1 + rel_change)]), 2))
-
+                self.configs['bias'] = min(0.95, round(self.configs['bias'] + min([0.05, self.configs['bias'] * (1 + rel_change)]), 2))
+        # print("post bias 2:", self.configs['bias'])
 
     def getDistTrust(self):
         """
@@ -246,7 +237,7 @@ class Agent(object):
         end = DwHex(self.target_tile.x, self.target_tile.y)
         dist = dw_distance(start, end)
         # print(f"dist {dist}")
-        dist_factors = tile_dist_trust_factors()
+        dist_factors = tile_dist_trust_factors(50)
         closest = min(range(1, len(dist_factors) + 1), key=lambda x: abs(x - dist))
         return dist_factors[closest - 1]
 

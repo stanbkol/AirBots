@@ -9,7 +9,7 @@
    },
    "model_params":{
       "num_iter":2,
-      "interval":12,
+      "interval":6,
       "cluster_size": 3,
       "training_ratio": 0.7
    },
@@ -36,7 +36,7 @@
          11571
             ],
       "off":[
-2169,
+        2169,
          5681,
          5694,
          5697,
@@ -75,9 +75,6 @@
    },
    "agent_configs":{
       "bias":0.7,
-      "random":{
-         "min":0
-      },
       "nearby":{
          "n":3
       },

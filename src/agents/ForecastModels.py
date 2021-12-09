@@ -115,8 +115,6 @@ class Model(object):
     def getConfigKeys(self):
         return ["sensor","agent","trust","configs"]
 
-    # initial confidence calculation
-    # self.cf += updateConfidence(self.cf, actual_value=, predicted_value=) <---in each make prediction method
 
     def validate_measures(self, observations):
         obs = ['pm1', 'pm10', 'pm25']
@@ -269,9 +267,9 @@ class Model(object):
             m_tuples, field_names = prepMeasures(orm_data, columns=targetObs)
             return m_tuples, field_names
 
-        if complete < self.configs["completeness"]:
-            # too much data missing for interval
-            return None, None
+        # if complete < self.configs["completeness"]:
+        #     # too much data missing for interval
+        #     return None, None
 
         self.completed = complete
         cleaned = self._cleanIntervals(orm_data, new_start, new_end)

@@ -436,8 +436,7 @@ def create_poly_string(longlat_list):
     return "Polygon({coord_list})".format(coord_list=[longlat_list])
 
 
-def tile_dist_trust_factors():
-    max_range = 7
+def tile_dist_trust_factors(max_range):
     step = 0.98 / max(max_range, 1)
     dist_factors = [round(s * step, 3) for s in range(1, max_range+1)]
     dist_factors.reverse()
