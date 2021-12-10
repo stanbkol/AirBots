@@ -326,6 +326,11 @@ def getSensorsORM():
         return sorted(sesh.query(Sensor).all(), key=lambda x: x.sid)
 
 
+def getSidFromTile(tid):
+    with Session as sesh:
+        return sesh.query(Sensor.sid).where(Sensor.tid == tid).one()[0]
+
+
 def getTileCellORM(x, y):
     with Session as sesh:
         return sesh.query(Tile).where(Tile.x == x).where(Tile.y == y).one()

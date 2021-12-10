@@ -186,7 +186,7 @@ class Central:
         self.agent_configs = self.data["agent_configs"]
         for s in self.sensors:
             cluster = makeCluster(s, self.sensors, target, n=self.model_params['cluster_size'])
-            a = Agent(s, self.thresholds, cluster, config=self.agent_configs.copy())
+            a = Agent(s, self.thresholds, cluster, config=copy.deepcopy(self.agent_configs))
             a.updateConfidence(target)
             self.agents[a.sid] = a
             self.agent_results[a.sid] = {'error': 100, 'config': {}}
@@ -280,7 +280,7 @@ class Central:
 
         :param start_interval: first interval for training
         :param end_interval: last interval for training
-        :param target: target of prediction
+        :param target: target sid of prediction
         :return: N/A, no returns needed. controls flow of training the model
         """
         orm_values = getMeasuresORM(target, start_interval, end_interval)
@@ -315,7 +315,7 @@ class Central:
                 if current_interval == training_intervals:
                     logging.info("Applying Agent Heuristics")
                     self.evaluateAgents(values, collab_predictions, naive_predictions)
-                    self.applyHeuristic(values, naive_predictions, collab_predictions, intervals)
+                    self.applyHeuristic(values, naive_predictions, collab_predictions, intervals, target, iter=i)
                     collab_predictions = {sid: [] for sid in self.sensors}
                     naive_predictions = {sid: [] for sid in self.sensors}
                     values = []
@@ -341,7 +341,7 @@ class Central:
             agent.p_error = (p_err(values, naive_preds[a]), p_err(values, predictions[a]))
             if agent.error < self.agent_results[a]['error']:
                 self.agent_results[a]['error'] = agent.error
-                self.agent_results[a]['config'] = agent.configs.copy()
+                self.agent_results[a]['config'] = copy.deepcopy(agent.configs)
 
     def aggregateModel(self, preds, num_preds, target):
         """
@@ -396,7 +396,7 @@ class Central:
                 self.model_results['configs'] = self.getMeshConfig()
         self.error = error
 
-    def applyHeuristic(self, values, naive_predictions, collab_predictions, intervals):
+    def applyHeuristic(self, values, naive_predictions, collab_predictions, intervals, target_sid, iter):
         """
         This method takes all the predictions, and passes each agent only the necessary information they need to apply the heuristic
         Each agent gets a list of all naive predictions for himself and his cluster
@@ -415,7 +415,7 @@ class Central:
             n_preds = {}
             for k in key_list:
                 n_preds[k] = naive_predictions[k]
-            agent.assessPerformance(values, n_preds, collab_predictions[a], intervals)
+            agent.assessPerformance(values, n_preds, collab_predictions[a], intervals, ["pm1"], target_sid, iter)
 
     # TODO: update to include multiple prediction aggregation, rather than singular prediction
     # TODO: update to save results to excel file
@@ -475,7 +475,7 @@ class Central:
         mesh_config = {}
         for a in self.agents:
             agent = self.agents[a]
-            mesh_config[a] = agent.configs.copy()
+            mesh_config[a] = copy.deepcopy(agent.configs)
         return mesh_config
 
     def showResults(self):

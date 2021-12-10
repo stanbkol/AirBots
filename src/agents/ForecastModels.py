@@ -344,7 +344,7 @@ class NearbyAverage(Model):
         if old_config:
             self.configs = old_config
 
-        return {key: (totals[key] / n) for key in totals.keys()}
+        return {key: round(totals[key] / n, 2) for key in totals.keys()}
 
     def getConfigKeys(self):
         return []
@@ -378,7 +378,7 @@ class MinMaxModel(Model):
         for k in sensor_vals.keys():
             max_m = max(sensor_vals[k])
             min_m = min(sensor_vals[k])
-            results[k] = (max_m + min_m) / len(sensor_vals[k])
+            results[k] = round((max_m + min_m) / len(sensor_vals[k]),2)
 
         if old_config:
             self.configs = old_config

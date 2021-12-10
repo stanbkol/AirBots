@@ -96,8 +96,6 @@ def evaluate_config(model, config, actual, target_time, values, target_sid):
         return MAE(actuals, predictions)
 
 
-
-
 def apply_forecast_heuristic(agent):
     """
     conducts a forward check search to find optimal configs for prediction models
@@ -109,8 +107,7 @@ def apply_forecast_heuristic(agent):
     values = ['pm1']
     target_sid = 11567
 
-
-    base_configs = agent.configs
+    base_configs = agent.configs.copy()
     base_configs.remove(base_configs['bias'])
     base_configs.remove(base_configs['sma']["interval_days"])
     base_configs.remove(base_configs['sma']["interval_hours"])

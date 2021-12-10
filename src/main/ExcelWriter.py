@@ -116,7 +116,7 @@ class ExcelWriter:
             ws.cell(agent_n_index, bias_col, agents[a].configs['bias'])
             ws.cell(agent_n_index, nearby_col, agents[a].configs['nearby']['n'])
             ws.cell(agent_n_index, minmax_col, agents[a].configs['minmax']['n'])
-            ws.cell(agent_n_index, sma_col, agents[a].configs['sma']['window'])
+            ws.cell(agent_n_index, sma_col, str(agents[a].configs['sma']['window']) + " : " + str(agents[a].configs['sma']['interval_hours']))
             ws.cell(agent_n_index, mvr_col, agents[a].configs['mvr']['interval_hours'])
             agent_n_index += 2
             agent_c_index += 2
@@ -143,7 +143,7 @@ class ExcelWriter:
             ws.cell(bias_i, agent_c, agent_results[a]['config']['bias'])
             ws.cell(nearby_i, agent_c, agent_results[a]['config']['nearby']['n'])
             ws.cell(minmax_i, agent_c, agent_results[a]['config']['minmax']['n'])
-            ws.cell(sma_i, agent_c, agent_results[a]['config']['sma']['window'])
+            ws.cell(sma_i, agent_c, str(agent_results[a]['config']['sma']['window']) + " : " + str(agent_results[a]['config']['sma']['interval_hours']))
             ws.cell(mvr_i, agent_c, agent_results[a]['config']['mvr']['interval_hours'])
             agent_c += 1
         wb.save(self.results_file)
@@ -169,7 +169,7 @@ class ExcelWriter:
             ws.cell(bias_i, agent_c, model_results[a]['bias'])
             ws.cell(nearby_i, agent_c, model_results[a]['nearby']['n'])
             ws.cell(minmax_i, agent_c, model_results[a]['minmax']['n'])
-            ws.cell(sma_i, agent_c, model_results[a]['sma']['window'])
+            ws.cell(sma_i, agent_c, str(model_results[a]['sma']['window']) + " : " + str(model_results[a]['sma']['interval_hours']))
             ws.cell(mvr_i, agent_c, model_results[a]['mvr']['interval_hours'])
             agent_c += 1
         wb.save(self.results_file)
