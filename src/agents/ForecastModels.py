@@ -109,8 +109,13 @@ class Model(object):
         return [attr_name for attr_name in self.__dict__ if '_' not in attr_name]
 
     @abstractmethod
-    def makePrediction(self, time, values):
+    def makePrediction(self, time, values, new_config=None):
         pass
+
+    def _updateConfigs(self, configs):
+        for k,v in configs.items():
+            if k in self.configs.keys():
+                self.configs[k] = v
 
     def getConfigKeys(self):
         return ["sensor","agent","trust","configs"]
@@ -294,7 +299,12 @@ class RandomModel(Model):
     def __init__(self, sensor_id, sensor_list, config=None):
         super().__init__(sensor_id, sensor_list=sensor_list, config=config)
 
-    def makePrediction(self, time, values, n=1):
+    def makePrediction(self, time, values, new_config=None):
+        old_config = None
+        if new_config:
+            old_config = self.configs
+            self._updateConfigs(new_config)
+
         vals = self.validate_measures(values)
         data, cols = self._prepareData(self.sensor.sid, time, targetObs=vals, hour_interval=48)
         if not data and not cols:
@@ -302,7 +312,8 @@ class RandomModel(Model):
         max_vals = {ob: 0 for ob in vals}
         for target_measure in vals:
             max_vals[target_measure] = max(data, key=lambda measure: measure[cols.index(target_measure)])[cols.index(target_measure)]
-
+        if old_config:
+            self.configs = old_config
         return {ob: rand.uniform(0, max_vals[ob]) for ob in max_vals.keys()}
 
 
@@ -311,7 +322,12 @@ class NearbyAverage(Model):
     def __init__(self, sensor_id, sensor_list, config=None):
         super().__init__(sensor_id, sensor_list=sensor_list, config=config)
 
-    def makePrediction(self, target_time, values):
+    def makePrediction(self, target_time, values, new_config=None):
+        old_config = None
+        if new_config:
+            old_config = self.configs
+            self._updateConfigs(new_config)
+
         n = self.configs['n']
         target_predictions = self.validate_measures(values)
         sensors = findNearestSensors(self.sensor.sid, self.sensor_list, n=n)
@@ -325,7 +341,10 @@ class NearbyAverage(Model):
             for field in target_predictions:
                 totals[field] += latest_measure[cols.index(field)]
 
-        return {key: (totals[key] / n) for key in totals.keys()}
+        if old_config:
+            self.configs = old_config
+
+        return {key: round(totals[key] / n, 2) for key in totals.keys()}
 
     def getConfigKeys(self):
         return []
@@ -336,7 +355,12 @@ class MinMaxModel(Model):
     def __init__(self, sensor_id, sensors, config=None):
         super().__init__(sensor_id, sensor_list=sensors, config=config)
 
-    def makePrediction(self, time, values):
+    def makePrediction(self, time, values, new_config=None):
+        old_config = None
+        if new_config:
+            old_config = self.configs
+            self._updateConfigs(new_config)
+
         n = self.configs['n']
         target_predictions = self.validate_measures(values)
         sensor_dists = findNearestSensors(self.sensor.sid, self.sensor_list, n=n)
@@ -354,7 +378,10 @@ class MinMaxModel(Model):
         for k in sensor_vals.keys():
             max_m = max(sensor_vals[k])
             min_m = min(sensor_vals[k])
-            results[k] = (max_m + min_m) / len(sensor_vals[k])
+            results[k] = round((max_m + min_m) / len(sensor_vals[k]),2)
+
+        if old_config:
+            self.configs = old_config
 
         return results
 
@@ -396,12 +423,12 @@ class WmaModel(Model):
     def __init__(self, sensor_id, config=None):
         super().__init__(sensor_id, config=config)
 
-    def makePrediction(self, target_sensor, time, *values, n=1):
+    def makePrediction(self, time, values, new_config=None):
         window = self.configs['window']
         target_predictions = self.validate_measures(values)
         # most recent gets higher weight.
         weights = np.array(exp_weights(window))
-        data, cols = self._prepareData(target_sensor, time, targetObs=target_predictions)
+        data, cols = self._prepareData(self.sensor.sid, time, targetObs=target_predictions)
         if not data and not cols:
             return None
         df = createDataframe(cols, data)
@@ -419,7 +446,12 @@ class CmaModel(Model):
         super().__init__(sensor_id, sensor_list=sensors, config=config)
         self._include_cma = cma
 
-    def makePrediction(self, time, values):
+    def makePrediction(self, time, values, new_config=None):
+        old_config = None
+        if new_config:
+            old_config = self.configs
+            self._updateConfigs(new_config)
+
         window = self.configs['window']
         target_predictions = self.validate_measures(values)
         data, cols = self._prepareData(self.sensor.sid, time, targetObs=target_predictions,
@@ -442,49 +474,51 @@ class CmaModel(Model):
             # plt.plot(results['date'], results['Prediction_cma'], label="Pred_cma")
 
         # results['Error_'] = abs(((results['pm1'] - results['Prediction']) / results['pm1']) * 100)
+        if old_config:
+            self.configs = old_config
 
         return predictions
 
 
 # To Do: AutoREgressiveIntegratedMovingAverage
-class ARMIAX(Model):
-    """
-    Non-seasonal Auto Regressive Integrated Moving Average. model determined on p,d,q values.
-    """
-    def __init__(self, sensor_id, config=None, stationary=True):
-        super().__init__(sensor_id, config=config)
-        self.seasonal = not stationary
-
-    def makePrediction(self, target_sensor, time, *values, n=1):
-
-        measures, cols = self._prepareData(target_sensor, time)
-        df = createDataframe(cols, measures)
-        # ['sensorid', 'date', 'temp', 'pm1', 'pm10', 'pm25']
-
-        # date, pm1
-        series = df.drop(['sensorid', 'temp', 'pm10', 'pm25'], axis=1).dropna()
-        # other related variables: temp and the other pms
-        exog_train = df.drop(['sensorid', 'date', 'pm1'], axis=1).dropna()
-
-        # TODO: These need to be found based on the data provided. see https://people.duke.edu/~rnau/411arim.htm
-        ar_p = 5
-        i_d = 1
-        ma_q = 0
-
-        if not self.seasonal:
-            model = sm.tsa.statespace.SARIMAX(series, order=(ar_p, i_d, ma_q),
-                                              seasonal_order=(0, 0, 0, 0),
-                                              exog=exog_train)
-        else:
-            # TODO: seasonal_order cannot be (0,0,0,0) change it to something else.
-            model = sm.tsa.statespace.SARIMAX(series, order=(ar_p, i_d, ma_q),
-                                              seasonal_order=(0, 0, 0, 0),
-                                              exog=exog_train)
-
-        model_fit = model.fit()
-
-        # returns the n+1 hour prediction for pm1
-        return model_fit.forecast()[0]
+# class ARMIAX(Model):
+#     """
+#     Non-seasonal Auto Regressive Integrated Moving Average. model determined on p,d,q values.
+#     """
+#     def __init__(self, sensor_id, config=None, stationary=True):
+#         super().__init__(sensor_id, config=config)
+#         self.seasonal = not stationary
+#
+#     def makePrediction(self, time, values, new_config=None):
+#
+#         measures, cols = self._prepareData(target_sensor, time)
+#         df = createDataframe(cols, measures)
+#         # ['sensorid', 'date', 'temp', 'pm1', 'pm10', 'pm25']
+#
+#         # date, pm1
+#         series = df.drop(['sensorid', 'temp', 'pm10', 'pm25'], axis=1).dropna()
+#         # other related variables: temp and the other pms
+#         exog_train = df.drop(['sensorid', 'date', 'pm1'], axis=1).dropna()
+#
+#         # TODO: These need to be found based on the data provided. see https://people.duke.edu/~rnau/411arim.htm
+#         ar_p = 5
+#         i_d = 1
+#         ma_q = 0
+#
+#         if not self.seasonal:
+#             model = sm.tsa.statespace.SARIMAX(series, order=(ar_p, i_d, ma_q),
+#                                               seasonal_order=(0, 0, 0, 0),
+#                                               exog=exog_train)
+#         else:
+#             # TODO: seasonal_order cannot be (0,0,0,0) change it to something else.
+#             model = sm.tsa.statespace.SARIMAX(series, order=(ar_p, i_d, ma_q),
+#                                               seasonal_order=(0, 0, 0, 0),
+#                                               exog=exog_train)
+#
+#         model_fit = model.fit()
+#
+#         # returns the n+1 hour prediction for pm1
+#         return model_fit.forecast()[0]
 
 
 # update to involve two sensorids; use the predicting sensors data to define the model, and plug in values from the
@@ -496,10 +530,14 @@ class MultiVariate(Model):
     def __init__(self, sensor_id, sensors, config=None):
         super().__init__(sensor_id, sensor_list=sensors, config=config)
 
-    def makePrediction(self, prediction_time, values, target_sid=None):
+    def makePrediction(self, prediction_time, values, target_sid=None, new_config=None):
         # days = self.configs["interval"]["days"]
         # hours = self.configs["interval"]["hours"]
         # if not days:
+        old_config = None
+        if new_config:
+            old_config = self.configs
+            self._updateConfigs(new_config)
 
         target_obs = self.validate_measures(values)
         data, columns = self._prepareData(self.sensor.sid, prediction_time,
@@ -531,6 +569,9 @@ class MultiVariate(Model):
             # TODO: use MA to estimate dependent variables for future hours, if data is not available in database.
             test_data = [getattr(actual_value, attr) for attr in dependent_vars]
             predictions[ob] = reg_model.predict([test_data])
+
+        if old_config:
+            self.configs = old_config
 
         return predictions
 

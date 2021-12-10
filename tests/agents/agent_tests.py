@@ -1,7 +1,15 @@
+import datetime
+import itertools
+import logging
+
 from sklearn.metrics import mean_squared_error
 import numpy as np
 
 from src.agents.Agents import _rel_diff, Agent
+from src.main.utils import MAE
+
+
+logging.basicConfig(level=logging.DEBUG)
 
 
 def mock_assPerformance(values, naive, collab):
@@ -74,5 +82,156 @@ def test_dist_tiles():
     print(smith.getDistTrust())
 
 
+def evaluate_config(model, config, actual, target_time, values, target_sid):
+    num_p = 5
+
+    actuals = [actual for _ in range(num_p)]
+    if model.__class__.__name__ == 'MultiVariate':
+        predictions = [model.makePrediction(target_time, values, target_sid=target_sid, config=config) for _ in range(num_p)]
+    else:
+        predictions = [model.makePrediction(target_time, values, config=config) for _ in range(num_p)]
+
+    if predictions:
+        logging.debug(f"eval config preds is 5: {len(predictions)==num_p}")
+        return MAE(actuals, predictions)
+
+
+def apply_forecast_heuristic(agent):
+    """
+    conducts a forward check search to find optimal configs for prediction models
+    :return:
+    """
+
+    actual = 26.2
+    target_time = datetime.datetime(2021, 5, 15, 11)
+    values = ['pm1']
+    target_sid = 11567
+
+    base_configs = agent.configs.copy()
+    base_configs.remove(base_configs['bias'])
+    base_configs.remove(base_configs['sma']["interval_days"])
+    base_configs.remove(base_configs['sma']["interval_hours"])
+    base_configs.remove(base_configs['mvr']["interval_days"])
+    logging.debug(f"initial configs: {base_configs}")
+    # hooke-jeeves alg
+    for k, v in base_configs.items():
+        # params to test
+        vals = v.items()
+        fm = agent.models[k]
+
+        origin_cfg = base_configs.copy()
+        param_vector = list()
+        for v in vals:
+            # each x has a list of -,+ vals
+            param_i = list()
+            delta = 6 if 'hours' in v[0] else 1
+            # calc points from - to +
+            for d in range(-delta, delta+1, delta):
+                if d != 0:
+                    if delta == 1:
+                        param_i.append( {max(1, v[1] + delta): v[0]})
+                    else:
+                        param_i.append( {max(12, v[1] + delta): v[0]})
+
+            param_vector.append(param_i)
+
+        permutations = list(itertools.product(*param_vector))
+        logging.debug(f"forecast {k}")
+        ratings = list()
+        for p in permutations:
+            test_cfg = origin_cfg.copy()
+            for i in p:
+                for g, s in i.items():
+                    if s in test_cfg[k].keys():
+                        test_cfg[k][s] = g
+                        logging.debug(f"\tparam: {s}, v: {g}")
+                logging.debug(f"configs: {test_cfg}")
+                ratings.append(evaluate_config(fm, test_cfg, actual, target_time, values, target_sid))
+
+        best_index = ratings.index(min(ratings))
+        m_cfg = dict([(v,k) for x in permutations[best_index] for k, v in x.items()])
+        direction = {k: m_cfg[k]-origin_cfg[k] for k in m_cfg}
+
+        best_cfg = origin_cfg[k].copy()
+        for d in direction:
+            best_cfg[d] += direction[d]
+        count = 0
+        while True:
+            test_cfg = best_cfg.copy()
+            for d in direction:
+                if 'hour' in d:
+                    test_cfg[d] = max(12, test_cfg[d] + direction[d])
+                else:
+                    test_cfg[d] = max(1, test_cfg[d] + direction[d])
+
+            mae = evaluate_config(fm, test_cfg, actual, target_time, values, target_sid)
+
+            if count > 4 and mae > agent.error:
+                break
+
+            best_cfg = test_cfg
+
+        for p in best_cfg:
+            base_configs[k][p] = best_cfg[p]
+
+        return base_configs
+
+
+
+
+def test_prediction_heur():
+    base_configs = {
+      "bias":0.1,
+      "nearby":{
+         "n":3
+      },
+      "minmax":{
+         "n":3
+      },
+      "sma":{
+         "window":4,
+         "interval_hours":48,
+         "interval_days":0
+      },
+      "mvr":{
+         "interval_hours":72,
+         "interval_days":0
+      }
+    }
+    thesholds = {
+      "completeness":0.70,
+      "trust":0.25,
+      "confidence":0.60,
+      "bias":0.10,
+      "error":75
+   }
+    smith = Agent(5694, thresholds=thesholds, cluster_list=[11545, 11567, 5705], config=base_configs)
+
+    best_configs = apply_forecast_heuristic(smith)
+
+
 if __name__ == '__main__':
+    # b = [{24: 'y'}, {72: 'y'}]
+    # perms = [
+    #     [{3:'x'}, {1:'x'}], [{24: 'y'}, {72: 'y'}]
+    # ]
+    # permutations = list(itertools.product(*perms))
+    # print(permutations)
+    # for p in permutations:
+    #     for i in p:
+    #         for k,v in i.items():
+    #             print(v, k)
+    bc = {
+        "x": 2,
+        "y": 48
+    }
+
+    t = ((1, 'a'), (2, 'b'))
+    s = [({3: 'x'},)]
+    z = dict([(v,k) for x in s[0] for k, v in x.items()])
+    print(z)
+
+    dir = [(k,z[k]-bc[k]) for k in z]
+    print(dir)
+
     pass

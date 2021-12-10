@@ -1,10 +1,16 @@
+import copy
+import itertools
+import sys
+
 import numpy as np
 from sklearn.metrics import mean_squared_error
 
 from src.agents.ForecastModels import RandomModel, NearbyAverage, MinMaxModel, CmaModel, MultiVariate
 from src.database.DbManager import Session
-from src.database.Models import fetchTile_from_sid, Tile, getClassTiles
+from src.database.Models import fetchTile_from_sid, Tile, getClassTiles, getSidFromTile
 import logging
+
+from src.main.utils import MAE
 
 
 def _calc_error(x1, x2):
@@ -49,6 +55,7 @@ class Agent(object):
         self._data_integrity = 1
         # initially all models have equal weights
         self.model_weights = {name: 1/len(getModelNames()) for name in getModelNames()}
+        logging.debug(f"Agent {self.sid}'s cluster: {cluster_list}")
 
     def integrity(self):
         return round(self._integrity * self._data_integrity, 2)
@@ -61,10 +68,10 @@ class Agent(object):
 
         models = {'rand': RandomModel(self.sid, self.cluster),
                     'nearby': NearbyAverage(self.sid, self.cluster, config=nearby),
-                  'minmax': MinMaxModel(self.sid, self.cluster, config=minmax),
-                  'sma': CmaModel(self.sid, self.cluster, config=sma),
-                  'mvr': MultiVariate(self.sid, self.cluster, config=mvr)
-                  }
+                    'minmax': MinMaxModel(self.sid, self.cluster, config=minmax),
+                    'sma': CmaModel(self.sid, self.cluster, config=sma),
+                    'mvr': MultiVariate(self.sid, self.cluster, config=mvr)
+                }
 
         return models
 
@@ -93,13 +100,14 @@ class Agent(object):
         :return:
         """
         self.target_tile = fetchTile_from_sid(target_sid)
+
         tcf_delta = 1 - abs(self.tile.getTCF() - self.target_tile.getTCF())
         tile_dist_trust = self.getDistTrust()
         self.cf = round(np.mean([tcf_delta, tile_dist_trust]), 2)
-        # print("agent tcf:", self.tile.getTCF())
-        # print("tile dist trust:", tile_dist_trust)
-        # print("CF pre dist:", tcf_delta)
-        # print("CF post dist:", self.cf)
+
+        logging.debug(f"agent dist_trust: {tile_dist_trust}")
+        logging.debug(f"agent tcf_delta: {tcf_delta}")
+        logging.debug(f"agent cf: {self.cf}")
 
     def tiles_change_factor(self, target_tile):
         """
@@ -141,7 +149,6 @@ class Agent(object):
                     data_integrity.append(float(self.models[model]._imputed))
                     predicts[model] = prediction
 
-        # TODO: check for training flag to not reweight outside training, save weights on agent scope
         if self.training:
             self.model_weights = self._weightModels(predicts, getattr(measure, 'pm1'))
         total_pm1 = 0
@@ -153,14 +160,14 @@ class Agent(object):
 
         self._integrity = round(len(predicts.keys()) / len(getModelNames()), 2)
         self._data_integrity = round(1-np.mean(data_integrity), 2)
-        logging.debug(f"agent integrity: {self._integrity}")
-        logging.debug(f"agent data_integrity: {self._data_integrity}")
+        # logging.debug(f"agent integrity: {self._integrity}")
+        # logging.debug(f"agent data_integrity: {self._data_integrity}")
 
         self.prediction = total_pm1
         logging.debug(f"prediction: {self.prediction}")
         return total_pm1
 
-    def makeCollabPrediction(self, cluster_predictions):
+    def makeCollabPrediction(self, cluster_predictions, configs_state=None):
         """
         makes a collaborative prediction with other agents in cluster
         :param cluster_predictions:
@@ -194,30 +201,142 @@ class Agent(object):
             return True
         return False
 
-    def assessPerformance(self, values, naive, collab, intervals=None):
+    def evaluate_config(self, model, config, actuals, target_times, values, target_sid):
+
+        if model.__class__.__name__ == 'MultiVariate':
+            predictions = [model.makePrediction(target_time, values, target_sid=target_sid, new_config=config)
+                           for target_time in target_times]
+        else:
+            predictions = [model.makePrediction(target_time, values, new_config=config) for target_time in target_times]
+
+        if predictions:
+            pred_res = [x[values[0]] for x in predictions]
+            # logging.debug(f"eval config preds is: {len(predictions)}")
+            return MAE(actuals, pred_res)
+
+    def apply_forecast_heuristic(self, actuals, target_times, values, target_sid):
+        """
+        conducts a direct search algorithm to find optimal configs for prediction models
+        :return:
+        """
+        base_configs = copy.deepcopy(self.configs)
+        logging.debug(f"base_configs: {base_configs}")
+        del base_configs['bias']
+        del base_configs['sma']["interval_days"]
+        # del base_configs['sma']["interval_hours"]
+        del base_configs['mvr']["interval_days"]
+        # logging.debug(f"initial configs: {base_configs}")
+        # logging.debug(f"agent configs: {self.configs}")
+        logging.debug(f"base cfg keys: {base_configs.keys()}")
+        # hooke-jeeves alg
+        for k, v in base_configs.items():
+            logging.debug(f"INSPECTING {k} CFGS")
+            # params to test
+            vals = v.items()
+            fm = self.models[k]
+
+            origin_cfg = copy.deepcopy(base_configs[k])
+            param_vector = list()
+            for v in vals:
+                logging.debug(f"{k} value : {v}")
+                # each x has a list of -,+ vals
+                param_i = list()
+                if 'hours' in v[0]:
+                    delta = 6
+                    min_val = 12
+                elif 'window' in v[0]:
+                    delta = 1
+                    min_val = 2
+                else:
+                    delta = 1
+                    min_val = 1
+                # calc points from - to +
+                for d in range(-delta, delta + 1, delta):
+                    if d != 0:
+                        param_i.append({max(min_val, v[1] + d): v[0]})
+
+                param_vector.append(param_i)
+                # logging.debug(f"{k}, param v{ param_vector}")
+            permutations = list(itertools.product(*param_vector))
+            ratings = list()
+            logging.debug(f"{k} move space: {permutations}")
+            logging.debug(f"DETERMINING BEST DIRECTION")
+            for p in permutations:
+                test_cfg = copy.deepcopy(origin_cfg)
+                for i in p:
+                    for g, s in i.items():
+                        if s in test_cfg.keys():
+                            test_cfg[s] = g
+                logging.debug(f"EVALUATING CONFIG: {test_cfg}")
+                ratings.append(self.evaluate_config(fm, test_cfg, actuals, target_times, values, target_sid))
+
+            # logging.debug(f"direction ratings: {ratings}")
+            best_index = ratings.index(min(ratings))
+            # logging.debug(f"best index: {best_index}")
+            m_cfg = dict([(v, k) for x in permutations[best_index] for k, v in x.items()])
+            direction = {c: m_cfg[c] - origin_cfg[c] for c in m_cfg}
+            # update best_cfg with best direction
+            best_cfg = copy.deepcopy(origin_cfg)
+            for d in direction:
+                best_cfg[d] += direction[d]
+
+            # logging.debug(f"best_cfg init: {best_cfg}")
+            count = 0
+            best_mae = self.n_error
+            # logging.debug(f"{k} vector going in direction: {direction}")
+
+            while True:
+                logging.debug(f"\tCOUNT: {count}")
+                test_cfg = copy.deepcopy(best_cfg)
+                for d in direction:
+                    if 'hours' in d:
+                        min_val = 12
+                    elif 'window' in d:
+                        min_val = 2
+                    else:
+                        min_val = 1
+
+                    test_cfg[d] = max(min_val, test_cfg[d] + direction[d])
+
+                mae = self.evaluate_config(fm, test_cfg, actuals, target_times, values, target_sid)
+
+                logging.debug(f"\tbest_mae: {best_mae}--> cfg_mae: {mae}")
+                if mae > best_mae or count == 5:
+                    break
+
+                if mae < best_mae:
+                    best_mae = mae
+                    best_cfg = copy.deepcopy(test_cfg)
+
+                count += 1
+
+            for p in best_cfg:
+                base_configs[k][p] = best_cfg[p]
+
+        return base_configs
+
+    def assessPerformance(self, actuals, naive, collab, target_times, values, t_sid, iter):
         """
         sets bias based on naive and cluster prediction performance
-        :param values: actual values for hour intervals
+        :param actuals: actual values for hour intervals
         :param naive: agent naive predictions
         :param collab: collaboration predictions
         :param intervals: datetime hour intervals
         :return: adjusts agent bias by a percentage
         """
+        logging.debug(f"ITERATION: {iter}, AGENT: {self.sid}")
 
         naive_preds = naive[self.sid]
         cluster_preds = [self.getClusterPred(float(v), float(collab[i])) for i, v in enumerate(naive_preds)]
 
-        cluster_mse = round(mean_squared_error(np.array(values), np.array(cluster_preds)), 2)
-        naive_mse = round(mean_squared_error(np.array(values), np.array(naive_preds)), 2)
+        cluster_mse = round(mean_squared_error(np.array(actuals), np.array(cluster_preds)), 2)
+        naive_mse = round(mean_squared_error(np.array(actuals), np.array(naive_preds)), 2)
 
         fraction = cluster_mse / naive_mse
         rel_change = _rel_diff(cluster_mse, naive_mse)
-        logging.debug(f"cmse/nmse: {fraction}")
-        logging.debug(f"rel_change: {rel_change}")
+        # logging.debug(f"cmse/nmse: {fraction}")
+        # logging.debug(f"rel_change: {rel_change}")
 
-        # print("Asessing for S:", self.sid)
-        # print("pre bias 2:", self.configs['bias'])
-        # if not between -0.1 and 0.1, then apply bias change.
         if not self._within_bias_threshold(rel_change):
             if fraction < 1:
                 # print("naive has more error, decrease bias!")
@@ -226,6 +345,14 @@ class Agent(object):
                 # print("collab has more error increase bias!")
                 self.configs['bias'] = min(0.95, round(self.configs['bias'] + min([0.05, self.configs['bias'] * (1 + rel_change)]), 2))
         # print("post bias 2:", self.configs['bias'])
+
+        logging.info(f"AGENT: {self.sid}, INIT CONFIGS: {self.configs}")
+        best_configs = self.apply_forecast_heuristic(actuals, target_times, values, t_sid)
+        for k,v in best_configs.items():
+            for i,w in v.items():
+                self.configs[k][i] = best_configs[k][i]
+        logging.info(f"AGENT: {self.sid}, IMP CONFIGS: {self.configs}")
+
 
     def getDistTrust(self):
         """

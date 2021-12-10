@@ -83,7 +83,7 @@
       },
       "sma":{
          "window":4,
-         "interval_hours":72,
+         "interval_hours":48,
          "interval_days":0
       },
       "mvr":{
