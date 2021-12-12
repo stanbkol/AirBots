@@ -4,8 +4,8 @@ from src.map.Central import *
 
 def main():
     # archiveResults('..\\..\\..\\AirBots\\docs')
-    c = Central('..\\..\\..\\AirBots\\docs\\Model1')
-    c.makePrediction(5697, datetime(2020, 1, 8, 0))
+    model = Central('..\\..\\..\\AirBots\\docs\\Model2')
+    model.makePrediction(5697, datetime(2020, 9, 15, 0))
 
 
 if __name__ == '__main__':

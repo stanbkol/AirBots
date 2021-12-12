@@ -1,4 +1,5 @@
 import datetime
+import logging
 from abc import abstractmethod
 import random as rand
 import pandas
@@ -14,6 +15,9 @@ from src.main.utils import drange
 import statsmodels.api as sm
 from src.database.Models import getMeasureORM, getSensorORM, Measure, getObservations, findNearestSensors
 from src.map.MapPoint import MapPoint, calcDistance
+
+
+logging.basicConfig(level=logging.DEBUG)
 
 
 def createDataframe(measures, columns):
@@ -133,12 +137,15 @@ class Model(object):
         return total_intervals
 
     def _fillInterval(self, start_date, end_date, sid):
+        logging.debug(f"sid: {sid}, start: {start_date}, end: {end_date}")
         time_range = pandas.date_range(start_date, end_date, freq='H', ).to_pydatetime()
+        logging.debug(f"time range: {time_range}")
         estimated_data = []
         for hour in time_range:
             dk = int(hour.strftime('%Y%m%d%H'))
             estimated_data.append(
                 Measure(date_key=dk, sensor_id=sid, date=hour, pm1=None, pm10=None, pm25=None, temperature=None))
+        logging.debug(f"FILL INTERVAL--appending: {[x.date for x in estimated_data]}")
         return estimated_data
 
     def _cleanIntervals(self, data, start, end):
@@ -150,6 +157,7 @@ class Model(object):
         measure_sid = data[0].sid
         for first, second in zip(data, data[1:]):
             if (self._countInterval(first.date, second.date)) != 1:
+                logging.debug(f"CLEAN INTERVAL--fill: start: {first.date}, end: {second.date}")
                 filled_interval = self._fillInterval(first.date, second.date, measure_sid)
                 filled_interval.pop(0)
                 filled_interval.pop()
@@ -161,13 +169,23 @@ class Model(object):
         last_date = sorted_measures[-1].date
         one_hour = datetime.timedelta(hours=1)
         if first_date > start:
+            logging.debug("FILLING DATA FOR END POINTS")
+            logging.debug(f"interval start: {start}, first_date: {first_date}")
             hours = self._countInterval(start, first_date)
-            sorted_measures.extend(self._fillInterval(start, start + datetime.timedelta(hours=hours - 1), measure_sid))
+            # TODO: should 2nd param be first_date - one_hour?
+            filled_interval = self._fillInterval(start-one_hour, start + datetime.timedelta(hours=hours - 1), measure_sid)
+            filled_interval.pop(0)
+            filled_interval.pop()
+            sorted_measures.extend(filled_interval)
 
         if last_date < end:
+            logging.debug("FILLING DATA FOR END POINTS")
+            logging.debug(f"interval end: {end}, last_date: {last_date}")
             hours = self._countInterval(last_date, end)
-            sorted_measures.extend(
-                self._fillInterval(last_date + one_hour, datetime.timedelta(hours=hours), measure_sid))
+            filled_interval = self._fillInterval(last_date, last_date + datetime.timedelta(hours=hours + 1), measure_sid)
+            filled_interval.pop(0)
+            filled_interval.pop()
+            sorted_measures.extend(filled_interval)
 
         return sorted(data, key=lambda x: x.date)
 
