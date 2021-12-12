@@ -346,13 +346,12 @@ class Agent(object):
                 self.configs['bias'] = min(0.95, round(self.configs['bias'] + min([0.05, self.configs['bias'] * (1 + rel_change)]), 2))
         # print("post bias 2:", self.configs['bias'])
 
-        logging.info(f"AGENT: {self.sid}, INIT CONFIGS: {self.configs}")
+        logging.debug(f"AGENT: {self.sid}, INIT CONFIGS: {self.configs}")
         best_configs = self.apply_forecast_heuristic(actuals, target_times, values, t_sid)
         for k,v in best_configs.items():
             for i,w in v.items():
                 self.configs[k][i] = best_configs[k][i]
-        logging.info(f"AGENT: {self.sid}, IMP CONFIGS: {self.configs}")
-
+        logging.debug(f"AGENT: {self.sid}, IMP CONFIGS: {self.configs}")
 
     def getDistTrust(self):
         """

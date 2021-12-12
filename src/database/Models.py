@@ -387,7 +387,7 @@ def getSensorORM(id):
 
 def getMeasureORM(sid, date):
     with Session as sesh:
-        return sesh.query(Measure).where(Measure.date == date).where(Measure.sid == sid).one()
+        return sesh.query(Measure).where(Measure.date == date).where(Measure.sid == sid).first()
 
 
 def getMeasuresORM(sid, start_interval=datetime(2018, 9, 3, 0), end_interval=datetime(2021, 5, 5, 0)):
