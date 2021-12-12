@@ -105,9 +105,9 @@ class Agent(object):
         tile_dist_trust = self.getDistTrust()
         self.cf = round(np.mean([tcf_delta, tile_dist_trust]), 2)
 
-        logging.debug(f"agent dist_trust: {tile_dist_trust}")
-        logging.debug(f"agent tcf_delta: {tcf_delta}")
-        logging.debug(f"agent cf: {self.cf}")
+        # logging.debug(f"agent dist_trust: {tile_dist_trust}")
+        # logging.debug(f"agent tcf_delta: {tcf_delta}")
+        # logging.debug(f"agent cf: {self.cf}")
 
     def tiles_change_factor(self, target_tile):
         """
@@ -160,11 +160,11 @@ class Agent(object):
 
         self._integrity = round(len(predicts.keys()) / len(getModelNames()), 2)
         self._data_integrity = round(1-np.mean(data_integrity), 2)
-        # logging.debug(f"agent integrity: {self._integrity}")
-        # logging.debug(f"agent data_integrity: {self._data_integrity}")
+        logging.info(f"agent integrity: {self._integrity}")
+        logging.info(f"agent data_integrity: {self._data_integrity}")
 
         self.prediction = total_pm1
-        logging.debug(f"prediction: {self.prediction}")
+        logging.info(f"agent {self.sid}, prediction: {self.prediction}, cf: {self.cf}")
         return total_pm1
 
     def makeCollabPrediction(self, cluster_predictions, configs_state=None):

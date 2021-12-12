@@ -22,7 +22,7 @@ def main():
     # model.makePrediction(13128, datetime(2020, 3, 15, 0))
     model = Central('..\\..\\..\\AirBots\\docs\\Model2')
     model.makePrediction(5697, datetime(2020, 4, 15, 0))
-
+    
 
 if __name__ == '__main__':
     main()
