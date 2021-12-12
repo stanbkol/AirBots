@@ -179,6 +179,10 @@ class Central:
         self.agent_results = {}
         self.model_results = {'error': 100, 'configs': {}}
         self.model_params = self.data["model_params"]
+        self.iterations = self.model_params["num_iter"]
+        self.interval = self.model_params["interval"]
+        self.cluster_size = self.model_params["cluster_size"]
+        self.ratio = self.model_params["training_ratio"]
         self.thresholds = self.data["thresholds"]
         logging.info("Central System Created From " + str(self.model_file))
 
@@ -231,20 +235,37 @@ class Central:
                 predictions[a] = pred
         return predictions
 
-    def makePrediction(self, target, time):
+    def formatResults(self, target, time, test):
+        if test:
+            test_string = "_" + test + "_"
+            if test == "iterations":
+                test_string += str(self.iterations)
+            if test == "intervals":
+                test_string += str(self.interval)
+            if test == "cluster":
+                test_string += str(self.cluster_size)
+            if test == "ratio":
+                test_string += str(self.ratio)
+            return self.model_file + "_" + str(target) + "_" + str(
+                int(time.strftime('%Y%m%d%H'))) + "_" + test_string + "_results.xlsx"
+        else:
+            return self.model_file + "_" + str(target) + "_" + str(
+                int(time.strftime('%Y%m%d%H'))) + "_results.xlsx"
+
+    def makePrediction(self, target, time, test=None):
         """
         Main method that is responsible for making model predictions.
         Instantiates the training phase, and validates with a final prediction
+        :param test:
         :param target: target sid for prediction
         :param time: time for prediction
         :return: N/A, displays/saves results to file
         """
-
-        start, end = targetInterval(time, self.model_params["interval"])
-        results_string = self.model_file + "_" + str(target) + "_" + str(
-            int(time.strftime('%Y%m%d%H'))) + "_results.xlsx"
-        self.writer = ExcelWriter(results_string)
+        start, end = targetInterval(time, self.interval)
         self.sensors = self.data["sensors"]["on"]
+        results_file = self.formatResults(target, time, test)
+        print(results_file)
+        self.writer = ExcelWriter(results_file)
         if target in self.sensors:
             self.sensors.remove(target)
         self.sensorSummary(start, end)
@@ -285,10 +306,10 @@ class Central:
         """
         orm_values = getMeasuresORM(target, start_interval, end_interval)
         total_intervals = len(orm_values)
-        training_intervals = round(self.model_params['training_ratio'] * total_intervals, 0)
+        training_intervals = round(self.ratio * total_intervals, 0)
         validation_intervals = int(total_intervals-training_intervals)
         logging.info("Interval Breakdown--> T:" + str(training_intervals) + " V:" + str(validation_intervals))
-        for i in range(1, self.model_params["num_iter"] + 1):
+        for i in range(1, self.iterations + 1):
             logging.info("Beginning Iteration #" + str(i))
             current_interval = 0
             collab_predictions = {sid: [] for sid in self.sensors}

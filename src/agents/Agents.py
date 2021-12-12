@@ -353,7 +353,6 @@ class Agent(object):
                 self.configs[k][i] = best_configs[k][i]
         logging.debug(f"AGENT: {self.sid}, IMP CONFIGS: {self.configs}")
 
-
     def getDistTrust(self):
         """
         calculates the confidence factor based on tile distance (double-width coordinates) to target tile
