@@ -29,10 +29,12 @@ def getModelNames():
     return ['rand', 'nearby', 'minmax', 'sma', 'mvr']
 
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 
 class Agent(object):
+    logging.basicConfig(level=logging.DEBUG)
+
     training = True
     predictions = {model:None for model in getModelNames()}
 
@@ -44,9 +46,10 @@ class Agent(object):
         self.cluster = cluster_list
         self.completeness = 0
         self.models = self._initializeModels()
-        self.error = 0
-        self.n_error = 0
-        self.p_error = 0
+        self.errors = []
+        self.error = []
+        self.n_error = []
+        self.p_error = []
         self.target_tile = None
         self.tile = fetchTile_from_sid(self.sid)
         self.bias_thresh = thresholds['bias']
@@ -54,11 +57,33 @@ class Agent(object):
         self._integrity = 1
         self._data_integrity = 1
         # initially all models have equal weights
-        self.model_weights = {name: 1/len(getModelNames()) for name in getModelNames()}
+        self.model_weights = []
         logging.debug(f"Agent {self.sid}'s cluster: {cluster_list}")
 
     def integrity(self):
         return round(self._integrity * self._data_integrity, 2)
+
+    def get_error(self):
+        return self.errors[-1]['collab']
+
+    def get_n_error(self):
+        return self.errors[-1]['naive']
+
+    def get_np_error(self):
+        return self.errors[-1]['percent'][0]
+
+    def get_cp_error(self):
+        return self.errors[-1]['percent'][1]
+
+    def set_errors(self, collab, naive, percent):
+        self.errors.append({
+            'collab': collab,
+            'naive': naive,
+            'percent': percent
+        })
+
+    def fc_weights(self):
+        return self.model_weights[-1]
 
     def _initializeModels(self):
         nearby = self.configs['nearby']
@@ -75,10 +100,10 @@ class Agent(object):
 
         return models
 
-    def _weightModels(self, predicts, actual):
+    def _weightModels(self, predicts, actual, pm_str):
         """
         assigns weights to forecast models. models with lower error receive higher weights.
-        :param predicts: dictionary of model_name: {pm: value}
+        :param predicts: dictionary of {model_name: {pm: value}}
         :param actual: actual value of pm
         :return: dictionary of model name: normalized weight
         """
@@ -86,11 +111,11 @@ class Agent(object):
         total_se = 0
         for model_name in getModelNames():
             if model_name in predicts.keys():
-                model_prediction = predicts[model_name]
-                if model_prediction:
-                    squared_error = _calc_squared_error(model_prediction['pm1'], actual)
+                model_predictions = predicts[model_name]
+                if model_predictions:
+                    squared_error = _calc_squared_error(model_predictions[pm_str], actual)
                     total_se += squared_error
-                    errors[model_name] = squared_error
+                    errors.update({model_name: squared_error})
 
         return {model_name: errors[model_name] / total_se for model_name in errors.keys()}
 
@@ -134,6 +159,10 @@ class Agent(object):
         :param meas: the measure object at target time (for validation)
         :return:
         """
+        if not values:
+            logging.error("no values selected for prediction")
+            return ValueError
+
         data_integrity = list()
         measure = meas
         predicts = {}
@@ -149,23 +178,39 @@ class Agent(object):
                     data_integrity.append(float(self.models[model]._imputed))
                     predicts[model] = prediction
 
+        # update weights of fc models for each pm prediction
         if self.training:
-            self.model_weights = self._weightModels(predicts, getattr(measure, 'pm1'))
-        total_pm1 = 0
-        for model in self.model_weights.keys():
-            total_pm1 += self.model_weights[model] * predicts[model]['pm1']
+            pm_model_weights = {}
+            for pm in values:
+                pm_model_weights.update({pm: self._weightModels(predicts, getattr(measure, pm), pm)})
 
-        if total_pm1 == 0:
+            self.model_weights.append(pm_model_weights)
+
+        # aggregate predictions of pms with weights
+        results = {}
+        for pm in values:
+            totalpm = 0
+            logging.debug(f"fc_weights: {self.fc_weights()[pm]}")
+            for model in self.fc_weights()[pm].keys():
+                # logging.info(f"weight: {self.fc_weights()[pm][model]}, predV: {predicts[model][pm]}")
+                totalpm += self.fc_weights()[pm][model] * predicts[model][pm]
+
+            results.update({pm: totalpm})
+
+        if not results:
             return None
 
+        logging.debug(f"pred res: {results}")
         self._integrity = round(len(predicts.keys()) / len(getModelNames()), 2)
         self._data_integrity = round(1-np.mean(data_integrity), 2)
-        logging.info(f"agent integrity: {self._integrity}")
-        logging.info(f"agent data_integrity: {self._data_integrity}")
+        logging.debug(f"agent integrity: {self._integrity}")
+        logging.debug(f"agent data_integrity: {self._data_integrity}")
 
-        self.prediction = total_pm1
+        # Assumes prediction for only 1 pm value.
+        logging.debug(f"prediction_value: {results[values[0]]}")
+        self.prediction = results[values[0]]
         logging.info(f"agent {self.sid}, prediction: {self.prediction}, cf: {self.cf}")
-        return total_pm1
+        return self.prediction
 
     def makeCollabPrediction(self, cluster_predictions, configs_state=None):
         """

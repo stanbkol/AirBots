@@ -228,9 +228,9 @@ class Central:
         predictions = {}
         for a in self.agents:
             agent = self.agents[a]
-            pred = agent.makePredictions(target, time, self.measure, meas=val)
+            pred = agent.makePredictions(target, time, [self.measure], meas=val)
             if pred:
-                predictions[a] = (round(pred[0], 2), agent.cf)
+                predictions[a] = (round(pred, 2), agent.cf)
             else:
                 predictions[a] = pred
         return predictions
@@ -329,8 +329,8 @@ class Central:
                     agent = self.agents[a]
                     for ca in agent.cluster:
                         cluster_pred[ca] = interval_preds[ca]
-                    pred = round(agent.makeCollabPrediction(cluster_pred)[0], 2)
-                    naive = interval_preds[a][0]
+                    pred = round(agent.makeCollabPrediction(cluster_pred), 2)
+                    naive = interval_preds[a]
                     vals[a] = pred
                     collab_predictions[a].append(pred)
                     naive_predictions[a].append(naive)
@@ -359,11 +359,12 @@ class Central:
         """
         for a in self.agents:
             agent = self.agents[a]
-            agent.error = MAE(values, predictions[a])
-            agent.n_error = MAE(values, naive_preds[a])
-            agent.p_error = (p_err(values, naive_preds[a]), p_err(values, predictions[a]))
-            if agent.error < self.agent_results[a]['error']:
-                self.agent_results[a]['error'] = agent.error
+            naive_error = MAE(values, naive_preds[a])
+            collab_error = MAE(values, predictions[a])
+            percent_error = (p_err(values, naive_preds[a]), p_err(values, predictions[a]))
+            agent.set_errors(collab_error, naive_error, percent_error)
+            if agent.get_error() < self.agent_results[a]['error']:
+                self.agent_results[a]['error'] = agent.get_error()
                 self.agent_results[a]['config'] = copy.deepcopy(agent.configs)
 
     def aggregateModel(self, preds, num_preds):
@@ -437,7 +438,7 @@ class Central:
             n_preds = {}
             for k in key_list:
                 n_preds[k] = naive_predictions[k]
-            agent.assessPerformance(values, n_preds, collab_predictions[a], intervals, self.measure, target_sid, iter)
+            agent.assessPerformance(values, n_preds, collab_predictions[a], intervals, [self.measure], target_sid, iter)
 
     # TODO: update to include multiple prediction aggregation, rather than singular prediction
     # TODO: update to save results to excel file
