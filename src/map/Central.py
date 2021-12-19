@@ -228,7 +228,7 @@ class Central:
         predictions = {}
         for a in self.agents:
             agent = self.agents[a]
-            pred = agent.makePredictions(target, time, ["pm1"], meas=val)
+            pred = agent.makePredictions(target, time, self.measure, meas=val)
             if pred:
                 predictions[a] = (round(pred[0], 2), agent.cf)
             else:
@@ -250,9 +250,9 @@ class Central:
                 int(time.strftime('%Y%m%d%H'))) + "_" + test_string + "_results.xlsx"
         else:
             return self.model_file + "_" + str(target) + "_" + str(
-                int(time.strftime('%Y%m%d%H'))) + "_results.xlsx"
+                int(time.strftime('%Y%m%d%H'))) + "_" + self.measure + "_results.xlsx"
 
-    def makePrediction(self, target, time, test=None):
+    def makePrediction(self, target, time, m, test=None):
         """
         Main method that is responsible for making model predictions.
         Instantiates the training phase, and validates with a final prediction
@@ -263,6 +263,7 @@ class Central:
         """
         start, end = targetInterval(time, self.interval)
         self.sensors = self.data["sensors"]["on"]
+        self.measure = m
         results_file = self.formatResults(target, time, test)
         print(results_file)
         self.writer = ExcelWriter(results_file)
@@ -273,7 +274,7 @@ class Central:
         target_tile = fetchTile_from_sid(target)
         self.extractData(target)
         self.writer.initializeFile(self.agents)
-        logging.info("Initialize Model Training")
+        logging.info("Initialize Model Training:" + str(self.measure))
         logging.info("Target Sensor:" + str(target))
         logging.info("Interval between " + str(start) + " and " + str(end))
         self.trainModel(start, end, target)
@@ -320,7 +321,8 @@ class Central:
                 logging.info("Predictions for " + str(interval.date))
                 intervals.append(interval.date)
                 vals = {sid: [] for sid in self.sensors}
-                values.append(interval.pm1)
+                values.append(getattr(interval, self.measure))
+                logging.info("Actual Value:" + str(getattr(interval, self.measure)))
                 interval_preds = self.getAllPredictions(target, interval.date, interval)
                 for a in self.agents:
                     cluster_pred = {}
@@ -342,7 +344,7 @@ class Central:
                     values = []
                     intervals = []
             self.evaluateAgents(values, collab_predictions, naive_predictions)
-            model_vals = self.aggregateModel(collab_predictions, validation_intervals, target)
+            model_vals = self.aggregateModel(collab_predictions, validation_intervals)
             self.evaluateModel(values, model_vals)
             self.writer.saveIter(values, collab_predictions, naive_predictions, model_vals, i, intervals, self.agents)
             self.writer.saveModel(i, self.agents, self.error, "I")
@@ -364,12 +366,11 @@ class Central:
                 self.agent_results[a]['error'] = agent.error
                 self.agent_results[a]['config'] = copy.deepcopy(agent.configs)
 
-    def aggregateModel(self, preds, num_preds, target):
+    def aggregateModel(self, preds, num_preds):
         """
 
         :param preds: dictionary of collab predictions mapped to each agent.sid, each value is list of predictions for training interval
         :param num_preds: size of training interval, for ease of iteration
-        :param target: target sensor, to be used for distance weighting only
         :return: returns list of model aggregation values, in which case each entry in list is a dictionary, mapped to each kind of aggregation
         """
         model_vals = []
@@ -436,7 +437,7 @@ class Central:
             n_preds = {}
             for k in key_list:
                 n_preds[k] = naive_predictions[k]
-            agent.assessPerformance(values, n_preds, collab_predictions[a], intervals, ["pm1"], target_sid, iter)
+            agent.assessPerformance(values, n_preds, collab_predictions[a], intervals, self.measure, target_sid, iter)
 
     # TODO: update to include multiple prediction aggregation, rather than singular prediction
     # TODO: update to save results to excel file
@@ -452,7 +453,7 @@ class Central:
         collab_preds = {sid: [] for sid in self.sensors}
         naive_preds = {sid: [] for sid in self.sensors}
         for x in range(0, k):
-            vals.append(real_val.pm1)
+            vals.append(getattr(real_val, self.measure))
             interval_preds = self.getAllPredictions(target, time, real_val)
             # print(interval_preds)
             for a in self.agents:
