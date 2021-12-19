@@ -18,12 +18,16 @@ class ExcelWriter:
         for a in agents:
             agent = agents[a]
             # print("Error for :", a)
-            # print("Naive-->" + str(agent.n_error) + ":" + str(agent.p_error[0]))
+            # print("Naive-->" + str(agent.errors[) + ":" + str(agent.p_error[0]))
             # print("Collab-->" + str(agent.error) + ":" + str(agent.p_error[1]))
-            ws.cell(row_n, col, agent.n_error)
-            ws.cell(row_n, col + 1, agent.p_error[0])
-            ws.cell(row_c, col, agent.error)
-            ws.cell(row_c, col + 1, agent.p_error[1])
+            # naive
+            ws.cell(row_n, col, agent.get_n_error())
+            # naive percent
+            ws.cell(row_n, col + 1, agent.get_np_error())
+            # collab error
+            ws.cell(row_c, col, agent.get_error())
+            # collab percent error
+            ws.cell(row_c, col + 1, agent.get_cp_error())
             row_n += 2
             row_c += 2
         ws.cell(row_n, col, model_error['MAE']['average'])

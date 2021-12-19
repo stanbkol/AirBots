@@ -12,56 +12,30 @@ from src.main.utils import MAE
 logging.basicConfig(level=logging.DEBUG)
 
 
-def mock_assPerformance(values, naive, collab):
+def mock_assessPerformance(actuals, naive, collab, bias=0.7):
     """
     test function for bias calculation
 
     """
-    bias = 0.65
     naive_preds = naive
 
     def getClusteredPred(naive, colab, bias):
         wnp = round((colab - (bias * naive)) / (1 - bias), 2)
-        print(f"\t\twnp: {wnp}")
         return wnp
-
     cluster_preds = [getClusteredPred(v, collab[i], bias) for i, v in enumerate(naive_preds)]
+    cluster_mae = round(MAE(actuals, cluster_preds), 2)
+    naive_mae = round(MAE(actuals, naive_preds), 2)
 
-    # for i,v in enumerate(naive_preds):
-    #     cp = getClusteredPred(v, collab[i], 0.7)
-    #     print(f"collab: {collab[i]}")
-    #     print(f"np:{v}")
-    #     print(f"cp: {cp}")
-    #     print(f"collabPrediction: {bias*v + 0.3*cp}")
-
-    cluster_mse = round(mean_squared_error(np.array(values), np.array(cluster_preds)), 2)
-    naive_mse = round(mean_squared_error(np.array(values), np.array(naive_preds)), 2)
-
-    print(f"naive_preds: {naive_preds}")
-    print(f"cluster_preds: {cluster_preds}")
-
-    print(f"naive_mse: {naive_mse}")
-    print(f"cluster_mse: {cluster_mse}")
-
-    # if c_mse > nmse shift bias to self, else give more weight to cluster.
-
-    fraction = cluster_mse / naive_mse
-    rel_change = _rel_diff(cluster_mse, naive_mse)
-
-    print(f"cluster_ms/naive_mse: {fraction}")
-    print(f"rel_change(collab, rel=naive): {rel_change}")
-    print(f"percent changed by: {1 + rel_change}")
-    print(f"old bias: {bias}")
-
-    print(f"bias diff: {bias * (1 + rel_change)}")
+    fraction = cluster_mae / naive_mae
+    rel_change = _rel_diff(cluster_mae, naive_mae)
     if fraction < 1:
         print("naive has more error, decrease bias!")
-        bias = round(bias - min([0.10, bias * (1 + rel_change)]), 2)
+        bias = max(0.51, round(bias - min([0.05, bias * (1 + rel_change)]), 2))
     elif fraction > 1:
-        print("collab has more error increase bias!")
-        bias = round(bias + min([0.10, bias * (1 + rel_change)]), 2)
+        print("collab has more error, increase bias!")
+        bias = min(0.95, round(bias + min([0.05, bias * (1 + rel_change)]), 2))
 
-    print(f"new bias: {bias}")
+    return bias
 
 
 def test_bias():
@@ -72,8 +46,13 @@ def test_bias():
     naive = [21.13, 17.5, 16.03, 32.26, 14.93, 22.88, 16.08, 6.77, 17.22, 15.08, 32.77, 35.22, 24.32, 30.55, 32.79,
              32.4, 35.52, 18.86, 38.34, 12.96, 8.36, 17.54, 22.53, 17.31]
 
-    mock_assPerformance(actual, naive, collab)
+    print(f"MAE of collab: {MAE(actual, collab)}")
+    print(f"MAE of naive: {MAE(actual, naive)}")
+    initial_bias = 0.7
 
+    new_bias = mock_assessPerformance(actual, naive, collab, bias=initial_bias)
+    assert (new_bias < initial_bias)
+    print(f"new bias: {new_bias}")
 
 def test_dist_tiles():
     from src.database.Models import getTileORM
@@ -211,27 +190,7 @@ def test_prediction_heur():
 
 
 if __name__ == '__main__':
-    # b = [{24: 'y'}, {72: 'y'}]
-    # perms = [
-    #     [{3:'x'}, {1:'x'}], [{24: 'y'}, {72: 'y'}]
-    # ]
-    # permutations = list(itertools.product(*perms))
-    # print(permutations)
-    # for p in permutations:
-    #     for i in p:
-    #         for k,v in i.items():
-    #             print(v, k)
-    bc = {
-        "x": 2,
-        "y": 48
-    }
+    test_bias()
 
-    t = ((1, 'a'), (2, 'b'))
-    s = [({3: 'x'},)]
-    z = dict([(v,k) for x in s[0] for k, v in x.items()])
-    print(z)
-
-    dir = [(k,z[k]-bc[k]) for k in z]
-    print(dir)
 
     pass

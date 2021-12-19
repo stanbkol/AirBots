@@ -359,11 +359,12 @@ class Central:
         """
         for a in self.agents:
             agent = self.agents[a]
-            agent.error = MAE(values, predictions[a])
-            agent.n_error = MAE(values, naive_preds[a])
-            agent.p_error = (p_err(values, naive_preds[a]), p_err(values, predictions[a]))
-            if agent.error < self.agent_results[a]['error']:
-                self.agent_results[a]['error'] = agent.error
+            naive_error = MAE(values, naive_preds[a])
+            collab_error = MAE(values, predictions[a])
+            percent_error = (p_err(values, naive_preds[a]), p_err(values, predictions[a]))
+            agent.set_errors(collab_error, naive_error, percent_error)
+            if agent.get_error() < self.agent_results[a]['error']:
+                self.agent_results[a]['error'] = agent.get_error()
                 self.agent_results[a]['config'] = copy.deepcopy(agent.configs)
 
     def aggregateModel(self, preds, num_preds):
