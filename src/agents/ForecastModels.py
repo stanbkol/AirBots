@@ -17,7 +17,7 @@ from src.database.Models import getMeasureORM, getSensorORM, Measure, getObserva
 from src.map.MapPoint import MapPoint, calcDistance
 
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 
 def createDataframe(measures, columns):
@@ -586,7 +586,7 @@ class MultiVariate(Model):
 
             # TODO: use MA to estimate dependent variables for future hours, if data is not available in database.
             test_data = [getattr(actual_value, attr) for attr in dependent_vars]
-            predictions[ob] = reg_model.predict([test_data])
+            predictions[ob] = reg_model.predict([test_data])[0]
 
         if old_config:
             self.configs = old_config

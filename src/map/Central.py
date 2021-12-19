@@ -228,9 +228,9 @@ class Central:
         predictions = {}
         for a in self.agents:
             agent = self.agents[a]
-            pred = agent.makePredictions(target, time, self.measure, meas=val)
+            pred = agent.makePredictions(target, time, [self.measure], meas=val)
             if pred:
-                predictions[a] = (round(pred[0], 2), agent.cf)
+                predictions[a] = (round(pred, 2), agent.cf)
             else:
                 predictions[a] = pred
         return predictions
@@ -329,8 +329,8 @@ class Central:
                     agent = self.agents[a]
                     for ca in agent.cluster:
                         cluster_pred[ca] = interval_preds[ca]
-                    pred = round(agent.makeCollabPrediction(cluster_pred)[0], 2)
-                    naive = interval_preds[a][0]
+                    pred = round(agent.makeCollabPrediction(cluster_pred), 2)
+                    naive = interval_preds[a]
                     vals[a] = pred
                     collab_predictions[a].append(pred)
                     naive_predictions[a].append(naive)
@@ -438,7 +438,7 @@ class Central:
             n_preds = {}
             for k in key_list:
                 n_preds[k] = naive_predictions[k]
-            agent.assessPerformance(values, n_preds, collab_predictions[a], intervals, self.measure, target_sid, iter)
+            agent.assessPerformance(values, n_preds, collab_predictions[a], intervals, [self.measure], target_sid, iter)
 
     # TODO: update to include multiple prediction aggregation, rather than singular prediction
     # TODO: update to save results to excel file

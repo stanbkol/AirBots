@@ -29,10 +29,12 @@ def getModelNames():
     return ['rand', 'nearby', 'minmax', 'sma', 'mvr']
 
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 
 class Agent(object):
+    logging.basicConfig(level=logging.DEBUG)
+
     training = True
     predictions = {model:None for model in getModelNames()}
 
@@ -98,10 +100,10 @@ class Agent(object):
 
         return models
 
-    def _weightModels(self, predicts, actual):
+    def _weightModels(self, predicts, actual, pm_str):
         """
         assigns weights to forecast models. models with lower error receive higher weights.
-        :param predicts: dictionary of model_name: {pm: value}
+        :param predicts: dictionary of {model_name: {pm: value}}
         :param actual: actual value of pm
         :return: dictionary of model name: normalized weight
         """
@@ -109,11 +111,11 @@ class Agent(object):
         total_se = 0
         for model_name in getModelNames():
             if model_name in predicts.keys():
-                model_prediction = predicts[model_name]
-                if model_prediction:
-                    squared_error = _calc_squared_error(model_prediction['pm1'], actual)
+                model_predictions = predicts[model_name]
+                if model_predictions:
+                    squared_error = _calc_squared_error(model_predictions[pm_str], actual)
                     total_se += squared_error
-                    errors[model_name] = squared_error
+                    errors.update({model_name: squared_error})
 
         return {model_name: errors[model_name] / total_se for model_name in errors.keys()}
 
@@ -180,7 +182,7 @@ class Agent(object):
         if self.training:
             pm_model_weights = {}
             for pm in values:
-                pm_model_weights.update({pm: self._weightModels(predicts, getattr(measure, pm))})
+                pm_model_weights.update({pm: self._weightModels(predicts, getattr(measure, pm), pm)})
 
             self.model_weights.append(pm_model_weights)
 
@@ -188,7 +190,9 @@ class Agent(object):
         results = {}
         for pm in values:
             totalpm = 0
-            for model in self.fc_weights().keys():
+            logging.debug(f"fc_weights: {self.fc_weights()[pm]}")
+            for model in self.fc_weights()[pm].keys():
+                # logging.info(f"weight: {self.fc_weights()[pm][model]}, predV: {predicts[model][pm]}")
                 totalpm += self.fc_weights()[pm][model] * predicts[model][pm]
 
             results.update({pm: totalpm})
@@ -196,12 +200,14 @@ class Agent(object):
         if not results:
             return None
 
+        logging.debug(f"pred res: {results}")
         self._integrity = round(len(predicts.keys()) / len(getModelNames()), 2)
         self._data_integrity = round(1-np.mean(data_integrity), 2)
-        logging.info(f"agent integrity: {self._integrity}")
-        logging.info(f"agent data_integrity: {self._data_integrity}")
+        logging.debug(f"agent integrity: {self._integrity}")
+        logging.debug(f"agent data_integrity: {self._data_integrity}")
 
         # Assumes prediction for only 1 pm value.
+        logging.debug(f"prediction_value: {results[values[0]]}")
         self.prediction = results[values[0]]
         logging.info(f"agent {self.sid}, prediction: {self.prediction}, cf: {self.cf}")
         return self.prediction
