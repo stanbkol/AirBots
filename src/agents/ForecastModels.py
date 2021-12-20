@@ -17,7 +17,7 @@ from src.database.Models import getMeasureORM, getSensorORM, Measure, getObserva
 from src.map.MapPoint import MapPoint, calcDistance
 
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 
 def createDataframe(measures, columns):

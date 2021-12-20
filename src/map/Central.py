@@ -172,7 +172,7 @@ class Central:
     thresholds = {}
 
     def __init__(self, model):
-        logging.basicConfig(level=logging.DEBUG)
+        logging.basicConfig(level=logging.INFO)
         self.data = getJson(model)
         self.model_file = model
         self.error = {}
@@ -361,10 +361,8 @@ class Central:
             agent = self.agents[a]
             logging.debug(f"eval naive preds: {naive_preds[a]}")
             logging.debug(f"eval collab preds: {predictions[a]}")
-
             naive_error = MAE(values, naive_preds[a])
             collab_error = MAE(values, predictions[a])
-            logging.debug(f"eval collab: {collab_error}")
             percent_error = (p_err(values, naive_preds[a]), p_err(values, predictions[a]))
             agent.set_errors(collab_error, naive_error, percent_error)
             if agent.get_error() < self.agent_results[a]['error']:

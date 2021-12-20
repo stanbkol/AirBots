@@ -30,7 +30,7 @@ def getModelNames():
 
 
 class Agent(object):
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
 
     training = True
     predictions = {model:None for model in getModelNames()}
