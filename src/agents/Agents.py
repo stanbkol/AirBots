@@ -29,9 +29,6 @@ def getModelNames():
     return ['rand', 'nearby', 'minmax', 'sma', 'mvr']
 
 
-logging.basicConfig(level=logging.DEBUG)
-
-
 class Agent(object):
     logging.basicConfig(level=logging.DEBUG)
 
@@ -47,9 +44,6 @@ class Agent(object):
         self.completeness = 0
         self.models = self._initializeModels()
         self.errors = []
-        self.error = []
-        self.n_error = []
-        self.p_error = []
         self.target_tile = None
         self.tile = fetchTile_from_sid(self.sid)
         self.bias_thresh = thresholds['bias']
@@ -200,14 +194,14 @@ class Agent(object):
         if not results:
             return None
 
-        logging.debug(f"pred res: {results}")
+        # logging.debug(f"pred res: {results}")
         self._integrity = round(len(predicts.keys()) / len(getModelNames()), 2)
         self._data_integrity = round(1-np.mean(data_integrity), 2)
         logging.debug(f"agent integrity: {self._integrity}")
         logging.debug(f"agent data_integrity: {self._data_integrity}")
 
         # Assumes prediction for only 1 pm value.
-        logging.debug(f"prediction_value: {results[values[0]]}")
+        # logging.debug(f"prediction_value: {results[values[0]]}")
         self.prediction = results[values[0]]
         logging.info(f"agent {self.sid}, prediction: {self.prediction}, cf: {self.cf}")
         return self.prediction
@@ -257,6 +251,7 @@ class Agent(object):
         if predictions:
             pred_res = [x[values[0]] for x in predictions]
             # logging.debug(f"eval config preds is: {len(predictions)}")
+            logging.debug(f"eval_config---pred_res: {pred_res}")
             return MAE(actuals, pred_res)
 
     def apply_forecast_heuristic(self, actuals, target_times, values, target_sid):
@@ -327,7 +322,7 @@ class Agent(object):
 
             # logging.debug(f"best_cfg init: {best_cfg}")
             count = 0
-            best_mae = self.n_error
+            best_mae = self.get_n_error()
             # logging.debug(f"{k} vector going in direction: {direction}")
 
             while True:

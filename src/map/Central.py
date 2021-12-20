@@ -64,7 +64,7 @@ def mapAgentsToError(agents):
     """
     data = []
     for a in agents:
-        data.append((agents[a], agents[a].error))
+        data.append((agents[a], agents[a].get_error()))
     data.sort(key=lambda x: x[1])
     return data
 
@@ -127,7 +127,7 @@ def getClusterError(cluster, agents):
     total = 0
     count = 0
     for a in cluster:
-        total += agents[a].n_error
+        total += agents[a].get_n_error()
         count += 1
     return round(total / count, 2)
 
@@ -172,7 +172,7 @@ class Central:
     thresholds = {}
 
     def __init__(self, model):
-        logging.basicConfig(level=logging.INFO)
+        logging.basicConfig(level=logging.DEBUG)
         self.data = getJson(model)
         self.model_file = model
         self.error = {}
@@ -330,7 +330,7 @@ class Central:
                     for ca in agent.cluster:
                         cluster_pred[ca] = interval_preds[ca]
                     pred = round(agent.makeCollabPrediction(cluster_pred), 2)
-                    naive = interval_preds[a]
+                    naive = interval_preds[a][0]
                     vals[a] = pred
                     collab_predictions[a].append(pred)
                     naive_predictions[a].append(naive)
@@ -359,8 +359,12 @@ class Central:
         """
         for a in self.agents:
             agent = self.agents[a]
+            logging.debug(f"eval naive preds: {naive_preds[a]}")
+            logging.debug(f"eval collab preds: {predictions[a]}")
+
             naive_error = MAE(values, naive_preds[a])
             collab_error = MAE(values, predictions[a])
+            logging.debug(f"eval collab: {collab_error}")
             percent_error = (p_err(values, naive_preds[a]), p_err(values, predictions[a]))
             agent.set_errors(collab_error, naive_error, percent_error)
             if agent.get_error() < self.agent_results[a]['error']:
@@ -462,12 +466,12 @@ class Central:
                 agent = self.agents[a]
                 for ca in agent.cluster:
                     cluster_pred[ca] = interval_preds[ca]
-                pred = round(agent.makeCollabPrediction(cluster_pred)[0], 2)
+                pred = round(agent.makeCollabPrediction(cluster_pred), 2)
                 naive = interval_preds[a][0]
                 collab_preds[a].append(pred)
                 naive_preds[a].append(naive)
         self.evaluateAgents(vals, collab_preds, naive_preds)
-        model_vals = self.aggregateModel(collab_preds, 5, target)
+        model_vals = self.aggregateModel(collab_preds, 5)
         self.evaluateModel(vals, model_vals, False)
         self.writer.saveModel(i, self.agents, self.error, title)
         best_error = 100
