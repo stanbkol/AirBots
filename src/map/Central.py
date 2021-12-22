@@ -217,7 +217,7 @@ class Central:
         logging.info("Sensors Failed:" + str(len(sensors_fail)))
         self.sensors = sensors_pass
 
-    def getAllPredictions(self, target, time, val):
+    def getAllPredictions(self, target, time, val, trainflag=True):
         """
 
         :param target: target sensor
@@ -228,6 +228,7 @@ class Central:
         predictions = {}
         for a in self.agents:
             agent = self.agents[a]
+            agent.training = trainflag
             pred = agent.makePredictions(target, time, [self.measure], meas=val)
             if pred:
                 predictions[a] = (round(pred, 2), agent.cf)
@@ -269,6 +270,7 @@ class Central:
         self.writer = ExcelWriter(results_file)
         if target in self.sensors:
             self.sensors.remove(target)
+
         self.sensorSummary(start, end)
         logging.info("Initializing Agents")
         target_tile = fetchTile_from_sid(target)
@@ -455,9 +457,15 @@ class Central:
         vals = []
         collab_preds = {sid: [] for sid in self.sensors}
         naive_preds = {sid: [] for sid in self.sensors}
+
+        # single agent prediction
+        smith = SingleAgent(target, self.sensors)
+        single_agent_pred = smith.makePrediction(time, self.measure)
+        logging.info(f"single agent pred: {single_agent_pred}")
+        # ------
         for x in range(0, k):
             vals.append(getattr(real_val, self.measure))
-            interval_preds = self.getAllPredictions(target, time, real_val)
+            interval_preds = self.getAllPredictions(target, time, real_val, trainflag=False)
             # print(interval_preds)
             for a in self.agents:
                 cluster_pred = {}
