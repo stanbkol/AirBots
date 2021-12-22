@@ -1,4 +1,5 @@
 import copy
+import datetime
 import itertools
 import sys
 
@@ -6,8 +7,7 @@ import numpy as np
 from sklearn.metrics import mean_squared_error
 
 from src.agents.ForecastModels import RandomModel, NearbyAverage, MinMaxModel, CmaModel, MultiVariate
-from src.database.DbManager import Session
-from src.database.Models import fetchTile_from_sid, Tile, getClassTiles, getSidFromTile
+from src.database.Models import fetchTile_from_sid, findNearestSensors, getMeasureORM
 import logging
 
 from src.main.utils import MAE
@@ -203,7 +203,7 @@ class Agent(object):
         # Assumes prediction for only 1 pm value.
         # logging.debug(f"prediction_value: {results[values[0]]}")
         self.prediction = results[values[0]]
-        logging.info(f"agent {self.sid}, prediction: {self.prediction}, cf: {self.cf}")
+        logging.debug(f"agent {self.sid}, prediction: {self.prediction}, cf: {self.cf}")
         return self.prediction
 
     def makeCollabPrediction(self, cluster_predictions, configs_state=None):
@@ -334,7 +334,7 @@ class Agent(object):
                     elif 'window' in d:
                         min_val = 2
                     else:
-                        min_val = 1
+                        min_val = 2
 
                     test_cfg[d] = max(min_val, test_cfg[d] + direction[d])
 
@@ -406,5 +406,40 @@ class Agent(object):
         dist_factors = tile_dist_trust_factors(50)
         closest = min(range(1, len(dist_factors) + 1), key=lambda x: abs(x - dist))
         return dist_factors[closest - 1]
+
+
+class SingleAgent:
+
+    def __init__(self, target_id, active_sensors):
+        self.sids = active_sensors
+        self.target_sid = target_id
+
+    def makePrediction(self, target_time, target_value):
+        """
+        utilizes ordinary kriging algorithm with data from the hour before prediction time
+        :param target_time: time of prediction
+        :param target_value: target sid to which prediction is made
+        :return:
+        """
+        from src.map.Central import inverseWeights
+
+        end_offset = datetime.timedelta(hours=1)
+        new_end = (target_time - end_offset)
+        sensor_dists = findNearestSensors(self.target_sid, self.sids)
+        sensor_weights = inverseWeights(sensor_dists)
+        sensor_pms = dict()
+        for sid in sensor_weights:
+            measure = getMeasureORM(sid, new_end)
+            if measure:
+                sensor_pms.update({sid: getattr(measure, target_value)})
+
+        pm_pred = 0
+        for sid in sensor_pms:
+            pm_pred += sensor_weights[sid] * sensor_pms[sid]
+
+        return pm_pred
+
+
+
 
 
