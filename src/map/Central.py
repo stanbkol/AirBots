@@ -285,7 +285,7 @@ class Central:
         # self.showResults()
         logging.info("Final Prediction for " + str(target) + ":" + str(
             int(time.strftime('%Y%m%d%H'))))
-        logging.info("Real Value:" + str(real_val.pm1))
+        logging.info("Real Value:" + str(getattr(real_val, self.measure)))
         logging.info("Historical Agent Mesh-->Final Prediction")
         self.updateModel()
         historical_best = self.finalPrediction(target, time, 5, real_val, self.model_params["num_iter"] + 1, "H")
@@ -309,7 +309,7 @@ class Central:
         """
         orm_values = getMeasuresORM(target, start_interval, end_interval)
         total_intervals = len(orm_values)
-        training_intervals = round(self.ratio * total_intervals, 0)
+        training_intervals = int(round(self.ratio * total_intervals, 0))
         validation_intervals = int(total_intervals-training_intervals)
         logging.info("Interval Breakdown--> T:" + str(training_intervals) + " V:" + str(validation_intervals))
         for i in range(1, self.iterations + 1):
@@ -340,6 +340,10 @@ class Central:
                 if current_interval == training_intervals:
                     logging.info("Applying Agent Heuristics")
                     self.evaluateAgents(values, collab_predictions, naive_predictions)
+                    model_vals = self.aggregateModel(collab_predictions, training_intervals)
+                    self.evaluateModel(values, model_vals)
+                    self.writer.saveIter(values, collab_predictions, naive_predictions, model_vals, i, intervals,
+                                         self.agents, "Training")
                     self.applyHeuristic(values, naive_predictions, collab_predictions, intervals, target, iter=i)
                     collab_predictions = {sid: [] for sid in self.sensors}
                     naive_predictions = {sid: [] for sid in self.sensors}
@@ -348,7 +352,7 @@ class Central:
             self.evaluateAgents(values, collab_predictions, naive_predictions)
             model_vals = self.aggregateModel(collab_predictions, validation_intervals)
             self.evaluateModel(values, model_vals)
-            self.writer.saveIter(values, collab_predictions, naive_predictions, model_vals, i, intervals, self.agents)
+            self.writer.saveIter(values, collab_predictions, naive_predictions, model_vals, i, intervals, self.agents, "Validation")
             self.writer.saveModel(i, self.agents, self.error, "I")
 
     def evaluateAgents(self, values, predictions, naive_preds):
@@ -484,7 +488,7 @@ class Central:
         best_pred = 0
         for mv in model_vals:
             for v in mv:
-                mae = abs(mv[v] - real_val.pm1)
+                mae = abs(mv[v] - getattr(real_val, self.measure))
                 if mae < best_error:
                     best_error = mae
                     best_pred = mv[v]

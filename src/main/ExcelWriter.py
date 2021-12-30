@@ -1,3 +1,5 @@
+import json
+
 from openpyxl import load_workbook, Workbook
 from openpyxl.utils import get_column_letter
 
@@ -53,11 +55,21 @@ class ExcelWriter:
         ws.cell(row_n, 1, "Model AVG")
         ws.cell(row_n + 1, 1, "Model ERR")
         ws.cell(row_n + 2, 1, "Model TF")
+        ws.cell(row_n + 3, 1, "Cluster Info")
+        row_n += 4
+        for a in agents:
+            agent = agents[a]
+            ws.cell(row_n, 1, "Agent:"+ str(a))
+            ca_count = 2
+            for ca in agent.cluster:
+                ws.cell(row_n, ca_count, str(ca))
+                ca_count += 1
+            row_n += 1
         wb.save(filename=self.results_file)
 
-    def saveIter(self, values, collab_predictions, naive_predictions, model_vals, i, intervals, agents):
+    def saveIter(self, values, collab_predictions, naive_predictions, model_vals, i, intervals, agents, title):
         wb = load_workbook(self.results_file)
-        ws = wb.create_sheet("Iteration #"+str(i))
+        ws = wb.create_sheet("Iteration #"+str(i)+"_"+title)
         col = 1
         row = 1
         ws.cell(row, col, "Values")
@@ -73,16 +85,22 @@ class ExcelWriter:
         minmax_col = col + 2
         sma_col = col + 3
         mvr_col = col + 4
+        error_col = col + 5
+        alg_col = col + 6
         ws.cell(row, bias_col, "Agent Bias")
         ws.cell(row, nearby_col, "Nearby-->N")
         ws.cell(row, minmax_col, "MinMax-->N")
         ws.cell(row, sma_col, "SMA-->window")
         ws.cell(row, mvr_col, "MVR-->interval_hours")
+        ws.cell(row, error_col, "Agent Error")
+        ws.cell(row, alg_col, "Algorithm Weight")
         ws.column_dimensions[get_column_letter(bias_col)].width = 20
         ws.column_dimensions[get_column_letter(nearby_col)].width = 20
         ws.column_dimensions[get_column_letter(minmax_col)].width = 20
         ws.column_dimensions[get_column_letter(sma_col)].width = 20
         ws.column_dimensions[get_column_letter(mvr_col)].width = 20
+        ws.column_dimensions[get_column_letter(error_col)].width = 20
+        ws.column_dimensions[get_column_letter(alg_col)].width = 50
 
         actual_ind = 2
         modelavg_ind = 3
@@ -117,13 +135,19 @@ class ExcelWriter:
             minmax_col = col + 2
             sma_col = col + 3
             mvr_col = col + 4
+            error_col = col + 5
+            alg_col = col + 6
+            model_weights = json.dumps(agents[a].model_weights[-1])
             ws.cell(agent_n_index, bias_col, agents[a].configs['bias'])
             ws.cell(agent_n_index, nearby_col, agents[a].configs['nearby']['n'])
             ws.cell(agent_n_index, minmax_col, agents[a].configs['minmax']['n'])
             ws.cell(agent_n_index, sma_col, str(agents[a].configs['sma']['window']) + " : " + str(agents[a].configs['sma']['interval_hours']))
             ws.cell(agent_n_index, mvr_col, agents[a].configs['mvr']['interval_hours'])
+            ws.cell(agent_n_index, error_col, str(agents[a].get_error()))
+            ws.cell(agent_n_index, alg_col, model_weights)
             agent_n_index += 2
             agent_c_index += 2
+
         wb.save(self.results_file)
 
     def saveAgentConfigs(self, agent_results):
