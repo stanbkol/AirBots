@@ -8,8 +8,8 @@
       "error":75
    },
    "model_params":{
-      "num_iter":2,
-      "interval":5,
+      "num_iter":5,
+      "interval":12,
       "cluster_size": 3,
       "training_ratio": 0.7
    },
