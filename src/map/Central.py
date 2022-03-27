@@ -1,196 +1,32 @@
-from datetime import timedelta
-from os import walk
-import os
+from src.agents.AgentCluster import Cluster
 from src.database.Models import *
 from src.agents.Agents import *
 from src.main.utils import *
 from src.main.ExcelWriter import *
+from src.agents import AgentCluster
 import logging
 
-
-def tileSummary():
-    tiles = getTilesORM(1)
-    tc = {}
-    for t in tiles:
-        if t.tclass in tc.keys():
-            tc[t.tclass] += 1
-        else:
-            tc[t.tclass] = 1
-    return tc
-
-
-# Basic Average Model Aggregation
-def avgAgg(preds):
-    total = 0
-    for k in preds:
-        total += preds[k]
-    return round(total / (len(preds)), 2)
-
-
-def WeightedAggregation(preds, weights):
-    """
-    Method for aggregating dictionary of predictions based on dictionary of weights
-    Used for aggregating by distance, error, and trust
-    :param preds: dictionary of predictions, keys are agent.sid values
-    :param weights: dictionary of weights, keys are agent.sid values
-    :return: aggregated prediction
-    """
-    total = 0
-    for s in preds:
-        temp = preds[s]
-        total += temp * weights.get(s)
-    return total
-
-
-def inverseWeights(data, pow=2):
-    """
-    calculates Inverse Distance Weights for known sensors relative to an unmeasured target.
-    :param target: unmeasured target
-    :param sensors: known points for which weights are made
-    :param pow: determines the rate at which the weights decrease. Default is 2.
-    :return: dict of sid-->weight on scale between 0 and 1.
-    """
-    sumsup = [(x[0], 1 / np.power(x[1], pow)) for x in data]
-    suminf = sum(n for _, n in sumsup)
-    weights = {x[0].sid: x[1] / suminf for x in sumsup}
-    return weights
-
-
-def mapAgentsToError(agents):
-    """
-    Helper function to prepare data for eventually use by inverseWeights function
-    :param agents: dictionary of agent.sid to agent objects
-    :return: returns list of tuples, (agent, agent.error)
-    """
-    data = []
-    for a in agents:
-        data.append((agents[a], agents[a].get_error()))
-    data.sort(key=lambda x: x[1])
-    return data
-
-
-def aggregatePrediction(preds, error_weights, tru_weights):
-    """
-    :param preds: dictionary of predictions mapped to agent.sid
-    :param dist_weights: dictionary of weights based on inverse distance
-    :param error_weights: dictionary of weights based on error
-    :param tru_weights: dictionary of weights based on trust factor
-    :return: dictionary of values, keys are the aggregation method, values are aggregated prediction
-    """
-    vals = {}
-    avg = avgAgg(preds)
-    err = WeightedAggregation(preds, error_weights)
-    trust = WeightedAggregation(preds, tru_weights)
-    vals['average'] = round(avg, 2)
-    vals['error'] = round(err, 2)
-    vals['trust'] = round(trust, 2)
-    return vals
-
-
-def makeCluster(sid, sensors, target_sid, n):
-    """
-
-    :param sid: sid of agent
-    :param sensors: all active sensors in mesh
-    :param n: size of cluster
-    :return: list of agent.sids that represent the agents cluster
-    """
-    with Session as sesh:
-        tid = sesh.query(Sensor.tid).where(Sensor.sid == target_sid).first()[0]
-        if tid:
-            tile = getTileORM(tid)
-    tclass_sensors = sameTClassSids(tile.tclass, sensors)
-    data = findNearestSensors(sid, tclass_sensors, n)
-    cluster = []
-    for sens, dist in data:
-        cluster.append(sens.sid)
-    # checkCluster(target_sid, cluster, sid)
-    return cluster
-
-
-def checkCluster(target, cluster, sid):
-    targ = fetchTile_from_sid(target)
-    print("Cluster For A:", sid)
-    print("Target Class:"+targ.road+targ.tclass)
-    for a in cluster:
-        temp = fetchTile_from_sid(a)
-        print("Agent #"+str(a)+"-->" + temp.road + temp.tclass)
-
-
-def getClusterError(cluster, agents):
-    """
-
-    :param cluster: list of sids that represent agents in the cluster
-    :param agents: dictionary of agent objects mapped to agent.sid
-    :return: returns the average error for all agents in the cluster
-    """
-    total = 0
-    count = 0
-    for a in cluster:
-        total += agents[a].get_n_error()
-        count += 1
-    return round(total / count, 2)
-
-
-def targetInterval(time, interval):
-    return time - timedelta(hours=interval), time
-
-
-def getTrustWeights(agents, sensors_completeness):
-    trust_factors = {}
-    total_tf = 0
-    for a in agents:
-        agent = agents[a]
-        dc = round(sensors_completeness[a], 2)
-        trust_factors[a] = round(dc * agent.cf * agent.integrity(), 2)
-        total_tf += trust_factors[a]
-    #     print("Trust Summary for S:", a)
-    #     print("CF:", agent.cf)
-    #     print("Calculated Trust Value-->", trust_factors[a])
-    trust_weights = {}
-    for a in trust_factors:
-        trust_weights[a] = round(trust_factors[a]/total_tf, 2)
-    # print("TF-->", trust_factors)
-    # print("TW-->", trust_weights)
-    return trust_weights
-
-
-def archiveResults(docs):
-    filenames = next(walk(docs), (None, None, []))[2]
-    for file in filenames:
-        temp = file.split('_')
-        if temp[-1] == 'results.xlsx':
-            old_file_path = docs+"\\"+file
-            new_file_path = docs+"\\results\\"+file
-            os.replace(old_file_path, new_file_path)
+from src.map.Config import Config
 
 
 class Central:
-    agents = {}
-    sensors = []
-    agent_configs = {}
-    thresholds = {}
+    clusters = {}
 
     def __init__(self, model):
         logging.basicConfig(level=logging.INFO)
-        self.data = getJson(model)
         self.model_file = model
         self.error = {}
+        model_data = getJson(model)
+        self.config = Config(model_data)
+        self.sensors = model_data["sensors"]
         self.agent_results = {}
         self.model_results = {'error': 100, 'configs': {}}
-        self.model_params = self.data["model_params"]
-        self.iterations = self.model_params["num_iter"]
-        self.interval = self.model_params["interval"]
-        self.cluster_size = self.model_params["cluster_size"]
-        self.ratio = self.model_params["training_ratio"]
-        self.thresholds = self.data["thresholds"]
         logging.info("Central System Created From " + str(self.model_file))
 
-    def extractData(self, target):
-        self.agent_configs = self.data["agent_configs"]
+    def initializeModel(self, target):
         for s in self.sensors:
-            cluster = makeCluster(s, self.sensors, target, n=self.model_params['cluster_size'])
-            a = Agent(s, self.thresholds, cluster, config=copy.deepcopy(self.agent_configs))
+            cluster = Cluster(s, self.sensors, target, n=self.model_params['cluster_size'])
+            a = Agent(s, self.thresholds, cluster, config=copy.deepcopy(self.config.agent_configs))
             a.updateConfidence(target)
             self.agents[a.sid] = a
             self.agent_results[a.sid] = {'error': 100, 'config': {}}
@@ -201,14 +37,14 @@ class Central:
         logging.info("Sensors Before Check:" + str(len(self.sensors)))
         sensors_pass = []
         sensors_fail = []
-        self.sensors_completeness = {}
+        sensors_completeness = {}
         for s in self.sensors:
             data = getMeasuresORM(s, start, end)
             if data:
                 data_completeness = round(((len(data)) / total), 2)
                 if data_completeness > self.thresholds["completeness"]:
                     sensors_pass.append(s)
-                    self.sensors_completeness[s] = data_completeness
+                    sensors_completeness[s] = data_completeness
                 else:
                     sensors_fail.append(s)
             else:
@@ -374,26 +210,6 @@ class Central:
             if agent.get_error() < self.agent_results[a]['error']:
                 self.agent_results[a]['error'] = agent.get_error()
                 self.agent_results[a]['config'] = copy.deepcopy(agent.configs)
-
-    def aggregateModel(self, preds, num_preds):
-        """
-
-        :param preds: dictionary of collab predictions mapped to each agent.sid, each value is list of predictions for training interval
-        :param num_preds: size of training interval, for ease of iteration
-        :return: returns list of model aggregation values, in which case each entry in list is a dictionary, mapped to each kind of aggregation
-        """
-        model_vals = []
-        err_weights = inverseWeights(mapAgentsToError(self.agents))
-        tru_weights = getTrustWeights(self.agents, self.sensors_completeness)
-        if num_preds > 1:
-            for i in range(0, num_preds):
-                interval_preds = {}
-                for a in preds:
-                    interval_preds[a] = preds[a][i]
-                model_vals.append(aggregatePrediction(interval_preds, err_weights, tru_weights))
-        else:
-            model_vals.append(aggregatePrediction(preds, err_weights, tru_weights))
-        return model_vals
 
     def evaluateModel(self, values, model_preds, update_historical=True):
         """
